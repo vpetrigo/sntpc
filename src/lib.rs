@@ -5,6 +5,7 @@ pub mod sntp {
     use std::slice;
     use std::time;
 
+    pub const NTP_TIMESTAMP_DELTA: u32 = 2208988800u32;
     pub const SNTP_CLIENT_MODE: u8 = 3;
     pub const SNTP_VERSION: u8 = 4 << 3;
     pub const LI_MASK: u8 = 0b0000_0011;
@@ -74,6 +75,10 @@ pub mod sntp {
                 print!("[{}]", i);
             }
             println!();
+
+            let packet = unsafe { mem::transmute::<[u8; 48], NtpPacket>(buf) };
+
+            println!("{}", packet.tx_timestamp - NTP_TIMESTAMP_DELTA);
         }
     }
 }
