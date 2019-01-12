@@ -1,8 +1,10 @@
 pub mod sntp {
+    use std::io;
     use std::mem;
     use std::net;
-    use std::ops::Add;
+    use std::net::ToSocketAddrs;
     use std::slice;
+    use std::str;
     use std::time;
 
     pub const NTP_TIMESTAMP_DELTA: u32 = 2208988800u32;
