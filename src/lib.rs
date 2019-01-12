@@ -77,8 +77,11 @@ pub mod sntp {
             println!();
 
             let packet = unsafe { mem::transmute::<[u8; 48], NtpPacket>(buf) };
+            let mut tmp_buf: [u8; 4] = [0; 4];
 
-            println!("{}", packet.tx_timestamp - NTP_TIMESTAMP_DELTA);
+            tmp_buf.copy_from_slice(&buf[32..36]);
+            let tx_tm = unsafe { u32::from_be_bytes(tmp_buf) };
+            println!("{}", tx_tm - NTP_TIMESTAMP_DELTA);
         }
     }
 }
