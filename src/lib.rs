@@ -14,12 +14,20 @@ pub mod sntp {
     pub const VN_MASK: u8 = 0b0001_1100;
     pub const MODE_MASK: u8 = 0b1110_0000;
 
+    /// ```
+    /// use std::mem;
+    /// use sntp_client::NtpPacket;
+    ///
+    /// assert_eq!(mem::size_of::<NtpPacket>(), 48);
+    /// ```
     #[repr(packed)]
     pub struct NtpPacket {
         li_vn_mode: u8,
         stratum: u8,
-        poll: u8,
-        precision: u8,
+        #[allow(dead_code)]
+        poll: i8,
+        #[allow(dead_code)]
+        precision: i8,
         root_delay: u32,
         root_dispersion: u32,
         ref_id: u32,
