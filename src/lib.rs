@@ -37,6 +37,21 @@ pub mod sntp {
         tx_timestamp: u64,
     }
 
+    trait NtpNum<T> {
+        fn ntohl(&self) -> T;
+    }
+
+    impl NtpNum<u32> for u32 {
+        fn ntohl(&self) -> u32 {
+            self.to_be()
+        }
+    }
+    impl NtpNum<u64> for u64 {
+        fn ntohl(&self) -> u64 {
+            self.to_be()
+        }
+    }
+
     pub fn create_client_req() -> NtpPacket {
         NtpPacket {
             li_vn_mode: SNTP_CLIENT_MODE | SNTP_VERSION,
