@@ -71,7 +71,7 @@ pub mod sntp {
             ref_timestamp: 0,
             origin_timestamp: 0,
             recv_timestamp: 0,
-            tx_timestamp: 0,
+            tx_timestamp,
         }
     }
 
