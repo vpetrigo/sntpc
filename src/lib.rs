@@ -75,11 +75,11 @@ pub mod sntp {
         }
     }
 
-    pub fn request(pool: &str, port: u32) {
+    pub fn request(pool: &str, port: u32) -> io::Result<u32> {
         dbg!(pool);
         let socket = net::UdpSocket::bind("0.0.0.0:0")
             .expect("Unable to create a UDP socket");
-        let dest = format!("{}:{}", pool, port);
+        let dest = format!("{}:{}", pool, port).to_socket_addrs()?;
 
         socket
             .set_read_timeout(Some(time::Duration::new(2, 0)))
