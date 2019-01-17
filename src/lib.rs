@@ -85,16 +85,61 @@ pub mod sntp {
             .set_read_timeout(Some(time::Duration::new(2, 0)))
             .expect("Unable to set up socket timeout");
         let req = create_client_req();
+        let mut success = false;
+
+        for addr in dest {
+            dbg!(&addr);
+
+            match send_request(&req, &socket, addr) {
+                Ok(write_bytes) => {
+                    assert_eq!(write_bytes, mem::size_of::<NtpPacket>());
+                    success = true;
+                    break;
+                }
+                Err(err) => {
+                    dbg!(err);
+                    continue;
+                }
+            }
+        }
+
+        if !success {
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                "Unable to send NTP request",
+            ));
+        }
+
+        let mut buf: [u8; mem::size_of::<NtpPacket>()] =
+            [0; mem::size_of::<NtpPacket>()];
+        let response = socket.recv_from(buf.as_mut())?;
+        dbg!(response.0);
+
+        if response.0 == mem::size_of::<NtpPacket>() {
+            return Ok(process_response(&buf).unwrap_or(0));
+        }
+
+        Err(io::Error::new(
+            io::ErrorKind::Other,
+            "Incorrect NTP packet size read",
+        ))
+    }
+
+    fn send_request(
+        req: &NtpPacket,
+        socket: &net::UdpSocket,
+        dest: net::SocketAddr,
+    ) -> io::Result<usize> {
         unsafe {
             let buf: *const [u8] = slice::from_raw_parts(
-                (&req as *const NtpPacket) as *const u8,
+                (req as *const NtpPacket) as *const u8,
                 mem::size_of::<NtpPacket>(),
             );
-            let res = socket
-                .send_to(buf.as_ref().unwrap(), dest)
-                .expect("Unable to send NTP request");
-            println!("Send: {}", res);
+            let res = socket.send_to(buf.as_ref().unwrap(), dest)?;
+
+            Ok(res)
         }
+    }
 
         let mut buf: [u8; 48] = [0u8; 48];
         let response = socket
