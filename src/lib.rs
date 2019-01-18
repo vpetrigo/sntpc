@@ -141,17 +141,31 @@ pub mod sntp {
         }
     }
 
-        let mut buf: [u8; 48] = [0u8; 48];
-        let response = socket
-            .recv_from(buf.as_mut())
-            .ok();
+    fn process_response(
+        resp: &[u8; mem::size_of::<NtpPacket>()],
+    ) -> Result<u32, &str> {
+        let mut packet = unsafe {
+            mem::transmute::<[u8; mem::size_of::<NtpPacket>()], NtpPacket>(
+                *resp,
+            )
+        };
 
-        if let Some(m) = response {
-            println!("Read bytes: {}", m.0);
-            for i in buf.iter() {
-                print!("[{}]", i);
-            }
-            println!();
+        dbg!(packet.origin_timestamp);
+        dbg!(packet.recv_timestamp);
+        convert_from_network(&mut packet);
+
+        if packet.li_vn_mode == 0 || packet.stratum == 0 {
+            return Err("Incorrect LI_VN_MODE or STRATUM headers");
+        }
+
+        #[cfg(debug_assertions)]
+        debug_ntp_packet(&packet);
+
+        let seconds = (packet.tx_timestamp >> 32) as u32;
+        let tx_tm = seconds - NTP_TIMESTAMP_DELTA;
+
+        return Ok(tx_tm);
+    }
 
             let packet = unsafe { mem::transmute::<[u8; 48], NtpPacket>(buf) };
             let mut tmp_buf: [u8; 4] = [0; 4];
