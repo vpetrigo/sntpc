@@ -193,9 +193,22 @@ pub mod sntp {
         let version = shifter(packet.li_vn_mode, VERSION_MASK, VERSION_SHIFT);
         let li = shifter(packet.li_vn_mode, LI_MASK, LI_SHIFT);
 
-            tmp_buf.copy_from_slice(&buf[32..36]);
-            let tx_tm = unsafe { u32::from_be_bytes(tmp_buf) };
-            println!("{}", tx_tm - NTP_TIMESTAMP_DELTA);
+        unsafe {
+            println!("Mode:\t\t{}", mode);
+            println!("Version:\t{}", version);
+            println!("Leap:\t\t{}", li);
+            println!("Poll:\t\t{}", packet.poll);
+            println!("Precision:\t\t{}", packet.precision);
+            println!("Root delay:\t\t{}", packet.root_delay);
+            println!("Root dispersion:\t{}", packet.root_dispersion);
+            println!(
+                "Reference ID:\t\t{}",
+                str::from_utf8(&packet.ref_id.to_be_bytes()).unwrap_or("")
+            );
+            println!("Reference timestamp:\t{}", packet.ref_timestamp);
+            println!("Origin timestamp:\t\t{}", packet.origin_timestamp);
+            println!("Receive timestamp:\t\t{}", packet.recv_timestamp);
+            println!("Transmit timestamp:\t\t{}", packet.tx_timestamp);
         }
     }
 }
