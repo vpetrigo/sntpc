@@ -167,8 +167,31 @@ pub mod sntp {
         return Ok(tx_tm);
     }
 
-            let packet = unsafe { mem::transmute::<[u8; 48], NtpPacket>(buf) };
-            let mut tmp_buf: [u8; 4] = [0; 4];
+    fn convert_from_network(packet: &mut NtpPacket) {
+        fn ntohl<T: NtpNum<T>>(val: T) -> T { val.ntohl() }
+
+        packet.root_delay = ntohl(packet.root_delay);
+        packet.root_dispersion = ntohl(packet.root_dispersion);
+        packet.ref_id = ntohl(packet.ref_id);
+        packet.ref_timestamp = ntohl(packet.ref_timestamp);
+        packet.origin_timestamp = ntohl(packet.origin_timestamp);
+        packet.recv_timestamp = ntohl(packet.recv_timestamp);
+        packet.tx_timestamp = ntohl(packet.tx_timestamp);
+    }
+
+    #[cfg(debug_assertions)]
+    fn debug_ntp_packet(packet: &NtpPacket) {
+        const MODE_MASK: u8 = 0b0000_0111;
+        const MODE_SHIFT: u8 = 0;
+        const VERSION_MASK: u8 = 0b0011_1000;
+        const VERSION_SHIFT: u8 = 3;
+        const LI_MASK: u8 = 0b1100_0000;
+        const LI_SHIFT: u8 = 6;
+
+        let shifter = |val, mask, shift| (val & mask) >> shift;
+        let mode = shifter(packet.li_vn_mode, MODE_MASK, MODE_SHIFT);
+        let version = shifter(packet.li_vn_mode, VERSION_MASK, VERSION_SHIFT);
+        let li = shifter(packet.li_vn_mode, LI_MASK, LI_SHIFT);
 
             tmp_buf.copy_from_slice(&buf[32..36]);
             let tx_tm = unsafe { u32::from_be_bytes(tmp_buf) };
