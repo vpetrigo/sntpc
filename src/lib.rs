@@ -37,17 +37,23 @@ pub mod sntp {
         tx_timestamp: u64,
     }
 
-    trait NtpNum<T> {
-        fn ntohl(&self) -> T;
+    trait NtpNum {
+        type Type;
+
+        fn ntohl(&self) -> Self::Type;
     }
 
-    impl NtpNum<u32> for u32 {
-        fn ntohl(&self) -> u32 {
+    impl NtpNum for u32 {
+        type Type = u32;
+
+        fn ntohl(&self) -> Self::Type {
             self.to_be()
         }
     }
-    impl NtpNum<u64> for u64 {
-        fn ntohl(&self) -> u64 {
+    impl NtpNum for u64 {
+        type Type = u64;
+
+        fn ntohl(&self) -> Self::Type {
             self.to_be()
         }
     }
