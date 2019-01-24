@@ -104,7 +104,8 @@ pub mod sntp {
                     break;
                 }
                 Err(err) => {
-                    dbg!(err);
+                    println!("{}", err);
+                    println!("Try another one");
                     continue;
                 }
             }
