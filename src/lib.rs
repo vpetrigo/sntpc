@@ -176,7 +176,9 @@ pub mod sntp {
     }
 
     fn convert_from_network(packet: &mut NtpPacket) {
-        fn ntohl<T: NtpNum<T>>(val: T) -> T { val.ntohl() }
+        fn ntohl<T: NtpNum>(val: T) -> T::Type {
+            val.ntohl()
+        }
 
         packet.root_delay = ntohl(packet.root_delay);
         packet.root_dispersion = ntohl(packet.root_dispersion);
