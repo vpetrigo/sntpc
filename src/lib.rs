@@ -203,23 +203,25 @@ pub mod sntp {
         let version = shifter(packet.li_vn_mode, VERSION_MASK, VERSION_SHIFT);
         let li = shifter(packet.li_vn_mode, LI_MASK, LI_SHIFT);
 
+        println!("{}", (0..52).map(|_| "=").collect::<String>());
         unsafe {
-            println!("Mode:\t\t{}", mode);
-            println!("Version:\t{}", version);
-            println!("Leap:\t\t{}", li);
-            println!("Poll:\t\t{}", packet.poll);
-            println!("Precision:\t\t{}", packet.precision);
-            println!("Root delay:\t\t{}", packet.root_delay);
-            println!("Root dispersion:\t{}", packet.root_dispersion);
+            println!("| Mode:\t\t{}", mode);
+            println!("| Version:\t{}", version);
+            println!("| Leap:\t\t{}", li);
+            println!("| Poll:\t\t{}", packet.poll);
+            println!("| Precision:\t\t{}", packet.precision);
+            println!("| Root delay:\t\t{}", packet.root_delay);
+            println!("| Root dispersion:\t{}", packet.root_dispersion);
             println!(
-                "Reference ID:\t\t{}",
+                "| Reference ID:\t\t{}",
                 str::from_utf8(&packet.ref_id.to_be_bytes()).unwrap_or("")
             );
-            println!("Reference timestamp:\t{}", packet.ref_timestamp);
-            println!("Origin timestamp:\t\t{}", packet.origin_timestamp);
-            println!("Receive timestamp:\t\t{}", packet.recv_timestamp);
-            println!("Transmit timestamp:\t\t{}", packet.tx_timestamp);
+            println!("| Reference timestamp:\t{:>16}", packet.ref_timestamp);
+            println!("| Origin timestamp:\t\t{:>16}", packet.origin_timestamp);
+            println!("| Receive timestamp:\t{:>16}", packet.recv_timestamp);
+            println!("| Transmit timestamp:\t{:>16}", packet.tx_timestamp);
         }
+        println!("{}", (0..52).map(|_| "=").collect::<String>());
     }
 }
 
