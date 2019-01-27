@@ -37,6 +37,33 @@ pub mod sntp {
         tx_timestamp: u64,
     }
 
+    impl NtpPacket {
+        pub fn new() -> NtpPacket {
+            let now_since_unix = time::SystemTime::now()
+                .duration_since(time::SystemTime::UNIX_EPOCH)
+                .unwrap();
+            let tx_timestamp = (((now_since_unix.as_secs()
+                + NTP_TIMESTAMP_DELTA as u64)
+                << 32)
+                + now_since_unix.subsec_micros() as u64)
+                .to_be();
+
+            NtpPacket {
+                li_vn_mode: SNTP_CLIENT_MODE | SNTP_VERSION,
+                stratum: 0,
+                poll: 0,
+                precision: 0,
+                root_delay: 0,
+                root_dispersion: 0,
+                ref_id: 0,
+                ref_timestamp: 0,
+                origin_timestamp: 0,
+                recv_timestamp: 0,
+                tx_timestamp,
+            }
+        }
+    }
+
     trait NtpNum {
         type Type;
 
