@@ -85,27 +85,40 @@ pub mod sntp {
         }
     }
 
-    pub fn create_client_req() -> NtpPacket {
-        let now_since_unix = time::SystemTime::now()
-            .duration_since(time::SystemTime::UNIX_EPOCH)
-            .unwrap();
-        let tx_timestamp =
-            (((now_since_unix.as_secs() + NTP_TIMESTAMP_DELTA as u64) << 32)
-                + now_since_unix.subsec_micros() as u64)
-                .to_be();
+    type RawNtpPacket = [u8; mem::size_of::<NtpPacket>()];
 
-        NtpPacket {
-            li_vn_mode: SNTP_CLIENT_MODE | SNTP_VERSION,
-            stratum: 0,
-            poll: 0,
-            precision: 0,
-            root_delay: 0,
-            root_dispersion: 0,
-            ref_id: 0,
-            ref_timestamp: 0,
-            origin_timestamp: 0,
-            recv_timestamp: 0,
-            tx_timestamp,
+    impl From<RawNtpPacket> for NtpPacket {
+        fn from(val: RawNtpPacket) -> Self {
+//            const fn to_array<T: Sized>(x: &[u8]) -> [u8; mem::size_of::<T>()] {
+//                let mut temp_buf = [0u8; mem::size_of::<T>()];
+//
+//                temp_buf.copy_from_slice(x);
+//                temp_buf
+//            }
+            let to_array_u32 = |x: &[u8]| {
+                let mut temp_buf = [0u8; mem::size_of::<u32>()];
+                temp_buf.copy_from_slice(x);
+                temp_buf
+            };
+            let to_array_u64 = |x: &[u8]| {
+                let mut temp_buf = [0u8; mem::size_of::<u64>()];
+                temp_buf.copy_from_slice(x);
+                temp_buf
+            };
+
+            NtpPacket {
+                li_vn_mode: val[0],
+                stratum: val[1],
+                poll: val[2] as i8,
+                precision: val[3] as i8,
+                root_delay: u32::from_le_bytes(to_array_u32(&val[4..8])),
+                root_dispersion: u32::from_le_bytes(to_array_u32(&val[8..12])),
+                ref_id: u32::from_le_bytes(to_array_u32(&val[12..16])),
+                ref_timestamp: u64::from_le_bytes(to_array_u64(&val[16..24])),
+                origin_timestamp: u64::from_le_bytes(to_array_u64(&val[24..32])),
+                recv_timestamp: u64::from_le_bytes(to_array_u64(&val[32..40])),
+                tx_timestamp: u64::from_le_bytes(to_array_u64(&val[40..48])),
+            }
         }
     }
 
