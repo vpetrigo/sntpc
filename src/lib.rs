@@ -131,7 +131,7 @@ pub mod sntp {
         socket
             .set_read_timeout(Some(time::Duration::new(2, 0)))
             .expect("Unable to set up socket timeout");
-        let req = create_client_req();
+        let req = NtpPacket::new();
         let mut success = false;
 
         for addr in dest {
@@ -158,8 +158,7 @@ pub mod sntp {
             ));
         }
 
-        let mut buf: [u8; mem::size_of::<NtpPacket>()] =
-            [0; mem::size_of::<NtpPacket>()];
+        let mut buf: RawNtpPacket = [0u8; mem::size_of::<NtpPacket>()];
         let response = socket.recv_from(buf.as_mut())?;
         dbg!(response.0);
 
@@ -192,11 +191,7 @@ pub mod sntp {
     fn process_response(
         resp: &[u8; mem::size_of::<NtpPacket>()],
     ) -> Result<u32, &str> {
-        let mut packet = unsafe {
-            mem::transmute::<[u8; mem::size_of::<NtpPacket>()], NtpPacket>(
-                *resp,
-            )
-        };
+        let mut packet = NtpPacket::from(*resp);
 
         dbg!(packet.origin_timestamp);
         dbg!(packet.recv_timestamp);
