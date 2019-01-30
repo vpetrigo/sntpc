@@ -11,7 +11,10 @@ fn main() {
         let result = sntp_client::request(POOL_NTP_ADDR, 123);
 
         match result {
-            Ok(time) => println!("Got time: {}", time),
+            Ok(time) => {
+                assert_ne!(time, 0);
+                println!("Got time: {}", time);
+            }
             Err(err) => println!("Err: {}", err.to_string()),
         }
 
