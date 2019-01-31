@@ -85,7 +85,13 @@ pub mod sntp {
         }
     }
 
-    type RawNtpPacket = [u8; mem::size_of::<NtpPacket>()];
+    struct RawNtpPacket([u8; mem::size_of::<NtpPacket>()]);
+
+    impl Default for RawNtpPacket {
+        fn default() -> Self {
+            RawNtpPacket([0u8; mem::size_of::<NtpPacket>()])
+        }
+    }
 
     impl From<RawNtpPacket> for NtpPacket {
         fn from(val: RawNtpPacket) -> Self {
