@@ -95,12 +95,12 @@ pub mod sntp {
 
     impl From<RawNtpPacket> for NtpPacket {
         fn from(val: RawNtpPacket) -> Self {
-//            const fn to_array<T: Sized>(x: &[u8]) -> [u8; mem::size_of::<T>()] {
-//                let mut temp_buf = [0u8; mem::size_of::<T>()];
-//
-//                temp_buf.copy_from_slice(x);
-//                temp_buf
-//            }
+            //            const fn to_array<T: Sized>(x: &[u8]) -> [u8; mem::size_of::<T>()] {
+            //                let mut temp_buf = [0u8; mem::size_of::<T>()];
+            //
+            //                temp_buf.copy_from_slice(x);
+            //                temp_buf
+            //            }
             let to_array_u32 = |x: &[u8]| {
                 let mut temp_buf = [0u8; mem::size_of::<u32>()];
                 temp_buf.copy_from_slice(x);
