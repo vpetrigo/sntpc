@@ -113,17 +113,23 @@ pub mod sntp {
             };
 
             NtpPacket {
-                li_vn_mode: val[0],
-                stratum: val[1],
-                poll: val[2] as i8,
-                precision: val[3] as i8,
-                root_delay: u32::from_le_bytes(to_array_u32(&val[4..8])),
-                root_dispersion: u32::from_le_bytes(to_array_u32(&val[8..12])),
-                ref_id: u32::from_le_bytes(to_array_u32(&val[12..16])),
-                ref_timestamp: u64::from_le_bytes(to_array_u64(&val[16..24])),
-                origin_timestamp: u64::from_le_bytes(to_array_u64(&val[24..32])),
-                recv_timestamp: u64::from_le_bytes(to_array_u64(&val[32..40])),
-                tx_timestamp: u64::from_le_bytes(to_array_u64(&val[40..48])),
+                li_vn_mode: val.0[0],
+                stratum: val.0[1],
+                poll: val.0[2] as i8,
+                precision: val.0[3] as i8,
+                root_delay: u32::from_le_bytes(to_array_u32(&val.0[4..8])),
+                root_dispersion: u32::from_le_bytes(to_array_u32(
+                    &val.0[8..12],
+                )),
+                ref_id: u32::from_le_bytes(to_array_u32(&val.0[12..16])),
+                ref_timestamp: u64::from_le_bytes(to_array_u64(&val.0[16..24])),
+                origin_timestamp: u64::from_le_bytes(to_array_u64(
+                    &val.0[24..32],
+                )),
+                recv_timestamp: u64::from_le_bytes(to_array_u64(
+                    &val.0[32..40],
+                )),
+                tx_timestamp: u64::from_le_bytes(to_array_u64(&val.0[40..48])),
             }
         }
     }
