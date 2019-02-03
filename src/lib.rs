@@ -170,12 +170,19 @@ pub mod sntp {
             ));
         }
 
-        let mut buf: RawNtpPacket = [0u8; mem::size_of::<NtpPacket>()];
-        let response = socket.recv_from(buf.as_mut())?;
+        let mut buf: RawNtpPacket = RawNtpPacket::default();
+        let response = socket.recv_from(buf.0.as_mut())?;
         dbg!(response.0);
 
         if response.0 == mem::size_of::<NtpPacket>() {
-            return Ok(process_response(&buf).unwrap_or(0));
+            let result = process_response(buf);
+
+            match result {
+                Ok(timestamp) => return Ok(timestamp),
+                Err(err_str) => {
+                    return Err(io::Error::new(io::ErrorKind::Other, err_str));
+                }
+            }
         }
 
         Err(io::Error::new(
@@ -200,17 +207,21 @@ pub mod sntp {
         }
     }
 
-    fn process_response(
-        resp: &[u8; mem::size_of::<NtpPacket>()],
-    ) -> Result<u32, &str> {
-        let mut packet = NtpPacket::from(*resp);
+    fn process_response(resp: RawNtpPacket) -> Result<u32, &'static str> {
+        let mut packet = NtpPacket::from(resp);
 
-        dbg!(packet.origin_timestamp);
-        dbg!(packet.recv_timestamp);
         convert_from_network(&mut packet);
 
         if packet.li_vn_mode == 0 || packet.stratum == 0 {
             return Err("Incorrect LI_VN_MODE or STRATUM headers");
+        }
+
+        if packet.origin_timestamp == 0 || packet.recv_timestamp == 0 {
+            return Err("Invalid origin/receive timestamp");
+        }
+
+        if packet.tx_timestamp == 0 {
+            return Err("Transmit timestamp is 0");
         }
 
         #[cfg(debug_assertions)]
