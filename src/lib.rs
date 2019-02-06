@@ -1,5 +1,19 @@
 //! Rust SNTP client
 //!
+//! This crate provides a method for sending requests to NTP servers
+//! and process responses, extracting received timestamp
+//!
+//! # Example
+//!
+//! ```rust
+//! use sntp_client;
+//!
+//! let result = sntp_client::request("pool.ntp.org", 123);
+//!
+//! if let Ok(timestamp) = result {
+//!     println!("NTP server time: {}", timestamp);
+//! }
+//! ```
 
 use std::io;
 use std::mem;
