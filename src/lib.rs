@@ -19,23 +19,13 @@ use std::io;
 use std::mem;
 use std::net;
 use std::net::ToSocketAddrs;
-use std::slice;
 use std::str;
 use std::time;
 
-/// ```
-/// use std::mem;
-/// use sntp_client::NtpPacket;
-///
-/// assert_eq!(mem::size_of::<NtpPacket>(), 48);
-/// ```
-#[repr(packed)]
 struct NtpPacket {
     li_vn_mode: u8,
     stratum: u8,
-    #[allow(dead_code)]
     poll: i8,
-    #[allow(dead_code)]
     precision: i8,
     root_delay: u32,
     root_dispersion: u32,
