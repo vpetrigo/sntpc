@@ -51,11 +51,10 @@ impl NtpPacket {
         let now_since_unix = time::SystemTime::now()
             .duration_since(time::SystemTime::UNIX_EPOCH)
             .unwrap();
-        let tx_timestamp = (((now_since_unix.as_secs()
+        let tx_timestamp = ((now_since_unix.as_secs()
             + NtpPacket::NTP_TIMESTAMP_DELTA as u64)
             << 32)
-            + now_since_unix.subsec_micros() as u64)
-            .to_be();
+            + now_since_unix.subsec_micros() as u64;
 
         NtpPacket {
             li_vn_mode: NtpPacket::SNTP_CLIENT_MODE | NtpPacket::SNTP_VERSION,
