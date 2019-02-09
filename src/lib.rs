@@ -138,16 +138,21 @@ impl From<RawNtpPacket> for NtpPacket {
 
 impl From<&NtpPacket> for RawNtpPacket {
     fn from(val: &NtpPacket) -> Self {
-        RawNtpPacket([
-            val.li_vn_mode, val.stratum, val.poll as u8, val.precision as u8,
-            val.root_delay.to_be_bytes(),
-            val.root_dispersion.to_be(),
-            val.ref_id.to_be(),
-            val.ref_timestamp.to_be(),
-            val.origin_timestamp.to_be(),
-            val.recv_timestamp.to_be(),
-            val.tx_timestamp.to_be()
-        ])
+        let mut tmp_buf = [0u8; mem::size_of::<NtpPacket>()];
+
+        tmp_buf[0] = val.li_vn_mode;
+        tmp_buf[1] = val.stratum;
+        tmp_buf[2] = val.poll as u8;
+        tmp_buf[3] = val.precision as u8;
+        tmp_buf[4..8].copy_from_slice(&val.root_delay.to_be_bytes());
+        tmp_buf[8..12].copy_from_slice(&val.root_dispersion.to_be_bytes());
+        tmp_buf[12..16].copy_from_slice(&val.ref_id.to_be_bytes());
+        tmp_buf[16..24].copy_from_slice(&val.ref_timestamp.to_be_bytes());
+        tmp_buf[24..32].copy_from_slice(&val.origin_timestamp.to_be_bytes());
+        tmp_buf[32..40].copy_from_slice(&val.recv_timestamp.to_be_bytes());
+        tmp_buf[40..48].copy_from_slice(&val.tx_timestamp.to_be_bytes());
+
+        RawNtpPacket(tmp_buf)
     }
 }
 
