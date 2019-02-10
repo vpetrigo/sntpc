@@ -156,6 +156,23 @@ impl From<&NtpPacket> for RawNtpPacket {
     }
 }
 
+/// Send request to a NTP server with the given address
+/// and process the response
+///
+/// * `pool` - Server's name or IP address as a string
+/// * `port` - Server's port as an int
+///
+/// # Example
+///
+/// ```rust
+/// use sntp_client;
+///
+/// let result = sntp_client::request("time.google.com", 123);
+/// // OR
+/// let result = sntp_client::request("83.168.200.199", 123);
+///
+/// // .. process the result
+/// ```
 pub fn request(pool: &str, port: u32) -> io::Result<u32> {
     dbg!(pool);
     let socket = net::UdpSocket::bind("0.0.0.0:0")
