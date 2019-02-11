@@ -238,15 +238,6 @@ fn send_request(
     let buf: RawNtpPacket = req.into();
 
     socket.send_to(&buf.0, dest)
-    /*unsafe {
-        let buf: *const [u8] = slice::from_raw_parts(
-            (req as *const NtpPacket) as *const u8,
-            mem::size_of::<NtpPacket>(),
-        );
-        let res = socket.send_to(buf.as_ref().unwrap(), dest)?;
-
-        Ok(res)
-    }*/
 }
 
 fn process_response(resp: RawNtpPacket) -> Result<u32, &'static str> {
@@ -304,22 +295,20 @@ fn debug_ntp_packet(packet: &NtpPacket) {
     let li = shifter(packet.li_vn_mode, LI_MASK, LI_SHIFT);
 
     println!("{}", (0..52).map(|_| "=").collect::<String>());
-    unsafe {
-        println!("| Mode:\t\t{}", mode);
-        println!("| Version:\t{}", version);
-        println!("| Leap:\t\t{}", li);
-        println!("| Poll:\t\t{}", packet.poll);
-        println!("| Precision:\t\t{}", packet.precision);
-        println!("| Root delay:\t\t{}", packet.root_delay);
-        println!("| Root dispersion:\t{}", packet.root_dispersion);
-        println!(
-            "| Reference ID:\t\t{}",
-            str::from_utf8(&packet.ref_id.to_be_bytes()).unwrap_or("")
-        );
-        println!("| Reference timestamp:\t{:>16}", packet.ref_timestamp);
-        println!("| Origin timestamp:\t\t{:>16}", packet.origin_timestamp);
-        println!("| Receive timestamp:\t{:>16}", packet.recv_timestamp);
-        println!("| Transmit timestamp:\t{:>16}", packet.tx_timestamp);
-    }
+    println!("| Mode:\t\t{}", mode);
+    println!("| Version:\t{}", version);
+    println!("| Leap:\t\t{}", li);
+    println!("| Poll:\t\t{}", packet.poll);
+    println!("| Precision:\t\t{}", packet.precision);
+    println!("| Root delay:\t\t{}", packet.root_delay);
+    println!("| Root dispersion:\t{}", packet.root_dispersion);
+    println!(
+        "| Reference ID:\t\t{}",
+        str::from_utf8(&packet.ref_id.to_be_bytes()).unwrap_or("")
+    );
+    println!("| Reference timestamp:\t{:>16}", packet.ref_timestamp);
+    println!("| Origin timestamp:\t\t{:>16}", packet.origin_timestamp);
+    println!("| Receive timestamp:\t{:>16}", packet.recv_timestamp);
+    println!("| Transmit timestamp:\t{:>16}", packet.tx_timestamp);
     println!("{}", (0..52).map(|_| "=").collect::<String>());
 }
