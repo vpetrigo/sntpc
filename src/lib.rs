@@ -103,12 +103,15 @@ impl Default for RawNtpPacket {
 
 impl From<RawNtpPacket> for NtpPacket {
     fn from(val: RawNtpPacket) -> Self {
-        //            const fn to_array<T: Sized>(x: &[u8]) -> [u8; mem::size_of::<T>()] {
-        //                let mut temp_buf = [0u8; mem::size_of::<T>()];
+        // left it here for a while, maybe in future Rust releases there
+        // will be a way to use such a generic function with compile-time
+        // size determination
+        // const fn to_array<T: Sized>(x: &[u8]) -> [u8; mem::size_of::<T>()] {
+        //     let mut temp_buf = [0u8; mem::size_of::<T>()];
         //
-        //                temp_buf.copy_from_slice(x);
-        //                temp_buf
-        //            }
+        //     temp_buf.copy_from_slice(x);
+        //     temp_buf
+        // }
         let to_array_u32 = |x: &[u8]| {
             let mut temp_buf = [0u8; mem::size_of::<u32>()];
             temp_buf.copy_from_slice(x);
