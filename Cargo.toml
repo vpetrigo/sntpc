@@ -1,13 +1,13 @@
 [package]
 name = "sntpc"
-version = "0.1.0"
+version = "0.1.1"
 description = "Library for making SNTP requests"
 homepage = "https://github.com/vpetrigo/sntpc"
 repository = "https://github.com/vpetrigo/sntpc"
 readme = "README.md"
 categories = ["date-and-time", ]
 keywords = ["sntp", "ntp", "sntp-client", "ntp-client"]
-license-file = "LICENSE.md"
+license = "BSD-3-Clause"
 authors = ["Vladimir Petrigo <taenaru@gmail.com>"]
 edition = "2018"
 
