@@ -37,7 +37,7 @@ struct NtpPacket {
 }
 
 impl NtpPacket {
-    const NTP_TIMESTAMP_DELTA: u32 = 2208988800u32;
+    const NTP_TIMESTAMP_DELTA: u32 = 2_208_988_800u32;
     const SNTP_CLIENT_MODE: u8 = 3;
     const SNTP_VERSION: u8 = 4 << 3;
     #[allow(dead_code)]
@@ -51,10 +51,9 @@ impl NtpPacket {
         let now_since_unix = time::SystemTime::now()
             .duration_since(time::SystemTime::UNIX_EPOCH)
             .unwrap();
-        let tx_timestamp = ((now_since_unix.as_secs()
-            + NtpPacket::NTP_TIMESTAMP_DELTA as u64)
-            << 32)
-            + now_since_unix.subsec_micros() as u64;
+        let tx_timestamp = (now_since_unix.as_secs()
+            + (u64::from(NtpPacket::NTP_TIMESTAMP_DELTA) << 32))
+            + u64::from(now_since_unix.subsec_micros());
 
         NtpPacket {
             li_vn_mode: NtpPacket::SNTP_CLIENT_MODE | NtpPacket::SNTP_VERSION,
@@ -266,7 +265,7 @@ fn process_response(resp: RawNtpPacket) -> Result<u32, &'static str> {
     let seconds = (packet.tx_timestamp >> 32) as u32;
     let tx_tm = seconds - NtpPacket::NTP_TIMESTAMP_DELTA;
 
-    return Ok(tx_tm);
+    Ok(tx_tm)
 }
 
 fn convert_from_network(packet: &mut NtpPacket) {
