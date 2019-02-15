@@ -1,4 +1,4 @@
-use sntp_client;
+use sntpc;
 use std::{thread, time};
 
 #[allow(dead_code)]
@@ -8,7 +8,7 @@ const GOOGLE_NTP_ADDR: &str = "time.google.com";
 
 fn main() {
     for _ in 0..4000 {
-        let result = sntp_client::request(POOL_NTP_ADDR, 123);
+        let result = sntpc::request(POOL_NTP_ADDR, 123);
 
         match result {
             Ok(time) => {

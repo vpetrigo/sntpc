@@ -1,13 +1,12 @@
 [package]
-name = "sntp-client"
+name = "sntpc"
 version = "0.1.0"
 description = "Library for making SNTP requests"
-homepage = "https://github.com/vpetrigo/sntp-client"
-repository = "https://github.com/vpetrigo/sntp-client"
+homepage = "https://github.com/vpetrigo/sntpc"
+repository = "https://github.com/vpetrigo/sntpc"
 readme = "README.md"
 categories = ["date-and-time", ]
 keywords = ["sntp", "ntp", "sntp-client", "ntp-client"]
-license = "BSD-3-Clause"
 license-file = "LICENSE.md"
 authors = ["Vladimir Petrigo <taenaru@gmail.com>"]
 edition = "2018"
@@ -16,4 +15,4 @@ edition = "2018"
 
 [badges]
 
-travis-ci = { repository = "vpetrigo/sntp-client", branch = "master" }
+travis-ci = { repository = "vpetrigo/sntpc", branch = "master" }

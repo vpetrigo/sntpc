@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.com/vpetrigo/sntp-client.svg?branch=master)](https://travis-ci.com/vpetrigo/sntp-client)
+[![Build Status](https://travis-ci.com/vpetrigo/sntpc.svg?branch=master)](https://travis-ci.com/vpetrigo/sntpc)
 
 # Simple Rust NTP client
 

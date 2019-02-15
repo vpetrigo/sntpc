@@ -6,9 +6,9 @@
 //! # Example
 //!
 //! ```rust
-//! use sntp_client;
+//! use sntpc;
 //!
-//! let result = sntp_client::request("pool.ntp.org", 123);
+//! let result = sntpc::request("pool.ntp.org", 123);
 //!
 //! if let Ok(timestamp) = result {
 //!     println!("NTP server time: {}", timestamp);
@@ -169,9 +169,9 @@ impl From<&NtpPacket> for RawNtpPacket {
 /// ```rust
 /// use sntp_client;
 ///
-/// let result = sntp_client::request("time.google.com", 123);
+/// let result = sntpc::request("time.google.com", 123);
 /// // OR
-/// let result = sntp_client::request("83.168.200.199", 123);
+/// let result = sntpc::request("83.168.200.199", 123);
 ///
 /// // .. process the result
 /// ```
