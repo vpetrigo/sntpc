@@ -167,7 +167,7 @@ impl From<&NtpPacket> for RawNtpPacket {
 /// # Example
 ///
 /// ```rust
-/// use sntp_client;
+/// use sntpc;
 ///
 /// let result = sntpc::request("time.google.com", 123);
 /// // OR
