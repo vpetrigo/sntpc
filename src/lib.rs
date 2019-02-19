@@ -127,7 +127,7 @@ impl From<RawNtpPacket> for NtpPacket {
             temp_buf
         };
 
-        NtpPacket {
+        let mut packet = NtpPacket {
             li_vn_mode: val.0[0],
             stratum: val.0[1],
             poll: val.0[2] as i8,
@@ -139,7 +139,11 @@ impl From<RawNtpPacket> for NtpPacket {
             origin_timestamp: u64::from_le_bytes(to_array_u64(&val.0[24..32])),
             recv_timestamp: u64::from_le_bytes(to_array_u64(&val.0[32..40])),
             tx_timestamp: u64::from_le_bytes(to_array_u64(&val.0[40..48])),
-        }
+        };
+
+        convert_from_network(&mut packet);
+
+        packet
     }
 }
 
