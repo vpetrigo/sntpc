@@ -58,7 +58,7 @@ impl NtpPacket {
     pub fn new() -> NtpPacket {
         let tx_timestamp = get_ntp_timestamp();
 
-        dbg!(tx_timestamp);
+        debug!("{}", tx_timestamp);
 
         NtpPacket {
             li_vn_mode: NtpPacket::SNTP_CLIENT_MODE | NtpPacket::SNTP_VERSION,
@@ -127,7 +127,7 @@ impl From<RawNtpPacket> for NtpPacket {
             temp_buf
         };
 
-        let mut packet = NtpPacket {
+        NtpPacket {
             li_vn_mode: val.0[0],
             stratum: val.0[1],
             poll: val.0[2] as i8,
@@ -139,11 +139,7 @@ impl From<RawNtpPacket> for NtpPacket {
             origin_timestamp: u64::from_le_bytes(to_array_u64(&val.0[24..32])),
             recv_timestamp: u64::from_le_bytes(to_array_u64(&val.0[32..40])),
             tx_timestamp: u64::from_le_bytes(to_array_u64(&val.0[40..48])),
-        };
-
-        convert_from_network(&mut packet);
-
-        packet
+        }
     }
 }
 
@@ -197,6 +193,7 @@ pub fn request(pool: &str, port: u32) -> io::Result<u32> {
     let dest = process_request(dest, &req, &socket)?;
     let mut buf: RawNtpPacket = RawNtpPacket::default();
     let (response, src) = socket.recv_from(buf.0.as_mut())?;
+    let recv_timestamp = get_ntp_timestamp();
     debug!("Response: {}", response);
 
     if src != dest {
@@ -207,7 +204,7 @@ pub fn request(pool: &str, port: u32) -> io::Result<u32> {
     }
 
     if response == mem::size_of::<NtpPacket>() {
-        let result = process_response(&req, buf);
+        let result = process_response(&req, buf, recv_timestamp);
 
         match result {
             Ok(timestamp) => return Ok(timestamp),
@@ -259,6 +256,7 @@ fn send_request(
 fn process_response(
     req: &NtpPacket,
     resp: RawNtpPacket,
+    recv_timestamp: u64,
 ) -> Result<u32, &'static str> {
     const SNTP_UNICAST: u8 = 4;
     const SNTP_BROADCAST: u8 = 5;
@@ -294,14 +292,22 @@ fn process_response(
     if packet.stratum == 0 {
         return Err("Incorrect STRATUM headers");
     }
+    //    theta = T(B) - T(A) = 1/2 * [(T2-T1) + (T3-T4)]
+    //    and the round-trip delay
+    //    delta = T(ABA) = (T4-T1) - (T3-T2).
+    //    where:
+    //      - T1 = client's TX timestamp
+    //      - T2 = server's RX timestamp
+    //      - T3 = server's TX timestamp
+    //      - T4 = client's RX timestamp
+    let delta = (recv_timestamp - packet.origin_timestamp) as i64
+        - (packet.tx_timestamp - packet.recv_timestamp) as i64;
+    let theta = ((packet.recv_timestamp as i64
+        - packet.origin_timestamp as i64)
+        + (recv_timestamp as i64 - packet.tx_timestamp as i64))
+        / 2;
 
-    if packet.origin_timestamp == 0 || packet.recv_timestamp == 0 {
-        return Err("Invalid origin/receive timestamp");
-    }
-
-    if packet.tx_timestamp == 0 {
-        return Err("Transmit timestamp is 0");
-    }
+    debug!("Roundtrip delay: {} us. Offset: {} us", delta.abs(), theta);
 
     let seconds = (packet.tx_timestamp >> 32) as u32;
     let tx_tm = seconds - NtpPacket::NTP_TIMESTAMP_DELTA;
@@ -348,4 +354,16 @@ fn debug_ntp_packet(packet: &NtpPacket) {
     debug!("| Receive timestamp:\t\t{:>16}", packet.recv_timestamp);
     debug!("| Transmit timestamp:\t\t{:>16}", packet.tx_timestamp);
     debug!("{}", (0..52).map(|_| "=").collect::<String>());
+}
+
+fn get_ntp_timestamp() -> u64 {
+    let now_since_unix = time::SystemTime::now()
+        .duration_since(time::SystemTime::UNIX_EPOCH)
+        .unwrap();
+    let timestamp = ((now_since_unix.as_secs()
+        + (u64::from(NtpPacket::NTP_TIMESTAMP_DELTA)))
+        << 32)
+        + u64::from(now_since_unix.subsec_micros());
+
+    timestamp
 }
