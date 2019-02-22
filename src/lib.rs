@@ -367,3 +367,15 @@ fn get_ntp_timestamp() -> u64 {
 
     timestamp
 }
+
+fn get_ntp_timestamp() -> u64 {
+    let now_since_unix = time::SystemTime::now()
+        .duration_since(time::SystemTime::UNIX_EPOCH)
+        .unwrap();
+    let timestamp = ((now_since_unix.as_secs()
+        + (u64::from(NtpPacket::NTP_TIMESTAMP_DELTA)))
+        << 32)
+        + u64::from(now_since_unix.subsec_micros());
+
+    timestamp
+}
