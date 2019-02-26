@@ -51,8 +51,9 @@ impl NtpPacket {
         let now_since_unix = time::SystemTime::now()
             .duration_since(time::SystemTime::UNIX_EPOCH)
             .unwrap();
-        let tx_timestamp = (now_since_unix.as_secs()
-            + (u64::from(NtpPacket::NTP_TIMESTAMP_DELTA) << 32))
+        let tx_timestamp = ((now_since_unix.as_secs()
+            + (u64::from(NtpPacket::NTP_TIMESTAMP_DELTA)))
+            << 32)
             + u64::from(now_since_unix.subsec_micros());
 
         NtpPacket {
