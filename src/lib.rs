@@ -11,9 +11,9 @@
 //! let result = sntpc::request("pool.ntp.org", 123);
 //!
 //! if let Ok(sntpc::NtpResult {
-//!     sec, msec, ..
+//!     sec, nsec, ..
 //! }) = result {
-//!     println!("NTP server time: {}.{}", sec, msec);
+//!     println!("NTP server time: {}.{}", sec, nsec);
 //! }
 //! ```
 
