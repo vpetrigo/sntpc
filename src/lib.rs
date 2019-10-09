@@ -55,8 +55,8 @@ struct NtpPacket {
 pub struct NtpResult {
     /// NTP server seconds value
     pub sec: u32,
-    /// NTP server milliseconds value
-    pub msec: u32,
+    /// NTP server nanoseconds value
+    pub nsec: u32,
     /// Request roundtrip time
     pub roundtrip: u64,
     /// Offset of the current system time with one received from a NTP server
