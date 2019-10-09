@@ -35,6 +35,7 @@ const VERSION_MASK: u8 = 0b0011_1000;
 const VERSION_SHIFT: u8 = 3;
 const LI_MASK: u8 = 0b1100_0000;
 const LI_SHIFT: u8 = 6;
+const NSEC_IN_SEC: u32 = 1_000_000_000;
 
 struct NtpPacket {
     li_vn_mode: u8,
