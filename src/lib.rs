@@ -67,13 +67,17 @@ impl NtpResult {
     /// Create new NTP result
     /// Args:
     /// * `sec` - number of seconds
-    /// * `msec` - number of milliseconds
+    /// * `nsec` - number of nanoseconds
     /// * `roundtrip` - calculated roundtrip in microseconds
     /// * `offset` - calculated system clock offset in microseconds
-    pub fn new(sec: u32, msec: u32, roundtrip: u64, offset: i64) -> Self {
+    pub fn new(sec: u32, nsec: u32, roundtrip: u64, offset: i64) -> Self {
+        let residue = nsec / NSEC_IN_SEC;
+        let nsec = nsec % NSEC_IN_SEC;
+        let sec = sec + residue;
+
         NtpResult {
             sec,
-            msec,
+            nsec,
             roundtrip,
             offset,
         }
