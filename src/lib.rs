@@ -87,9 +87,9 @@ impl NtpResult {
         self.sec
     }
 
-    /// Returns number of milliseconds reported by an NTP server
-    pub fn msec(&self) -> u32 {
-        self.msec
+    /// Returns number of nanoseconds reported by an NTP server
+    pub fn nsec(&self) -> u32 {
+        self.nsec
     }
 
     /// Returns request's roundtrip time (client -> server -> client) in microseconds
