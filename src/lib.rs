@@ -107,7 +107,7 @@ impl Debug for NtpResult {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("NtpResult")
             .field("sec", &self.sec)
-            .field("msec", &self.msec)
+            .field("nsec", &self.nsec)
             .field("roundtrip", &self.roundtrip)
             .field("offset", &self.offset)
             .finish()
