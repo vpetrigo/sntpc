@@ -276,15 +276,13 @@ pub fn request(pool: &str, port: u32) -> io::Result<NtpResult> {
     if response == mem::size_of::<NtpPacket>() {
         let result = process_response(&req, buf, recv_timestamp);
 
-        match result {
+        return match result {
             Ok(result) => {
                 debug!("{:?}", result);
-                return Ok(result);
+                Ok(result)
             }
-            Err(err_str) => {
-                return Err(io::Error::new(io::ErrorKind::Other, err_str));
-            }
-        }
+            Err(err_str) => Err(io::Error::new(io::ErrorKind::Other, err_str)),
+        };
     }
 
     Err(io::Error::new(
