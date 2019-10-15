@@ -443,34 +443,47 @@ fn get_ntp_timestamp() -> u64 {
 
 #[cfg(test)]
 mod sntpc_tests {
-    use crate::NtpResult;
+    use crate::{NtpResult, NSEC_IN_SEC};
 
     #[test]
     fn test_ntp_result() {
         let result1 = NtpResult::new(0, 0, 0, 0);
 
         assert_eq!(0, result1.sec());
-        assert_eq!(0, result1.msec());
+        assert_eq!(0, result1.nsec());
         assert_eq!(0, result1.roundtrip());
         assert_eq!(0, result1.offset());
 
         let result2 = NtpResult::new(1, 2, 3, 4);
 
         assert_eq!(1, result2.sec());
-        assert_eq!(2, result2.msec());
+        assert_eq!(2, result2.nsec());
         assert_eq!(3, result2.roundtrip());
         assert_eq!(4, result2.offset());
 
+        let residue3 = u32::max_value() / NSEC_IN_SEC;
         let result3 = NtpResult::new(
-            u32::max_value(),
+            u32::max_value() - residue3,
             u32::max_value(),
             u64::max_value(),
             i64::max_value(),
         );
 
         assert_eq!(u32::max_value(), result3.sec());
-        assert_eq!(u32::max_value(), result3.msec());
+        assert_eq!(u32::max_value() % NSEC_IN_SEC, result3.nsec());
         assert_eq!(u64::max_value(), result3.roundtrip());
         assert_eq!(i64::max_value(), result3.offset());
+    }
+
+    #[test]
+    fn test_ntp_nsec_overflow_result() {
+        let result = NtpResult::new(0, u32::max_value(), 0, 0);
+        let max_value_sec = u32::max_value() / NSEC_IN_SEC;
+        let max_value_nsec = u32::max_value() % NSEC_IN_SEC;
+
+        assert_eq!(max_value_sec, result.sec());
+        assert_eq!(max_value_nsec, result.nsec());
+        assert_eq!(0, result.roundtrip());
+        assert_eq!(0, result.offset());
     }
 }
