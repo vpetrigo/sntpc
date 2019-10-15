@@ -382,10 +382,10 @@ fn process_response(
     debug!("Roundtrip delay: {} us. Offset: {} us", delta.abs(), theta);
 
     let seconds = (packet.tx_timestamp >> 32) as u32;
-    let msec = (packet.tx_timestamp & MSEC_MASK) as u32;
+    let nsec = (packet.tx_timestamp & MSEC_MASK) as u32;
     let tx_tm = seconds - NtpPacket::NTP_TIMESTAMP_DELTA;
 
-    Ok(NtpResult::new(tx_tm, msec, delta.abs() as u64, theta))
+    Ok(NtpResult::new(tx_tm, nsec, delta.abs() as u64, theta))
 }
 
 fn convert_from_network(packet: &mut NtpPacket) {
