@@ -21,7 +21,7 @@ fn main() {
         match result {
             Ok(time) => {
                 assert_ne!(time.sec(), 0);
-                println!("Got time: {}.{}", time.sec(), time.msec());
+                println!("Got time: {}.{}", time.sec(), time.nsec());
             }
             Err(err) => println!("Err: {}", err.to_string()),
         }
