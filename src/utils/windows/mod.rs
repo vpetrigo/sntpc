@@ -2,6 +2,8 @@ use std::process::Command;
 
 use chrono::{DateTime, Datelike, Local, Timelike};
 
+/// Synchronize system time with the platform specific
+/// command line tool
 pub(super) fn sync_time(time: DateTime<Local>) {
     let cmd = Command::new("cmd")
         .args(&[
