@@ -1,5 +1,6 @@
 [![Build Status](https://travis-ci.com/vpetrigo/sntpc.svg?branch=master)](https://travis-ci.com/vpetrigo/sntpc)
-[![](http://meritbadge.herokuapp.com/sntpc)](https://crates.io/crates/sntpc)
+[![](https://img.shields.io/crates/v/sntpc)](https://crates.io/crates/sntpc)
+[![](https://img.shields.io/crates/l/sntpc)](https://github.com/vpetrigo/sntpc/blob/master/LICENSE.md)
 
 # Simple Rust NTP client
 
