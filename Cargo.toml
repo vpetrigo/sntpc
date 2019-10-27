@@ -15,6 +15,7 @@ edition = "2018"
 log = "0.4"
 chrono = "0.4"
 simple_logger = "1.4"
+clap = "2.33"
 
 [badges]
 travis-ci = { repository = "vpetrigo/sntpc", branch = "master" }
