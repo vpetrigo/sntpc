@@ -9,9 +9,9 @@ pub(super) fn sync_time(time: DateTime<Local>) {
         .args(&[
             "/C",
             format!(
-                "powershell Set-Date -Date “{}/{}/{} {}:{}:{}",
-                time.month(),
+                "powershell Set-Date -Date \"{}/{}/{} {}:{}:{}\"",
                 time.day(),
+                time.month(),
                 time.year(),
                 time.hour(),
                 time.minute(),
