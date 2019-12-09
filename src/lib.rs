@@ -51,9 +51,8 @@ impl NtpPacket {
         let now_since_unix = time::SystemTime::now()
             .duration_since(time::SystemTime::UNIX_EPOCH)
             .unwrap();
-        let tx_timestamp = ((now_since_unix.as_secs()
-            + (u64::from(NtpPacket::NTP_TIMESTAMP_DELTA)))
-            << 32)
+        let tx_timestamp = (now_since_unix.as_secs()
+            + (u64::from(NtpPacket::NTP_TIMESTAMP_DELTA) << 32))
             + u64::from(now_since_unix.subsec_micros());
 
         NtpPacket {
@@ -177,6 +176,7 @@ impl From<&NtpPacket> for RawNtpPacket {
 /// // .. process the result
 /// ```
 pub fn request(pool: &str, port: u32) -> io::Result<u32> {
+    #[cfg(feature = "debug")]
     dbg!(pool);
     let socket = net::UdpSocket::bind("0.0.0.0:0")
         .expect("Unable to create a UDP socket");
@@ -189,6 +189,7 @@ pub fn request(pool: &str, port: u32) -> io::Result<u32> {
     let mut success = false;
 
     for addr in dest {
+        #[cfg(feature = "debug")]
         dbg!(&addr);
 
         match send_request(&req, &socket, addr) {
@@ -214,6 +215,7 @@ pub fn request(pool: &str, port: u32) -> io::Result<u32> {
 
     let mut buf: RawNtpPacket = RawNtpPacket::default();
     let response = socket.recv_from(buf.0.as_mut())?;
+    #[cfg(feature = "debug")]
     dbg!(response.0);
 
     if response.0 == mem::size_of::<NtpPacket>() {
@@ -260,7 +262,7 @@ fn process_response(resp: RawNtpPacket) -> Result<u32, &'static str> {
         return Err("Transmit timestamp is 0");
     }
 
-    #[cfg(debug_assertions)]
+    #[cfg(feature = "debug")]
     debug_ntp_packet(&packet);
 
     let seconds = (packet.tx_timestamp >> 32) as u32;
@@ -283,7 +285,7 @@ fn convert_from_network(packet: &mut NtpPacket) {
     packet.tx_timestamp = ntohl(packet.tx_timestamp);
 }
 
-#[cfg(debug_assertions)]
+#[cfg(feature = "debug")]
 fn debug_ntp_packet(packet: &NtpPacket) {
     const MODE_MASK: u8 = 0b0000_0111;
     const MODE_SHIFT: u8 = 0;
