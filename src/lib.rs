@@ -22,6 +22,13 @@ use std::net::ToSocketAddrs;
 use std::str;
 use std::time;
 
+const MODE_MASK: u8 = 0b0000_0111;
+const MODE_SHIFT: u8 = 0;
+const VERSION_MASK: u8 = 0b0011_1000;
+const VERSION_SHIFT: u8 = 3;
+const LI_MASK: u8 = 0b1100_0000;
+const LI_SHIFT: u8 = 6;
+
 struct NtpPacket {
     li_vn_mode: u8,
     stratum: u8,
@@ -186,7 +193,7 @@ pub fn request(pool: &str, port: u32) -> io::Result<u32> {
         .set_read_timeout(Some(time::Duration::new(2, 0)))
         .expect("Unable to set up socket timeout");
     let req = NtpPacket::new();
-    let mut success = false;
+    let mut dst = None;
 
     for addr in dest {
         dbg!(&addr);
@@ -194,7 +201,7 @@ pub fn request(pool: &str, port: u32) -> io::Result<u32> {
         match send_request(&req, &socket, addr) {
             Ok(write_bytes) => {
                 assert_eq!(write_bytes, mem::size_of::<NtpPacket>());
-                success = true;
+                dst = Some(addr);
                 break;
             }
             Err(err) => {
@@ -205,19 +212,29 @@ pub fn request(pool: &str, port: u32) -> io::Result<u32> {
         }
     }
 
-    if !success {
+    let dst = match dst {
+        Some(d) => d,
+        None => {
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                "Unable to send NTP request",
+            ));
+        }
+    };
+
+    let mut buf: RawNtpPacket = RawNtpPacket::default();
+    let (response, src) = socket.recv_from(buf.0.as_mut())?;
+    dbg!(response);
+
+    if src != dst {
         return Err(io::Error::new(
             io::ErrorKind::Other,
-            "Unable to send NTP request",
+            "SNTP response port / adress mismatch",
         ));
     }
 
-    let mut buf: RawNtpPacket = RawNtpPacket::default();
-    let response = socket.recv_from(buf.0.as_mut())?;
-    dbg!(response.0);
-
-    if response.0 == mem::size_of::<NtpPacket>() {
-        let result = process_response(buf);
+    if response == mem::size_of::<NtpPacket>() {
+        let result = process_response(&req, buf);
 
         match result {
             Ok(timestamp) => return Ok(timestamp),
@@ -243,13 +260,25 @@ fn send_request(
     socket.send_to(&buf.0, dest)
 }
 
-fn process_response(resp: RawNtpPacket) -> Result<u32, &'static str> {
+fn process_response(
+    req: &NtpPacket,
+    resp: RawNtpPacket,
+) -> Result<u32, &'static str> {
     let mut packet = NtpPacket::from(resp);
 
     convert_from_network(&mut packet);
 
-    if packet.li_vn_mode == 0 || packet.stratum == 0 {
-        return Err("Incorrect LI_VN_MODE or STRATUM headers");
+    if req.tx_timestamp != packet.origin_timestamp {
+        return Err("Incorrect origin timestamp");
+    }
+
+    let mode = packet.li_vn_mode & MODE_MASK; // Shift is 0
+    if mode != 4 && mode != 5 {
+        return Err("Incorrect LI_VN_MODE headers");
+    }
+
+    if packet.stratum == 0 {
+        return Err("Incorrect STRATUM headers");
     }
 
     if packet.origin_timestamp == 0 || packet.recv_timestamp == 0 {
@@ -275,6 +304,7 @@ fn convert_from_network(packet: &mut NtpPacket) {
     }
 
     packet.root_delay = ntohl(packet.root_delay);
+
     packet.root_dispersion = ntohl(packet.root_dispersion);
     packet.ref_id = ntohl(packet.ref_id);
     packet.ref_timestamp = ntohl(packet.ref_timestamp);
@@ -285,13 +315,6 @@ fn convert_from_network(packet: &mut NtpPacket) {
 
 #[cfg(debug_assertions)]
 fn debug_ntp_packet(packet: &NtpPacket) {
-    const MODE_MASK: u8 = 0b0000_0111;
-    const MODE_SHIFT: u8 = 0;
-    const VERSION_MASK: u8 = 0b0011_1000;
-    const VERSION_SHIFT: u8 = 3;
-    const LI_MASK: u8 = 0b1100_0000;
-    const LI_SHIFT: u8 = 6;
-
     let shifter = |val, mask, shift| (val & mask) >> shift;
     let mode = shifter(packet.li_vn_mode, MODE_MASK, MODE_SHIFT);
     let version = shifter(packet.li_vn_mode, VERSION_MASK, VERSION_SHIFT);
