@@ -15,6 +15,7 @@
 //! }
 //! ```
 
+use log::debug;
 use std::io;
 use std::mem;
 use std::net;
@@ -184,7 +185,7 @@ impl From<&NtpPacket> for RawNtpPacket {
 /// // .. process the result
 /// ```
 pub fn request(pool: &str, port: u32) -> io::Result<u32> {
-    dbg!(pool);
+    debug!("Pool: {}", pool);
     let socket = net::UdpSocket::bind("0.0.0.0:0")
         .expect("Unable to create a UDP socket");
     let dest = format!("{}:{}", pool, port).to_socket_addrs()?;
@@ -196,7 +197,7 @@ pub fn request(pool: &str, port: u32) -> io::Result<u32> {
     let mut dst = None;
 
     for addr in dest {
-        dbg!(&addr);
+        debug!("Address: {}", &addr);
 
         match send_request(&req, &socket, addr) {
             Ok(write_bytes) => {
@@ -224,7 +225,7 @@ pub fn request(pool: &str, port: u32) -> io::Result<u32> {
 
     let mut buf: RawNtpPacket = RawNtpPacket::default();
     let (response, src) = socket.recv_from(buf.0.as_mut())?;
-    dbg!(response);
+    debug!("Response: {}", response);
 
     if src != dst {
         return Err(io::Error::new(
@@ -320,21 +321,21 @@ fn debug_ntp_packet(packet: &NtpPacket) {
     let version = shifter(packet.li_vn_mode, VERSION_MASK, VERSION_SHIFT);
     let li = shifter(packet.li_vn_mode, LI_MASK, LI_SHIFT);
 
-    println!("{}", (0..52).map(|_| "=").collect::<String>());
-    println!("| Mode:\t\t{}", mode);
-    println!("| Version:\t{}", version);
-    println!("| Leap:\t\t{}", li);
-    println!("| Poll:\t\t{}", packet.poll);
-    println!("| Precision:\t\t{}", packet.precision);
-    println!("| Root delay:\t\t{}", packet.root_delay);
-    println!("| Root dispersion:\t{}", packet.root_dispersion);
-    println!(
+    debug!("{}", (0..52).map(|_| "=").collect::<String>());
+    debug!("| Mode:\t\t{}", mode);
+    debug!("| Version:\t{}", version);
+    debug!("| Leap:\t\t{}", li);
+    debug!("| Poll:\t\t{}", packet.poll);
+    debug!("| Precision:\t\t{}", packet.precision);
+    debug!("| Root delay:\t\t{}", packet.root_delay);
+    debug!("| Root dispersion:\t{}", packet.root_dispersion);
+    debug!(
         "| Reference ID:\t\t{}",
         str::from_utf8(&packet.ref_id.to_be_bytes()).unwrap_or("")
     );
-    println!("| Reference timestamp:\t{:>16}", packet.ref_timestamp);
-    println!("| Origin timestamp:\t\t{:>16}", packet.origin_timestamp);
-    println!("| Receive timestamp:\t{:>16}", packet.recv_timestamp);
-    println!("| Transmit timestamp:\t{:>16}", packet.tx_timestamp);
-    println!("{}", (0..52).map(|_| "=").collect::<String>());
+    debug!("| Reference timestamp:\t{:>16}", packet.ref_timestamp);
+    debug!("| Origin timestamp:\t\t{:>16}", packet.origin_timestamp);
+    debug!("| Receive timestamp:\t\t{:>16}", packet.recv_timestamp);
+    debug!("| Transmit timestamp:\t\t{:>16}", packet.tx_timestamp);
+    debug!("{}", (0..52).map(|_| "=").collect::<String>());
 }

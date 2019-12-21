@@ -1,6 +1,6 @@
 [package]
 name = "sntpc"
-version = "0.1.1"
+version = "0.1.2"
 description = "Library for making SNTP requests"
 homepage = "https://github.com/vpetrigo/sntpc"
 repository = "https://github.com/vpetrigo/sntpc"
@@ -12,7 +12,10 @@ authors = ["Vladimir Petrigo <taenaru@gmail.com>"]
 edition = "2018"
 
 [dependencies]
+log = "0.4"
+
+[dev-dependencies]
+simple_logger = "1.3"
 
 [badges]
-
 travis-ci = { repository = "vpetrigo/sntpc", branch = "master" }
