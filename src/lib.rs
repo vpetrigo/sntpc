@@ -19,7 +19,7 @@ use log::debug;
 use std::io;
 use std::mem;
 use std::net;
-use std::net::ToSocketAddrs;
+use std::net::{SocketAddr, ToSocketAddrs, UdpSocket};
 use std::str;
 use std::time;
 
@@ -194,43 +194,15 @@ pub fn request(pool: &str, port: u32) -> io::Result<u32> {
         .set_read_timeout(Some(time::Duration::new(2, 0)))
         .expect("Unable to set up socket timeout");
     let req = NtpPacket::new();
-    let mut dst = None;
-
-    for addr in dest {
-        debug!("Address: {}", &addr);
-
-        match send_request(&req, &socket, addr) {
-            Ok(write_bytes) => {
-                assert_eq!(write_bytes, mem::size_of::<NtpPacket>());
-                dst = Some(addr);
-                break;
-            }
-            Err(err) => {
-                println!("{}", err);
-                println!("Try another one");
-                continue;
-            }
-        }
-    }
-
-    let dst = match dst {
-        Some(d) => d,
-        None => {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
-                "Unable to send NTP request",
-            ));
-        }
-    };
-
+    let dest = process_request(dest, &req, &socket)?;
     let mut buf: RawNtpPacket = RawNtpPacket::default();
     let (response, src) = socket.recv_from(buf.0.as_mut())?;
     debug!("Response: {}", response);
 
-    if src != dst {
+    if src != dest {
         return Err(io::Error::new(
             io::ErrorKind::Other,
-            "SNTP response port / adress mismatch",
+            "SNTP response port / address mismatch",
         ));
     }
 
@@ -251,6 +223,29 @@ pub fn request(pool: &str, port: u32) -> io::Result<u32> {
     ))
 }
 
+fn process_request(
+    dest: std::vec::IntoIter<SocketAddr>,
+    req: &NtpPacket,
+    socket: &UdpSocket,
+) -> io::Result<SocketAddr> {
+    for addr in dest {
+        debug!("Address: {}", &addr);
+
+        match send_request(&req, &socket, addr) {
+            Ok(write_bytes) => {
+                assert_eq!(write_bytes, mem::size_of::<NtpPacket>());
+                return Ok(addr);
+            }
+            Err(err) => debug!("{}. Try another one", err),
+        }
+    }
+
+    Err(io::Error::new(
+        io::ErrorKind::AddrNotAvailable,
+        "SNTP servers not responding",
+    ))
+}
+
 fn send_request(
     req: &NtpPacket,
     socket: &net::UdpSocket,
@@ -265,17 +260,35 @@ fn process_response(
     req: &NtpPacket,
     resp: RawNtpPacket,
 ) -> Result<u32, &'static str> {
+    const SNTP_UNICAST: u8 = 4;
+    const SNTP_BROADCAST: u8 = 5;
+    const LI_MAX_VALUE: u8 = 3;
+    let shifter = |val, mask, shift| (val & mask) >> shift;
     let mut packet = NtpPacket::from(resp);
 
     convert_from_network(&mut packet);
+    #[cfg(debug_assertions)]
+    debug_ntp_packet(&packet);
 
     if req.tx_timestamp != packet.origin_timestamp {
         return Err("Incorrect origin timestamp");
     }
+    // Shift is 0
+    let mode = shifter(packet.li_vn_mode, MODE_MASK, MODE_SHIFT);
+    let li = shifter(packet.li_vn_mode, LI_MASK, LI_SHIFT);
+    let resp_version = shifter(packet.li_vn_mode, VERSION_MASK, VERSION_SHIFT);
+    let req_version = shifter(req.li_vn_mode, VERSION_MASK, VERSION_SHIFT);
 
-    let mode = packet.li_vn_mode & MODE_MASK; // Shift is 0
-    if mode != 4 && mode != 5 {
-        return Err("Incorrect LI_VN_MODE headers");
+    if mode != SNTP_UNICAST && mode != SNTP_BROADCAST {
+        return Err("Incorrect MODE value");
+    }
+
+    if li > LI_MAX_VALUE {
+        return Err("Incorrect LI value");
+    }
+
+    if req_version != resp_version {
+        return Err("Incorrect response version");
     }
 
     if packet.stratum == 0 {
@@ -290,9 +303,6 @@ fn process_response(
         return Err("Transmit timestamp is 0");
     }
 
-    #[cfg(debug_assertions)]
-    debug_ntp_packet(&packet);
-
     let seconds = (packet.tx_timestamp >> 32) as u32;
     let tx_tm = seconds - NtpPacket::NTP_TIMESTAMP_DELTA;
 
@@ -305,7 +315,6 @@ fn convert_from_network(packet: &mut NtpPacket) {
     }
 
     packet.root_delay = ntohl(packet.root_delay);
-
     packet.root_dispersion = ntohl(packet.root_dispersion);
     packet.ref_id = ntohl(packet.ref_id);
     packet.ref_timestamp = ntohl(packet.ref_timestamp);
@@ -325,6 +334,7 @@ fn debug_ntp_packet(packet: &NtpPacket) {
     debug!("| Mode:\t\t{}", mode);
     debug!("| Version:\t{}", version);
     debug!("| Leap:\t\t{}", li);
+    debug!("| Stratum:\t{}", packet.stratum);
     debug!("| Poll:\t\t{}", packet.poll);
     debug!("| Precision:\t\t{}", packet.precision);
     debug!("| Root delay:\t\t{}", packet.root_delay);
