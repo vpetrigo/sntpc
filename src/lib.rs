@@ -323,7 +323,7 @@ fn process_response(
     req: &NtpPacket,
     resp: RawNtpPacket,
     recv_timestamp: u64,
-) -> Result<NtpResult, &'static str> {
+) -> Result<NtpResult, &str> {
     const SNTP_UNICAST: u8 = 4;
     const SNTP_BROADCAST: u8 = 5;
     const LI_MAX_VALUE: u8 = 3;
