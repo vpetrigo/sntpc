@@ -16,6 +16,8 @@
 //! ```
 
 use log::debug;
+use std::fmt::Debug;
+use std::fmt::Formatter;
 use std::io;
 use std::mem;
 use std::net;
@@ -42,6 +44,65 @@ struct NtpPacket {
     origin_timestamp: u64,
     recv_timestamp: u64,
     tx_timestamp: u64,
+}
+
+/// SNTP request result representation
+pub struct NtpResult {
+    /// NTP server seconds value
+    sec: u32,
+    /// NTP server milliseconds value
+    msec: u32,
+    /// Request roundtrip time
+    roundtrip: u64,
+    /// Offset of the current system time with one received from a NTP server
+    offset: i64,
+}
+
+impl NtpResult {
+    /// Create new NTP result
+    /// Args:
+    /// * `sec` - number of seconds
+    /// * `msec` - number of milliseconds
+    /// * `roundtrip` - calculated roundtrip in microseconds
+    /// * `offset` - calculated system clock offset in microseconds
+    pub fn new(sec: u32, msec: u32, roundtrip: u64, offset: i64) -> Self {
+        NtpResult {
+            sec,
+            msec,
+            roundtrip,
+            offset,
+        }
+    }
+    /// Returns number of seconds reported by an NTP server
+    pub fn sec(&self) -> u32 {
+        self.sec
+    }
+
+    /// Returns number of milliseconds reported by an NTP server
+    pub fn msec(&self) -> u32 {
+        self.msec
+    }
+
+    /// Returns request's roundtrip time (client -> server -> client) in microseconds
+    pub fn roundtrip(&self) -> u64 {
+        self.roundtrip
+    }
+
+    /// Returns system clock offset value in microseconds
+    pub fn offset(&self) -> i64 {
+        self.offset
+    }
+}
+
+impl Debug for NtpResult {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("NtpResult")
+            .field("sec", &self.sec)
+            .field("msec", &self.msec)
+            .field("roundtrip", &self.roundtrip)
+            .field("offset", &self.offset)
+            .finish()
+    }
 }
 
 impl NtpPacket {
@@ -180,7 +241,7 @@ impl From<&NtpPacket> for RawNtpPacket {
 ///
 /// // .. process the result
 /// ```
-pub fn request(pool: &str, port: u32) -> io::Result<u32> {
+pub fn request(pool: &str, port: u32) -> io::Result<NtpResult> {
     debug!("Pool: {}", pool);
     let socket = net::UdpSocket::bind("0.0.0.0:0")
         .expect("Unable to create a UDP socket");
@@ -207,7 +268,10 @@ pub fn request(pool: &str, port: u32) -> io::Result<u32> {
         let result = process_response(&req, buf, recv_timestamp);
 
         match result {
-            Ok(timestamp) => return Ok(timestamp),
+            Ok(result) => {
+                debug!("{:?}", result);
+                return Ok(result);
+            }
             Err(err_str) => {
                 return Err(io::Error::new(io::ErrorKind::Other, err_str));
             }
@@ -257,10 +321,11 @@ fn process_response(
     req: &NtpPacket,
     resp: RawNtpPacket,
     recv_timestamp: u64,
-) -> Result<u32, &'static str> {
+) -> Result<NtpResult, &'static str> {
     const SNTP_UNICAST: u8 = 4;
     const SNTP_BROADCAST: u8 = 5;
     const LI_MAX_VALUE: u8 = 3;
+    const MSEC_MASK: u64 = 0x0000_0000_ffff_ffff;
     let shifter = |val, mask, shift| (val & mask) >> shift;
     let mut packet = NtpPacket::from(resp);
 
@@ -310,9 +375,10 @@ fn process_response(
     debug!("Roundtrip delay: {} us. Offset: {} us", delta.abs(), theta);
 
     let seconds = (packet.tx_timestamp >> 32) as u32;
+    let msec = (packet.tx_timestamp & MSEC_MASK) as u32;
     let tx_tm = seconds - NtpPacket::NTP_TIMESTAMP_DELTA;
 
-    Ok(tx_tm)
+    Ok(NtpResult::new(tx_tm, msec, delta.abs() as u64, theta))
 }
 
 fn convert_from_network(packet: &mut NtpPacket) {
@@ -368,14 +434,36 @@ fn get_ntp_timestamp() -> u64 {
     timestamp
 }
 
-fn get_ntp_timestamp() -> u64 {
-    let now_since_unix = time::SystemTime::now()
-        .duration_since(time::SystemTime::UNIX_EPOCH)
-        .unwrap();
-    let timestamp = ((now_since_unix.as_secs()
-        + (u64::from(NtpPacket::NTP_TIMESTAMP_DELTA)))
-        << 32)
-        + u64::from(now_since_unix.subsec_micros());
+#[cfg(test)]
+mod sntpc_tests {
+    use crate::NtpResult;
 
-    timestamp
+    #[test]
+    fn test_ntp_result() {
+        let result1 = NtpResult::new(0, 0, 0, 0);
+
+        assert_eq!(0, result1.sec());
+        assert_eq!(0, result1.msec());
+        assert_eq!(0, result1.roundtrip());
+        assert_eq!(0, result1.offset());
+
+        let result2 = NtpResult::new(1, 2, 3, 4);
+
+        assert_eq!(1, result2.sec());
+        assert_eq!(2, result2.msec());
+        assert_eq!(3, result2.roundtrip());
+        assert_eq!(4, result2.offset());
+
+        let result3 = NtpResult::new(
+            u32::max_value(),
+            u32::max_value(),
+            u64::max_value(),
+            i64::max_value(),
+        );
+
+        assert_eq!(u32::max_value(), result3.sec());
+        assert_eq!(u32::max_value(), result3.msec());
+        assert_eq!(u64::max_value(), result3.roundtrip());
+        assert_eq!(i64::max_value(), result3.offset());
+    }
 }
