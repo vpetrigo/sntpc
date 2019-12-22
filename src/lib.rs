@@ -10,8 +10,10 @@
 //!
 //! let result = sntpc::request("pool.ntp.org", 123);
 //!
-//! if let Ok(timestamp) = result {
-//!     println!("NTP server time: {}", timestamp);
+//! if let Ok(sntpc::NtpResult {
+//!     sec, msec, ..
+//! }) = result {
+//!     println!("NTP server time: {}.{}", sec, msec);
 //! }
 //! ```
 
@@ -49,13 +51,13 @@ struct NtpPacket {
 /// SNTP request result representation
 pub struct NtpResult {
     /// NTP server seconds value
-    sec: u32,
+    pub sec: u32,
     /// NTP server milliseconds value
-    msec: u32,
+    pub msec: u32,
     /// Request roundtrip time
-    roundtrip: u64,
+    pub roundtrip: u64,
     /// Offset of the current system time with one received from a NTP server
-    offset: i64,
+    pub offset: i64,
 }
 
 impl NtpResult {
