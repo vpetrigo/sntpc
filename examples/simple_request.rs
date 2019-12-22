@@ -15,7 +15,7 @@ fn main() {
         simple_logger::init_with_level(log::Level::Info).unwrap();
     }
 
-    for _ in 0..4000 {
+    for _ in 0..5 {
         let result = sntpc::request(POOL_NTP_ADDR, 123);
 
         match result {
@@ -26,6 +26,6 @@ fn main() {
             Err(err) => println!("Err: {}", err.to_string()),
         }
 
-        thread::sleep(time::Duration::new(1, 0));
+        thread::sleep(time::Duration::new(15, 0));
     }
 }
