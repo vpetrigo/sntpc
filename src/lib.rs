@@ -17,6 +17,8 @@
 //! }
 //! ```
 
+pub mod utils;
+
 use log::debug;
 use std::fmt::Debug;
 use std::fmt::Formatter;
