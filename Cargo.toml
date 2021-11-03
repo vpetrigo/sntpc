@@ -5,17 +5,39 @@ description = "Library for making SNTP requests"
 homepage = "https://github.com/vpetrigo/sntpc"
 repository = "https://github.com/vpetrigo/sntpc"
 readme = "README.md"
-categories = ["date-and-time", ]
+categories = ["date-and-time", "no-std", "embedded"]
 keywords = ["sntp", "ntp", "sntp-client", "ntp-client"]
 license = "BSD-3-Clause"
-authors = ["Vladimir Petrigo <taenaru@gmail.com>"]
+authors = ["Vladimir Petrigo <vladimir.petrigo@gmail.com>"]
 edition = "2018"
 
+exclude = [
+    ".github/*",
+    "CONTRIBUTING.md",
+    ".*",
+]
+
+[features]
+default = ["std"]
+std = []
+logs = ["log", "simple_logger"]
+utils = ["chrono/clock"]
+
 [dependencies]
-log = "0.4"
-chrono = "0.4"
-simple_logger = "1.4"
-clap = "2.33"
+log = { version = "0.4", optional = true }
+simple_logger = { version = "1.4", optional = true }
+clap = { version = "2.33", default-features=false, optional = true }
+chrono = { version = "~0.4", default-features=false, optional = true }
+# requred till this https://github.com/rust-lang/rfcs/pull/2832 is not addressed
+no-std-net = "~0.5"
 
 [badges]
 travis-ci = { repository = "vpetrigo/sntpc", branch = "master" }
+
+[[bin]]
+name = "timesync"
+required-features = ["std", "clap", "utils"]
+
+[[example]]
+name = "simple_request"
+required-features = ["std"]
