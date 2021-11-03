@@ -1,6 +1,6 @@
 [package]
 name = "sntpc"
-version = "0.2.0"
+version = "0.3.0"
 description = "Library for making SNTP requests"
 homepage = "https://github.com/vpetrigo/sntpc"
 repository = "https://github.com/vpetrigo/sntpc"
@@ -20,24 +20,25 @@ exclude = [
 [features]
 default = ["std"]
 std = []
-logs = ["log", "simple_logger"]
 utils = ["chrono/clock"]
 
 [dependencies]
-log = { version = "0.4", optional = true }
-simple_logger = { version = "1.4", optional = true }
+log = { version = "~0.4", optional = true }
 clap = { version = "2.33", default-features=false, optional = true }
 chrono = { version = "~0.4", default-features=false, optional = true }
 # requred till this https://github.com/rust-lang/rfcs/pull/2832 is not addressed
 no-std-net = "~0.5"
 
+[dev-dependencies]
+simple_logger = { version = "~1.13" }
+
 [badges]
 travis-ci = { repository = "vpetrigo/sntpc", branch = "master" }
-
-[[bin]]
-name = "timesync"
-required-features = ["std", "clap", "utils"]
 
 [[example]]
 name = "simple_request"
 required-features = ["std"]
+
+[[example]]
+name = "timesync"
+required-features = ["std", "clap", "utils"]
