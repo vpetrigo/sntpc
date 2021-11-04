@@ -1,4 +1,9 @@
+//! Helper utils to synchronize time of a system
+//!
+//! Currently Unix and Windows based systems are supported
+#[cfg(feature = "utils")]
 use chrono::{Local, TimeZone, Timelike, Utc};
+#[cfg(feature = "log")]
 use log::debug;
 
 #[cfg(unix)]
@@ -13,17 +18,19 @@ mod windows;
 
 /// Set up system time based on the given parameters
 /// Args:
-/// * sec - Seconds since UNIX epoch start
-/// * nsec - Fraction of seconds from an NTP response
+/// * `sec` - Seconds since UNIX epoch start
+/// * `nsec` - Fraction of seconds from an NTP response
 pub fn update_system_time(sec: u32, nsec: u32) {
     let time = Utc.timestamp(sec as i64, nsec);
     let local_time = time.with_timezone(&Local);
+    #[cfg(feature = "log")]
     debug!(
         "UTC time: {:02}:{:02}:{:02}",
         time.hour(),
         time.minute(),
         time.second()
     );
+    #[cfg(feature = "log")]
     debug!(
         "{} time: {:02}:{:02}:{:02}",
         local_time.offset(),
