@@ -20,12 +20,12 @@ exclude = [
 [features]
 default = ["std"]
 std = []
-utils = ["chrono/clock"]
+utils = ["std", "chrono/clock"]
 
 [dependencies]
 log = { version = "~0.4", optional = true }
-clap = { version = "2.33", default-features=false, optional = true }
-chrono = { version = "~0.4", default-features=false, optional = true }
+clap = { version = "2.33", default-features = false, optional = true }
+chrono = { version = "~0.4", default-features = false, optional = true }
 # requred till this https://github.com/rust-lang/rfcs/pull/2832 is not addressed
 no-std-net = "~0.5"
 
@@ -41,4 +41,4 @@ required-features = ["std"]
 
 [[example]]
 name = "timesync"
-required-features = ["std", "clap", "utils"]
+required-features = ["clap", "utils"]
