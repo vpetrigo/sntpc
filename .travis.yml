@@ -2,6 +2,10 @@ language: rust
 
 os: linux
 
+branches:
+  only:
+    - master
+
 rust:
   - stable
   - beta
