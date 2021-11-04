@@ -745,8 +745,7 @@ mod sntpc_ntp_result_tests {
 mod sntpc_tests {
     use crate::net::{SocketAddr, ToSocketAddrs};
     use crate::{
-        request_with_addrs, Error, NtpContext, NtpTimestamp,
-        NtpUdpSocket
+        request_with_addrs, Error, NtpContext, NtpTimestamp, NtpUdpSocket,
     };
     use std::net::UdpSocket;
 
