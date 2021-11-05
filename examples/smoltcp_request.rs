@@ -1,6 +1,10 @@
+use core::default::Default;
+
+use std::collections::BTreeMap;
+use std::os::unix::prelude::AsRawFd;
+
 use smoltcp::iface::{EthernetInterfaceBuilder, NeighborCache, Routes};
 use smoltcp::phy::wait;
-use smoltcp::phy::Device;
 use smoltcp::phy::TapInterface;
 use smoltcp::socket::{SocketSet, UdpSocket, UdpSocketBuffer};
 use smoltcp::storage::PacketMetadata;
@@ -8,26 +12,79 @@ use smoltcp::time::Instant;
 use smoltcp::wire::{
     EthernetAddress, IpAddress, IpCidr, IpEndpoint, Ipv4Address,
 };
-use std::borrow::BorrowMut;
-use std::collections::BTreeMap;
-use std::os::unix::prelude::AsRawFd;
+
+use sntpc::{self, Error, NtpTimestamp, NtpUdpSocket};
+
+struct Buffers {
+    rx_meta: [PacketMetadata<IpEndpoint>; 4],
+    tx_meta: [PacketMetadata<IpEndpoint>; 4],
+    rx_buffer: [u8; 64],
+    tx_buffer: [u8; 64],
+}
+
+impl Default for Buffers {
+    fn default() -> Self {
+        Buffers {
+            rx_meta: [PacketMetadata::<IpEndpoint>::EMPTY; 4],
+            tx_meta: [PacketMetadata::<IpEndpoint>::EMPTY; 4],
+            rx_buffer: [0u8; 64],
+            tx_buffer: [0u8; 64],
+        }
+    }
+}
+
+struct UdpSocketBuffers<'a> {
+    rx: UdpSocketBuffer<'a>,
+    tx: UdpSocketBuffer<'a>,
+}
+
+impl<'a> UdpSocketBuffers<'a> {
+    fn new(buffers: &'a mut Buffers) -> Self {
+        UdpSocketBuffers {
+            rx: UdpSocketBuffer::new(
+                buffers.rx_meta.as_mut(),
+                buffers.rx_buffer.as_mut(),
+            ),
+            tx: UdpSocketBuffer::new(
+                buffers.tx_meta.as_mut(),
+                buffers.tx_buffer.as_mut(),
+            ),
+        }
+    }
+}
+
+#[derive(Copy, Clone, Default)]
+struct StdTimestampGen {
+    duration: std::time::Duration,
+}
+
+impl NtpTimestamp for StdTimestampGen {
+    fn init(&mut self) {
+        self.duration = std::time::SystemTime::now()
+            .duration_since(std::time::SystemTime::UNIX_EPOCH)
+            .unwrap();
+    }
+
+    fn timestamp_sec(&self) -> u64 {
+        self.duration.as_secs()
+    }
+
+    fn timestamp_subsec_micros(&self) -> u32 {
+        self.duration.subsec_micros()
+    }
+}
 
 fn main() {
     const APP_PORT: u16 = 6666;
     let interface_name = "tap0";
     let tuntap =
         TapInterface::new(interface_name).expect("Cannot create TAP interface");
-    let to_address = "192.168.69.1";
     let to_port = 123;
-    let mut rx_meta = [PacketMetadata::<IpEndpoint>::EMPTY; 4];
-    let mut tx_meta = [PacketMetadata::<IpEndpoint>::EMPTY; 4];
-    let mut rx_buffer = [0u8; 256];
-    let mut tx_buffer = [0u8; 64];
-    let rx_sock_buffer =
-        UdpSocketBuffer::new(rx_meta.as_mut(), rx_buffer.as_mut());
-    let tx_sock_buffer =
-        UdpSocketBuffer::new(tx_meta.as_mut(), tx_buffer.as_mut());
-    let mut socket = UdpSocket::new(rx_sock_buffer, tx_sock_buffer);
+
+    let mut buffer = Buffers::default();
+    let udp_buffer = UdpSocketBuffers::new(&mut buffer);
+
+    let socket = UdpSocket::new(udp_buffer.rx, udp_buffer.tx);
     let ethernet_addr = EthernetAddress([0x02, 0x00, 0x00, 0x00, 0x00, 0x02]);
     let ip_addrs = [IpCidr::new(IpAddress::v4(192, 168, 69, 1), 24)];
     let default_v4_gw = Ipv4Address::new(192, 168, 69, 100);
@@ -76,6 +133,7 @@ fn main() {
         wait(
             iface.device().as_raw_fd(),
             iface.poll_delay(&sockets, Instant::from_secs(5)),
-        ).unwrap();
+        )
+        .unwrap();
     }
 }
