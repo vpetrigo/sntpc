@@ -32,7 +32,7 @@ no-std-net = "~0.5"
 
 [dev-dependencies]
 simple_logger = { version = "~1.13" }
-smoltcp = { version = "~0.7", disable-defaults = true, features = ["phy-tap_interface", "socket-udp", "proto-ipv4"] }
+smoltcp = { version = "~0.7", default-features = false, features = ["phy-tap_interface", "socket-udp", "proto-ipv4"] }
 
 [badges]
 travis-ci = { repository = "vpetrigo/sntpc", branch = "master" }
@@ -47,3 +47,4 @@ required-features = ["clap", "utils"]
 
 [[example]]
 name = "smoltcp_request"
+required-features = ["std"]
