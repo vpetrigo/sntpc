@@ -167,6 +167,7 @@ struct NtpPacket {
 /// The error type for SNTP client
 /// Errors originate on network layer or during processing response from a NTP server
 #[derive(Debug, PartialEq)]
+#[non_exhaustive]
 pub enum Error {
     /// Origin timestamp value in a NTP response differs from the value
     /// that has been sent in the NTP request
