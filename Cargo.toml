@@ -10,6 +10,7 @@ keywords = ["sntp", "ntp", "sntp-client", "ntp-client"]
 license = "BSD-3-Clause"
 authors = ["Vladimir Petrigo <vladimir.petrigo@gmail.com>"]
 edition = "2018"
+autoexamples = false
 
 exclude = [
     ".github/*",
@@ -31,6 +32,7 @@ no-std-net = "~0.5"
 
 [dev-dependencies]
 simple_logger = { version = "~1.13" }
+smoltcp = { version = "~0.7", disable-defaults = true, features = ["phy-tap_interface", "socket-udp", "proto-ipv4"] }
 
 [badges]
 travis-ci = { repository = "vpetrigo/sntpc", branch = "master" }
@@ -42,3 +44,6 @@ required-features = ["std"]
 [[example]]
 name = "timesync"
 required-features = ["clap", "utils"]
+
+[[example]]
+name = "smoltcp_request"
