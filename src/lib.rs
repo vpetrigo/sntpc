@@ -612,19 +612,20 @@ fn process_response(
     if packet.stratum == 0 {
         return Err(Error::IncorrectStratumHeaders);
     }
-    //    theta = T(B) - T(A) = 1/2 * [(T2-T1) + (T3-T4)]
-    //    and the round-trip delay
-    //    delta = T(ABA) = (T4-T1) - (T3-T2).
-    //    where:
-    //      - T1 = client's TX timestamp
-    //      - T2 = server's RX timestamp
-    //      - T3 = server's TX timestamp
-    //      - T4 = client's RX timestamp
+    // System clock offset:
+    // theta = T(B) - T(A) = 1/2 * [(T2-T1) + (T3-T4)]
+    // Round-trip delay:
+    // delta = T(ABA) = (T4-T1) - (T3-T2).
+    // where:
+    // - T1 = client's TX timestamp
+    // - T2 = server's RX timestamp
+    // - T3 = server's TX timestamp
+    // - T4 = client's RX timestamp
     let delta = (recv_timestamp - packet.origin_timestamp) as i64
         - (packet.tx_timestamp - packet.recv_timestamp) as i64;
     let theta = ((packet.recv_timestamp as i64
         - packet.origin_timestamp as i64)
-        + (recv_timestamp as i64 - packet.tx_timestamp as i64))
+        + (packet.tx_timestamp as i64 - recv_timestamp as i64))
         / 2;
 
     #[cfg(feature = "log")]
@@ -665,9 +666,13 @@ fn debug_ntp_packet(packet: &NtpPacket) {
     {
         use core::str;
 
-        unsafe {
-            debug!("{}", str::from_utf8_unchecked(&[b'='; 52]));
-        }
+        let delimiter_gen = || {
+            unsafe {
+                str::from_utf8_unchecked(&[b'='; 52])
+            }
+        };
+
+        debug!("{}", delimiter_gen());
         debug!("| Mode:\t\t{}", mode);
         debug!("| Version:\t{}", version);
         debug!("| Leap:\t\t{}", li);
@@ -684,9 +689,7 @@ fn debug_ntp_packet(packet: &NtpPacket) {
         debug!("| Origin timestamp:\t\t{:>16}", packet.origin_timestamp);
         debug!("| Receive timestamp:\t\t{:>16}", packet.recv_timestamp);
         debug!("| Transmit timestamp:\t\t{:>16}", packet.tx_timestamp);
-        unsafe {
-            debug!("{}", str::from_utf8_unchecked(&[b'='; 52]));
-        }
+        debug!("{}", delimiter_gen());
     }
 }
 
