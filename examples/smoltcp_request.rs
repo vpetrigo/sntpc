@@ -111,8 +111,6 @@ impl<'a, 'b> NtpUdpSocket for SmoltcpUdpSocketWrapper<'a, 'b> {
                 SocketAddr::V6(_) => return Err(Error::Network),
             };
 
-            println!("{}", endpoint);
-
             if let Ok(_) =
                 self.socket.borrow_mut().send_slice(&buf[..], endpoint)
             {
@@ -159,7 +157,8 @@ fn main() {
     let mut buffer = Buffers::default();
     let udp_buffer = UdpSocketBuffers::new(&mut buffer);
 
-    let socket = UdpSocket::new(udp_buffer.rx, udp_buffer.tx);
+    let mut socket = UdpSocket::new(udp_buffer.rx, udp_buffer.tx);
+    socket.bind(APP_PORT).unwrap();
     // TODO: Add support for setting ethernet MAC, IP address and gateway addresses via env/CLI
     let ethernet_addr = EthernetAddress([0x02, 0x00, 0x00, 0x00, 0x00, 0x02]);
     let ip_addrs = [IpCidr::new(IpAddress::v4(192, 168, 69, 1), 24)];
@@ -182,61 +181,76 @@ fn main() {
     let mut sockets = SocketSet::new(socket_items.as_mut());
 
     let udp_handle = sockets.add(socket);
-    let mut counter = 0;
-    let mut once = true;
+    let mut once_tx = true;
+    let mut once_rx = true;
+    let mut send_result = Option::None;
 
-    loop {
+    while once_rx {
         let timestamp = Instant::now();
 
         match iface.poll(&mut sockets, timestamp) {
-            Ok(_) => println!("Poll ok!"),
-            Err(e) => println!("Poll error: {}!", e),
+            Ok(_) => log::trace!("Poll ok!"),
+            Err(e) => log::trace!("Poll error: {}!", e),
         }
 
-        std::thread::sleep(std::time::Duration::from_secs(2));
-
         {
-            {
-                let mut socket = sockets.get::<UdpSocket>(udp_handle);
-                if !socket.is_open() {
-                    socket.bind(APP_PORT).unwrap();
-                }
-            }
-
-            // let ep =
-            //     IpEndpoint::from((IpAddress::v4(192, 168, 69, 100), to_port));
-            // let to_send = format!("Hello {}\n", counter);
-            if once {
+            if once_tx && sockets.get::<UdpSocket>(udp_handle).can_send() {
                 // once = false;
+                once_tx = false;
                 let sock_wrapper = SmoltcpUdpSocketWrapper {
                     socket: RefCell::new(sockets.get::<UdpSocket>(udp_handle)),
                 };
                 let context = NtpContext::new(StdTimestampGen::default());
-                let result = sntpc::request_with_addrs(
+                let result = sntpc::sntp_send_request(
                     SocketAddr::new(
                         IpAddr::V4(Ipv4Addr::new(216, 239, 35, 8)),
                         to_port,
                     ),
-                    sock_wrapper,
+                    &sock_wrapper,
                     context,
                 );
 
-                println!("{:?}", result);
-            } else {
-                let mut socket = sockets.get::<UdpSocket>(udp_handle);
-                let mut buf = [0u8; 48];
-                socket.recv_slice(&mut buf);
+                match result {
+                    Ok(result) => {
+                        send_result = Some(result);
+                    }
+                    Err(e) => {
+                        log::error!("send error: {:?}", e);
+                        once_tx = true;
+                    }
+                }
 
-                println!("{:?}", buf);
+                log::trace!("{:?}", &result);
             }
 
-            counter += 1;
-            // socket.send_slice(to_send.as_bytes(), ep).unwrap();
+            if once_rx
+                && sockets.get::<UdpSocket>(udp_handle).can_recv()
+                && send_result.is_some()
+            {
+                once_rx = false;
+
+                let sock_wrapper = SmoltcpUdpSocketWrapper {
+                    socket: RefCell::new(sockets.get::<UdpSocket>(udp_handle)),
+                };
+                let context = NtpContext::new(StdTimestampGen::default());
+
+                let result = sntpc::sntp_process_response(
+                    SocketAddr::new(
+                        IpAddr::V4(Ipv4Addr::new(216, 239, 35, 8)),
+                        to_port,
+                    ),
+                    &sock_wrapper,
+                    context,
+                    send_result.unwrap(),
+                );
+
+                log::info!("{:?}", result);
+            }
         }
 
         wait(
             iface.device().as_raw_fd(),
-            iface.poll_delay(&sockets, Instant::from_secs(5)),
+            iface.poll_delay(&sockets, Instant::from_secs(1)),
         )
         .unwrap();
     }
