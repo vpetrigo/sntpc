@@ -207,9 +207,9 @@ pub struct NtpResult {
     pub sec: u32,
     /// NTP server nanoseconds value
     pub nsec: u32,
-    /// Request roundtrip time
+    /// Request roundtrip time in nanoseconds
     pub roundtrip: u64,
-    /// Offset of the current system time with one received from a NTP server
+    /// Offset of the current system time with one received from a NTP server in nanoseconds
     pub offset: i64,
 }
 
@@ -780,13 +780,13 @@ fn process_response(
     const SNTP_UNICAST: u8 = 4;
     const SNTP_BROADCAST: u8 = 5;
     const LI_MAX_VALUE: u8 = 3;
-    const MSEC_MASK: u64 = 0x0000_0000_ffff_ffff;
+    const NSEC_MASK: u64 = 0x0000_0000_ffff_ffff;
     let shifter = |val, mask, shift| (val & mask) >> shift;
     let mut packet = NtpPacket::from(resp);
 
     convert_from_network(&mut packet);
     #[cfg(debug_assertions)]
-    debug_ntp_packet(&packet);
+    debug_ntp_packet(&packet, recv_timestamp);
 
     if send_req_result.originate_timestamp != packet.origin_timestamp {
         return Err(Error::IncorrectOriginTimestamp);
@@ -830,10 +830,10 @@ fn process_response(
         / 2;
 
     #[cfg(feature = "log")]
-    debug!("Roundtrip delay: {} us. Offset: {} us", delta.abs(), theta);
+    debug!("Roundtrip delay: {} us. Offset: {} us", delta.abs() as f32 / 1000f32, theta as f32 / 1000f32);
 
     let seconds = (packet.tx_timestamp >> 32) as u32;
-    let nsec = (packet.tx_timestamp & MSEC_MASK) as u32;
+    let nsec = (packet.tx_timestamp & NSEC_MASK) as u32;
     let tx_tm = seconds - NtpPacket::NTP_TIMESTAMP_DELTA;
 
     Ok(NtpResult::new(tx_tm, nsec, delta.abs() as u64, theta))
@@ -854,7 +854,7 @@ fn convert_from_network(packet: &mut NtpPacket) {
 }
 
 #[cfg(debug_assertions)]
-fn debug_ntp_packet(packet: &NtpPacket) {
+fn debug_ntp_packet(packet: &NtpPacket, _recv_timestamp: u64) {
     let shifter = |val, mask, shift| (val & mask) >> shift;
     #[allow(unused)]
     let mode = shifter(packet.li_vn_mode, MODE_MASK, MODE_SHIFT);
@@ -882,10 +882,11 @@ fn debug_ntp_packet(packet: &NtpPacket) {
             "| Reference ID:\t\t{}",
             str::from_utf8(&packet.ref_id.to_be_bytes()).unwrap_or("")
         );
-        debug!("| Reference timestamp:\t{:>16}", packet.ref_timestamp);
-        debug!("| Origin timestamp:\t\t{:>16}", packet.origin_timestamp);
-        debug!("| Receive timestamp:\t\t{:>16}", packet.recv_timestamp);
-        debug!("| Transmit timestamp:\t\t{:>16}", packet.tx_timestamp);
+        debug!("| Origin timestamp    (client):\t{:>16}", packet.origin_timestamp);
+        debug!("| Receive timestamp   (server):\t{:>16}", packet.recv_timestamp);
+        debug!("| Transmit timestamp  (server):\t{:>16}", packet.tx_timestamp);
+        debug!("| Receive timestamp   (client):\t{:>16}", packet.recv_timestamp);
+        debug!("| Reference timestamp (server):\t{:>16}", packet.ref_timestamp);
         debug!("{}", delimiter_gen());
     }
 }
