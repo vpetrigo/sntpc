@@ -1,11 +1,11 @@
 //! Demonstrates how to make a single NTP request to a NTP server of interest
 //!
-//! Example provides a basic implementation of [`NtpTimestamp`] and [`NtpUdpSocket`]
+//! Example provides a basic implementation of [`NtpTimestampGenerator`] and [`NtpUdpSocket`]
 //! required for the `sntpc` library
 #[cfg(feature = "log")]
 use simple_logger;
 use sntpc;
-use sntpc::{Error, NtpContext, NtpTimestamp, NtpUdpSocket};
+use sntpc::{Error, NtpContext, NtpTimestampGenerator, NtpUdpSocket};
 use std::net::{SocketAddr, ToSocketAddrs, UdpSocket};
 use std::time::Duration;
 use std::{thread, time};
@@ -20,7 +20,7 @@ struct StdTimestampGen {
     duration: Duration,
 }
 
-impl NtpTimestamp for StdTimestampGen {
+impl NtpTimestampGenerator for StdTimestampGen {
     fn init(&mut self) {
         self.duration = std::time::SystemTime::now()
             .duration_since(std::time::SystemTime::UNIX_EPOCH)

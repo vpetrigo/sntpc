@@ -42,7 +42,7 @@
 //! and timestamp generator:
 //! - [`NtpUdpSocket`] trait should be implemented for `UdpSocket`-like objects for the
 //! library to be able to send and receive data from NTP servers
-//! - [`NtpTimestamp`] trait should be implemented for timestamp generator objects to
+//! - [`NtpTimestampGenerator`] trait should be implemented for timestamp generator objects to
 //! provide the library with system related timestamps
 //!
 //! ## Logging support
@@ -53,7 +53,7 @@
 //! # Example
 //!
 //! ```rust
-//! use sntpc::{Error, NtpContext, NtpTimestamp, NtpUdpSocket, Result};
+//! use sntpc::{Error, NtpContext, NtpTimestampGenerator, NtpUdpSocket, Result};
 //! #[cfg(not(feature = "std"))]
 //! use no_std_net::{SocketAddr, ToSocketAddrs, IpAddr, Ipv4Addr};
 //! #[cfg(feature = "std")]
@@ -65,7 +65,7 @@
 //!     duration: Duration,
 //! }
 //!
-//! impl NtpTimestamp for StdTimestampGen {
+//! impl NtpTimestampGenerator for StdTimestampGen {
 //!     fn init(&mut self) {
 //!         self.duration = std::time::SystemTime::now()
 //!             .duration_since(std::time::SystemTime::UNIX_EPOCH)
@@ -281,7 +281,7 @@ impl NtpPacket {
     const SNTP_CLIENT_MODE: u8 = 3;
     const SNTP_VERSION: u8 = 4 << 3;
 
-    pub fn new<T: NtpTimestamp>(mut timestamp_gen: T) -> NtpPacket {
+    pub fn new<T: NtpTimestampGenerator>(mut timestamp_gen: T) -> NtpPacket {
         timestamp_gen.init();
         let tx_timestamp = get_ntp_timestamp(timestamp_gen);
 
@@ -310,7 +310,7 @@ impl NtpPacket {
 /// you can implement that trait on an object you want and provide proper system
 /// timestamps for the SNTP client. According to specs, all timestamps calculated from
 /// UNIX EPOCH "_1970-01-01 00:00:00 UTC_"
-pub trait NtpTimestamp {
+pub trait NtpTimestampGenerator {
     /// Initialize timestamp generator state with `now` system time since UNIX EPOCH.
     /// Expected to be called every time before `timestamp_sec` and
     /// `timestamp_subsec_micros` usage. Basic flow would be the following:
@@ -362,11 +362,11 @@ pub trait NtpUdpSocket {
 /// SNTP client context that contains of objects that may be required for client's
 /// operation
 #[derive(Copy, Clone)]
-pub struct NtpContext<T: NtpTimestamp> {
+pub struct NtpContext<T: NtpTimestampGenerator> {
     pub timestamp_gen: T,
 }
 
-impl<T: NtpTimestamp + Copy> NtpContext<T> {
+impl<T: NtpTimestampGenerator + Copy> NtpContext<T> {
     /// Create SNTP client context with the given timestamp generator
     pub fn new(timestamp_gen: T) -> Self {
         NtpContext { timestamp_gen }
@@ -491,7 +491,7 @@ impl From<&NtpPacket> for RawNtpPacket {
 ///
 /// May be useful under an environment with `std` networking implementation, where all
 /// network stuff is hidden within system's kernel. For environment with custom
-/// Uses [`NtpUdpSocket`] and [`NtpTimestamp`] trait bounds to allow generic specification
+/// Uses [`NtpUdpSocket`] and [`NtpTimestampGenerator`] trait bounds to allow generic specification
 /// of objects that can be used with the library
 /// **Args:**
 /// - `pool_addrs` - Server's name or IP address with port specification as a string
@@ -502,7 +502,7 @@ impl From<&NtpPacket> for RawNtpPacket {
 /// # Example
 ///
 /// ```rust
-/// use sntpc::{self, NtpContext, NtpTimestamp, Result};
+/// use sntpc::{self, NtpContext, NtpTimestampGenerator, Result};
 /// use std::time::Duration;
 /// # #[cfg(not(feature = "std"))]
 /// # use no_std_net::{SocketAddr, ToSocketAddrs, IpAddr, Ipv4Addr};
@@ -552,7 +552,7 @@ impl From<&NtpPacket> for RawNtpPacket {
 ///     duration: Duration,
 /// }
 ///
-/// impl NtpTimestamp for StdTimestampGen {
+/// impl NtpTimestampGenerator for StdTimestampGen {
 ///     fn init(&mut self) {
 ///         self.duration = std::time::SystemTime::now()
 ///             .duration_since(std::time::SystemTime::UNIX_EPOCH)
@@ -585,7 +585,7 @@ pub fn get_time<A, U, T>(
 where
     A: net::ToSocketAddrs + Copy + Debug,
     U: NtpUdpSocket + Debug,
-    T: NtpTimestamp + Copy,
+    T: NtpTimestampGenerator + Copy,
 {
     let result = sntp_send_request(pool_addrs, &socket, context)?;
 
@@ -604,7 +604,7 @@ where
 /// # Example
 ///
 /// ```
-/// use sntpc::{self, NtpContext, NtpTimestamp, Result};
+/// use sntpc::{self, NtpContext, NtpTimestampGenerator, Result};
 /// # use std::time::Duration;
 /// # use std::str::FromStr;
 /// # #[cfg(not(feature = "std"))]
@@ -655,7 +655,7 @@ where
 /// #     duration: Duration,
 /// # }
 /// #
-/// # impl NtpTimestamp for StdTimestampGen {
+/// # impl NtpTimestampGenerator for StdTimestampGen {
 /// #     fn init(&mut self) {
 /// #         self.duration = std::time::SystemTime::now()
 /// #             .duration_since(std::time::SystemTime::UNIX_EPOCH)
@@ -687,7 +687,7 @@ pub fn sntp_send_request<A, U, T>(
 where
     A: net::ToSocketAddrs + Debug,
     U: NtpUdpSocket + Debug,
-    T: NtpTimestamp + Copy,
+    T: NtpTimestampGenerator + Copy,
 {
     #[cfg(feature = "log")]
     debug!("Address: {:?}, Socket: {:?}", dest, *socket);
@@ -712,7 +712,7 @@ where
 ///
 /// # Example
 /// ```
-/// use sntpc::{self, NtpContext, NtpTimestamp, Result};
+/// use sntpc::{self, NtpContext, NtpTimestampGenerator, Result};
 /// # use std::time::Duration;
 /// # use std::str::FromStr;
 /// # #[cfg(not(feature = "std"))]
@@ -763,7 +763,7 @@ where
 /// #     duration: Duration,
 /// # }
 /// #
-/// # impl NtpTimestamp for StdTimestampGen {
+/// # impl NtpTimestampGenerator for StdTimestampGen {
 /// #     fn init(&mut self) {
 /// #         self.duration = std::time::SystemTime::now()
 /// #             .duration_since(std::time::SystemTime::UNIX_EPOCH)
@@ -798,7 +798,7 @@ pub fn sntp_process_response<A, U, T>(
 where
     A: net::ToSocketAddrs + Debug,
     U: NtpUdpSocket + Debug,
-    T: NtpTimestamp + Copy,
+    T: NtpTimestampGenerator + Copy,
 {
     let mut response_buf = RawNtpPacket::default();
     let (response, src) = socket.recv_from(response_buf.0.as_mut())?;
@@ -911,7 +911,7 @@ fn process_response(
 
     #[cfg(feature = "log")]
     debug!(
-        "Roundtrip delay: {} us. Offset: {} us",
+        "Roundtrip delay: {} ms. Offset: {} us",
         delta.abs() as f32 / 1000f32,
         theta as f32 / 1000f32
     );
@@ -990,7 +990,7 @@ fn debug_ntp_packet(packet: &NtpPacket, _recv_timestamp: u64) {
     }
 }
 
-fn get_ntp_timestamp<T: NtpTimestamp>(timestamp_gen: T) -> u64 {
+fn get_ntp_timestamp<T: NtpTimestampGenerator>(timestamp_gen: T) -> u64 {
     let timestamp = ((timestamp_gen.timestamp_sec()
         + (u64::from(NtpPacket::NTP_TIMESTAMP_DELTA)))
         << 32)
@@ -1045,7 +1045,7 @@ mod sntpc_ntp_result_tests {
 #[cfg(all(test, feature = "std"))]
 mod sntpc_tests {
     use crate::net::{SocketAddr, ToSocketAddrs};
-    use crate::{get_time, Error, NtpContext, NtpTimestamp, NtpUdpSocket};
+    use crate::{get_time, Error, NtpContext, NtpTimestampGenerator, NtpUdpSocket};
     use std::net::UdpSocket;
 
     impl NtpUdpSocket for UdpSocket {
@@ -1074,7 +1074,7 @@ mod sntpc_tests {
     #[derive(Copy, Clone, Default)]
     struct StdTimestampGen(std::time::Duration);
 
-    impl NtpTimestamp for StdTimestampGen {
+    impl NtpTimestampGenerator for StdTimestampGen {
         fn init(&mut self) {
             self.0 = std::time::SystemTime::now()
                 .duration_since(std::time::SystemTime::UNIX_EPOCH)

@@ -20,7 +20,7 @@ use smoltcp::wire::{
 
 use clap::{crate_version, App, Arg};
 
-use sntpc::{self, Error, NtpContext, NtpTimestamp, NtpUdpSocket};
+use sntpc::{self, Error, NtpContext, NtpTimestampGenerator, NtpUdpSocket};
 
 #[cfg(feature = "log")]
 use log;
@@ -70,7 +70,7 @@ struct StdTimestampGen {
     duration: std::time::Duration,
 }
 
-impl NtpTimestamp for StdTimestampGen {
+impl NtpTimestampGenerator for StdTimestampGen {
     fn init(&mut self) {
         self.duration = std::time::SystemTime::now()
             .duration_since(std::time::SystemTime::UNIX_EPOCH)

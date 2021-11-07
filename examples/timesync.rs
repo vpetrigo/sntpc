@@ -17,7 +17,7 @@
 //! cargo run --example timesync --features="std clap utils" -- -s pool.ntp.org -p 123
 //! ```
 //!
-//! Example provides a basic implementation of [`NtpTimestamp`] and [`NtpUdpSocket`]
+//! Example provides a basic implementation of [`NtpTimestampGenerator`] and [`NtpUdpSocket`]
 //! required for the [`sntpc`] library
 use std::net::{SocketAddr, ToSocketAddrs, UdpSocket};
 use std::str::FromStr;
@@ -26,7 +26,7 @@ use std::time::Duration;
 use clap::{crate_version, App, Arg};
 #[cfg(feature = "log")]
 use simple_logger;
-use sntpc::{Error, NtpContext, NtpTimestamp, NtpUdpSocket};
+use sntpc::{Error, NtpContext, NtpTimestampGenerator, NtpUdpSocket};
 
 const GOOGLE_NTP_ADDR: &str = "time.google.com";
 
@@ -35,7 +35,7 @@ struct StdTimestampGen {
     duration: Duration,
 }
 
-impl NtpTimestamp for StdTimestampGen {
+impl NtpTimestampGenerator for StdTimestampGen {
     fn init(&mut self) {
         self.duration = std::time::SystemTime::now()
             .duration_since(std::time::SystemTime::UNIX_EPOCH)
