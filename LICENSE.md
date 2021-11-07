@@ -1,4 +1,4 @@
-Copyright (c) 2019 Vladimir Petrigo <taenaru@gmail.com>. All rights reserved.
+Copyright (c) 2019-2021 Vladimir Petrigo <vladimir.petrigo@gmail.com>. All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification, are permitted
 provided that the following conditions are met:
