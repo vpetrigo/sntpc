@@ -127,7 +127,7 @@ fn main() {
     let ntp_context = NtpContext::new(StdTimestampGen::default());
 
     let time =
-        sntpc::request_with_addrs(ntp_addr.as_str(), sock_wrapper, ntp_context)
+        sntpc::get_time(ntp_addr.as_str(), sock_wrapper, ntp_context)
             .expect(
                 format!("Unable to receive time from: {}", ntp_addr).as_str(),
             );
