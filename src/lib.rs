@@ -830,7 +830,11 @@ fn process_response(
         / 2;
 
     #[cfg(feature = "log")]
-    debug!("Roundtrip delay: {} us. Offset: {} us", delta.abs() as f32 / 1000f32, theta as f32 / 1000f32);
+    debug!(
+        "Roundtrip delay: {} us. Offset: {} us",
+        delta.abs() as f32 / 1000f32,
+        theta as f32 / 1000f32
+    );
 
     let seconds = (packet.tx_timestamp >> 32) as u32;
     let nsec = (packet.tx_timestamp & NSEC_MASK) as u32;
@@ -882,11 +886,26 @@ fn debug_ntp_packet(packet: &NtpPacket, _recv_timestamp: u64) {
             "| Reference ID:\t\t{}",
             str::from_utf8(&packet.ref_id.to_be_bytes()).unwrap_or("")
         );
-        debug!("| Origin timestamp    (client):\t{:>16}", packet.origin_timestamp);
-        debug!("| Receive timestamp   (server):\t{:>16}", packet.recv_timestamp);
-        debug!("| Transmit timestamp  (server):\t{:>16}", packet.tx_timestamp);
-        debug!("| Receive timestamp   (client):\t{:>16}", packet.recv_timestamp);
-        debug!("| Reference timestamp (server):\t{:>16}", packet.ref_timestamp);
+        debug!(
+            "| Origin timestamp    (client):\t{:>16}",
+            packet.origin_timestamp
+        );
+        debug!(
+            "| Receive timestamp   (server):\t{:>16}",
+            packet.recv_timestamp
+        );
+        debug!(
+            "| Transmit timestamp  (server):\t{:>16}",
+            packet.tx_timestamp
+        );
+        debug!(
+            "| Receive timestamp   (client):\t{:>16}",
+            packet.recv_timestamp
+        );
+        debug!(
+            "| Reference timestamp (server):\t{:>16}",
+            packet.ref_timestamp
+        );
         debug!("{}", delimiter_gen());
     }
 }
@@ -946,9 +965,7 @@ mod sntpc_ntp_result_tests {
 #[cfg(all(test, feature = "std"))]
 mod sntpc_tests {
     use crate::net::{SocketAddr, ToSocketAddrs};
-    use crate::{
-        get_time, Error, NtpContext, NtpTimestamp, NtpUdpSocket,
-    };
+    use crate::{get_time, Error, NtpContext, NtpTimestamp, NtpUdpSocket};
     use std::net::UdpSocket;
 
     impl NtpUdpSocket for UdpSocket {
