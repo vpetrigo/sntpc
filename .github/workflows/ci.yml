@@ -20,4 +20,4 @@ jobs:
       - name: Run tests with std
         run: cargo test
       - name: Run tests with no_std
-          run: cargo test --no-default-features
+        run: cargo test --no-default-features
