@@ -47,4 +47,4 @@ required-features = ["clap", "utils"]
 
 [[example]]
 name = "smoltcp_request"
-required-features = ["std"]
+required-features = ["std", "clap"]
