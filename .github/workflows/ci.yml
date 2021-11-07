@@ -1,0 +1,23 @@
+name: 'sntpc test'
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Build with std
+        run: cargo build --all --no-default-features --features="std utils clap"
+      - name: Build with no_std
+        run: cargo build --all --no-default-features
+      - name: Run tests with std
+        run: cargo test
+      - name: Run tests with no_std
+          run: cargo test --no-default-features
