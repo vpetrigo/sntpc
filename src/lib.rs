@@ -53,7 +53,10 @@
 //! # Example
 //!
 //! ```rust
-//! use sntpc::{Error, NtpContext, NtpTimestamp, NtpUdpSocket};
+//! use sntpc::{Error, NtpContext, NtpTimestamp, NtpUdpSocket, Result};
+//! #[cfg(not(feature = "std"))]
+//! use no_std_net::{SocketAddr, ToSocketAddrs, IpAddr, Ipv4Addr};
+//! #[cfg(feature = "std")]
 //! use std::net::{SocketAddr, ToSocketAddrs, UdpSocket};
 //! use std::time::Duration;
 //!
@@ -78,6 +81,25 @@
 //!     }
 //! }
 //!
+//! # #[cfg(not(feature = "std"))]
+//! # #[derive(Debug)]
+//! # struct UdpSocket;
+//! # #[cfg(not(feature = "std"))]
+//! # impl UdpSocket {
+//! #     fn bind(addr: &str) -> Result<Self> {
+//! #         Ok(UdpSocket)
+//! #     }
+//! #     fn send_to<T: ToSocketAddrs>(&self, buf: &[u8], dest: T) -> Result<usize> {
+//! #         Ok(0usize)
+//! #     }
+//! #     fn recv_from(&self, buf: &mut [u8]) -> Result<(usize, SocketAddr)> {
+//! #         Ok((0usize, SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 0)))
+//! #     }
+//! #     fn set_read_timeout<T>(&self, _arg: T) -> Result<()> {
+//! #         Ok(())
+//! #     }
+//! # }
+//!
 //! #[derive(Debug)]
 //! struct UdpSocketWrapper(UdpSocket);
 //!
@@ -86,14 +108,14 @@
 //!         &self,
 //!         buf: &[u8],
 //!         addr: T,
-//!     ) -> Result<usize, Error> {
+//!     ) -> Result<usize> {
 //!         match self.0.send_to(buf, addr) {
 //!             Ok(usize) => Ok(usize),
 //!             Err(_) => Err(Error::Network),
 //!         }
 //!     }
 //!
-//!     fn recv_from(&self, buf: &mut [u8]) -> Result<(usize, SocketAddr), Error> {
+//!     fn recv_from(&self, buf: &mut [u8]) -> Result<(usize, SocketAddr)> {
 //!         match self.0.recv_from(buf) {
 //!             Ok((size, addr)) => Ok((size, addr)),
 //!             Err(_) => Err(Error::Network),
@@ -109,9 +131,10 @@
 //!        .expect("Unable to set UDP socket read timeout");
 //!     let sock_wrapper = UdpSocketWrapper(socket);
 //!     let ntp_context = NtpContext::new(StdTimestampGen::default());
+//!     # #[cfg(feature = "std")]
 //!     let result =
 //!         sntpc::get_time("time.google.com:123", sock_wrapper, ntp_context);
-//!
+//!     # #[cfg(feature = "std")]
 //!     match result {
 //!        Ok(time) => {
 //!            println!("Got time: {}.{}", time.sec(), time.nsec());
@@ -480,31 +503,49 @@ impl From<&NtpPacket> for RawNtpPacket {
 ///
 /// ```rust
 /// use sntpc::{self, NtpContext, NtpTimestamp, Result};
-/// use std::net::{UdpSocket, ToSocketAddrs, SocketAddr};
 /// use std::time::Duration;
+/// # #[cfg(not(feature = "std"))]
+/// # use no_std_net::{SocketAddr, ToSocketAddrs, IpAddr, Ipv4Addr};
+/// # #[cfg(feature = "std")]
+/// # use std::net::{SocketAddr, ToSocketAddrs, UdpSocket, IpAddr, Ipv4Addr};
+/// # #[cfg(not(feature = "std"))]
+/// # #[derive(Debug)]
+/// # struct UdpSocket;
+/// # #[cfg(not(feature = "std"))]
+/// # impl UdpSocket {
+/// #     fn bind(addr: &str) -> Result<Self> {
+/// #         Ok(UdpSocket)
+/// #     }
+/// #     fn send_to<T: ToSocketAddrs>(&self, buf: &[u8], dest: T) -> Result<usize> {
+/// #        Ok(0usize)
+/// #     }
+/// #     fn recv_from(&self, buf: &mut [u8]) -> Result<(usize, SocketAddr)> {
+/// #        Ok((0usize, SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 0)))
+/// #     }
+/// # }
 /// // implement required trait on network objects
-/// #[derive(Debug)]
-/// struct UdpSocketWrapper(UdpSocket);
-///
-/// impl sntpc::NtpUdpSocket for UdpSocketWrapper {
-///     fn send_to<T: ToSocketAddrs>(
-///         &self,
-///         buf: &[u8],
-///         addr: T,
-///     ) -> Result<usize> {
-///         match self.0.send_to(buf, addr) {
-///             Ok(usize) => Ok(usize),
-///             Err(_) => Err(sntpc::Error::Network),
-///         }
-///     }
-///
-///     fn recv_from(&self, buf: &mut [u8]) -> Result<(usize, SocketAddr)> {
-///         match self.0.recv_from(buf) {
-///             Ok((size, addr)) => Ok((size, addr)),
-///             Err(_) => Err(sntpc::Error::Network),
-///         }
-///     }
-/// }
+/// # #[derive(Debug)]
+/// # struct UdpSocketWrapper(UdpSocket);
+/// #
+/// # impl sntpc::NtpUdpSocket for UdpSocketWrapper {
+/// #     fn send_to<T: ToSocketAddrs>(
+/// #         &self,
+/// #         buf: &[u8],
+/// #         addr: T,
+/// #     ) -> Result<usize> {
+/// #         match self.0.send_to(buf, addr) {
+/// #             Ok(usize) => Ok(usize),
+/// #             Err(_) => Err(sntpc::Error::Network),
+/// #         }
+/// #     }
+/// #
+/// #     fn recv_from(&self, buf: &mut [u8]) -> Result<(usize, SocketAddr)> {
+/// #         match self.0.recv_from(buf) {
+/// #             Ok((size, addr)) => Ok((size, addr)),
+/// #             Err(_) => Err(sntpc::Error::Network),
+/// #         }
+/// #     }
+/// # }
 /// // implement required trait on the timestamp generator object
 /// #[derive(Copy, Clone, Default)]
 /// struct StdTimestampGen {
@@ -529,6 +570,7 @@ impl From<&NtpPacket> for RawNtpPacket {
 ///
 /// let ntp_context = NtpContext::new(StdTimestampGen::default());
 /// let socket = UdpSocketWrapper(UdpSocket::bind("0.0.0.0:0").expect("something"));
+/// # #[cfg(feature = "std")]
 /// let result = sntpc::get_time("time.google.com:123", socket, ntp_context);
 /// // OR
 /// // let result = sntpc::get_time("83.168.200.199:123", socket, context);
@@ -563,9 +605,27 @@ where
 ///
 /// ```
 /// use sntpc::{self, NtpContext, NtpTimestamp, Result};
-/// # use std::net::{UdpSocket, ToSocketAddrs, SocketAddr};
 /// # use std::time::Duration;
 /// # use std::str::FromStr;
+/// # #[cfg(not(feature = "std"))]
+/// # use no_std_net::{SocketAddr, ToSocketAddrs, IpAddr, Ipv4Addr};
+/// # #[cfg(feature = "std")]
+/// # use std::net::{SocketAddr, ToSocketAddrs, UdpSocket, IpAddr, Ipv4Addr};
+/// # #[cfg(not(feature = "std"))]
+/// # #[derive(Debug)]
+/// # struct UdpSocket(u8);
+/// # #[cfg(not(feature = "std"))]
+/// # impl UdpSocket {
+/// #     fn bind(addr: &str) -> Result<Self> {
+/// #         Ok(UdpSocket(0))
+/// #     }
+/// #     fn send_to<T: ToSocketAddrs>(&self, buf: &[u8], dest: T) -> Result<usize> {
+/// #        Ok(0usize)
+/// #     }
+/// #     fn recv_from(&self, buf: &mut [u8]) -> Result<(usize, SocketAddr)> {
+/// #        Ok((0usize, SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 0)))
+/// #     }
+/// # }
 /// // implement required trait on network objects
 /// # #[derive(Debug)]
 /// # struct UdpSocketWrapper(UdpSocket);
@@ -616,6 +676,7 @@ where
 /// // "time.google.com:123" string here used for the sake of simplicity. In the real app
 /// // you would want to fix destination address, since string hostname may resolve to
 /// // different IP addresses
+/// # #[cfg(feature = "std")]
 /// let result = sntpc::sntp_send_request("time.google.com:123", &socket, ntp_context);
 /// ```
 pub fn sntp_send_request<A, U, T>(
@@ -652,13 +713,31 @@ where
 /// # Example
 /// ```
 /// use sntpc::{self, NtpContext, NtpTimestamp, Result};
-/// # use std::net::{UdpSocket, ToSocketAddrs, SocketAddr};
 /// # use std::time::Duration;
 /// # use std::str::FromStr;
+/// # #[cfg(not(feature = "std"))]
+/// # use no_std_net::{SocketAddr, ToSocketAddrs, IpAddr, Ipv4Addr};
+/// # #[cfg(feature = "std")]
+/// # use std::net::{SocketAddr, ToSocketAddrs, UdpSocket, IpAddr, Ipv4Addr};
+/// # #[cfg(not(feature = "std"))]
+/// # #[derive(Debug, Clone)]
+/// # struct UdpSocket(u8);
+/// # #[cfg(not(feature = "std"))]
+/// # impl UdpSocket {
+/// #     fn bind(addr: &str) -> Result<Self> {
+/// #         Ok(UdpSocket(0))
+/// #     }
+/// #     fn send_to<T: ToSocketAddrs>(&self, buf: &[u8], dest: T) -> Result<usize> {
+/// #        Ok(0usize)
+/// #     }
+/// #     fn recv_from(&self, buf: &mut [u8]) -> Result<(usize, SocketAddr)> {
+/// #        Ok((0usize, SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 0)))
+/// #     }
+/// # }
 /// // implement required trait on network objects
 /// # #[derive(Debug)]
 /// # struct UdpSocketWrapper(UdpSocket);
-///
+/// #
 /// # impl sntpc::NtpUdpSocket for UdpSocketWrapper {
 /// #     fn send_to<T: ToSocketAddrs>(
 /// #         &self,
@@ -705,6 +784,7 @@ where
 /// // "time.google.com:123" string here used for the sake of simplicity. In the real app
 /// // you would want to fix destination address, since string hostname may resolve to
 /// // different IP addresses
+/// # #[cfg(feature = "std")]
 /// if let Ok(result) = sntpc::sntp_send_request("time.google.com:123", &socket, ntp_context) {
 ///     let time = sntpc::sntp_process_response("time.google.com:123", &socket, ntp_context, result);
 /// }
