@@ -126,11 +126,8 @@ fn main() {
     let sock_wrapper = UdpSocketWrapper(socket);
     let ntp_context = NtpContext::new(StdTimestampGen::default());
 
-    let time =
-        sntpc::get_time(ntp_addr.as_str(), sock_wrapper, ntp_context)
-            .expect(
-                format!("Unable to receive time from: {}", ntp_addr).as_str(),
-            );
+    let time = sntpc::get_time(ntp_addr.as_str(), sock_wrapper, ntp_context)
+        .expect(format!("Unable to receive time from: {}", ntp_addr).as_str());
 
     sntpc::utils::update_system_time(time.sec(), time.nsec());
 }

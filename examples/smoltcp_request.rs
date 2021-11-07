@@ -195,7 +195,7 @@ fn main() {
                 .long("ip")
                 .takes_value(true)
                 .required(true)
-                .help("Device IP address assigned with the interface"),
+                .help("Device IP address assigned with the interface in the format <IP>/<Subnet Mask>"),
         )
         .arg(
             Arg::with_name("gw")
@@ -224,7 +224,7 @@ fn main() {
         SocketAddr::new(IpAddr::from_str(server_ip).unwrap(), server_port);
     let eth_address = EthernetAddress::from_str(app.value_of("mac").unwrap())
         .expect("Cannot parse MAC address of the interface");
-    let ip_addr = IpAddress::from_str(app.value_of("ip").unwrap())
+    let ip_addr = IpCidr::from_str(app.value_of("ip").unwrap())
         .expect("Cannot parse IP address of the interface");
     let default_gw = Ipv4Address::from_str(app.value_of("gw").unwrap())
         .expect("Cannot parse GW address of the interface");
@@ -236,7 +236,7 @@ fn main() {
 
     let mut socket = UdpSocket::new(udp_buffer.rx, udp_buffer.tx);
     socket.bind(sock_port).unwrap();
-    let ip_addrs = [IpCidr::new(ip_addr, 24)];
+    let ip_addrs = [ip_addr];
     let mut routes_storage = [None; 3];
     let mut routes = Routes::new(&mut routes_storage[..]);
     routes.add_default_ipv4_route(default_gw.into()).unwrap();

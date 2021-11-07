@@ -76,8 +76,7 @@ fn main() {
 
         let sock_wrapper = UdpSocketWrapper(socket);
         let ntp_context = NtpContext::new(StdTimestampGen::default());
-        let result =
-            sntpc::get_time(POOL_NTP_ADDR, sock_wrapper, ntp_context);
+        let result = sntpc::get_time(POOL_NTP_ADDR, sock_wrapper, ntp_context);
 
         match result {
             Ok(time) => {
