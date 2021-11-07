@@ -2,6 +2,10 @@ language: rust
 
 os: linux
 
+branches:
+  only:
+    - master
+
 rust:
   - stable
   - beta
@@ -17,5 +21,7 @@ before_script:
 
 script:
   - cargo fmt --all -- --check
-  - cargo build
+  - cargo build --all --no-default-features --features="std utils clap"
+  - cargo build --all --no-default-features
   - cargo test
+  - cargo test --no-default-features
