@@ -44,13 +44,13 @@
 //!   interfaces: ens33 tap0
 //!   forward: yes <--- !
 //!   masquerade: yes <--- !
-//!
+//! ```
 //! That is, you runtime firewalld setup should allow the example app to get access to internet
 //! hosts. In order to preserve that settings permanents you may execute the following command:
 //! ```sh
 //! $ firewall-cmd --runtime-to-permanent
 //! ```
-//! So that all firewalld configs will be preserved between reboots.
+//! So that, all firewalld configs will be preserved between reboots.
 //!
 //! ## How to run the example app:
 //!
@@ -76,6 +76,7 @@
 //! ```
 //! $ 2021-11-08 23:53:29,950 INFO [smoltcp_request] Ok(NtpResult { seconds: 1636404809, seconds_fraction: 4004704152, roundtrip: 36149, offset: 927 })
 //! ```
+//!
 use core::cell::RefCell;
 use core::default::Default;
 use core::fmt::Debug;
