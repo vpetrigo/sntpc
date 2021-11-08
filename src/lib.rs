@@ -955,25 +955,27 @@ fn process_response(
     // - T2 = server's RX timestamp
     // - T3 = server's TX timestamp
     // - T4 = client's RX timestamp
-    let delta = (recv_timestamp - packet.origin_timestamp) as i64
-        - (packet.tx_timestamp - packet.recv_timestamp) as i64;
-    let theta = ((packet.recv_timestamp as i64
-        - packet.origin_timestamp as i64)
-        + (packet.tx_timestamp as i64 - recv_timestamp as i64))
-        / 2;
+    let t1 = packet.origin_timestamp;
+    let t2 = packet.recv_timestamp;
+    let t3 = packet.tx_timestamp;
+    let t4 = recv_timestamp;
+    let units = Units::Microseconds;
+    let roundtrip = roundtrip_calculate(t1, t2, t3, t4, units);
+    let offset = offset_calculate(t1, t2, t3, t4, units);
+    let timestamp = NtpTimestamp::from(packet.tx_timestamp);
 
     #[cfg(feature = "log")]
     debug!(
-        "Roundtrip delay: {} ms. Offset: {} us",
-        delta.abs() as f32 / 1000f32,
-        theta as f32 / 1000f32
+        "Roundtrip delay: {} {}. Offset: {} {}",
+        roundtrip, units, offset, units
     );
 
-    let seconds = (packet.tx_timestamp >> 32) as u32;
-    let nsec = (packet.tx_timestamp & NSEC_MASK) as u32;
-    let tx_tm = seconds - NtpPacket::NTP_TIMESTAMP_DELTA;
-
-    Ok(NtpResult::new(tx_tm, nsec, delta.abs() as u64, theta))
+    Ok(NtpResult::new(
+        timestamp.seconds as u32,
+        timestamp.seconds_fraction as u32,
+        roundtrip,
+        offset,
+    ))
 }
 
 fn convert_from_network(packet: &mut NtpPacket) {
@@ -990,6 +992,52 @@ fn convert_from_network(packet: &mut NtpPacket) {
     packet.tx_timestamp = ntohl(packet.tx_timestamp);
 }
 
+fn convert_delays(sec: u64, fraction: u64, units: u64) -> u64 {
+    sec * units + fraction * units / u32::MAX as u64
+}
+
+fn roundtrip_calculate(
+    t1: u64,
+    t2: u64,
+    t3: u64,
+    t4: u64,
+    units: Units,
+) -> u64 {
+    let delta = (t4 - t1) - (t3 - t2);
+    let delta_sec = (delta & SECONDS_MASK) >> 32;
+    let delta_sec_fraction = delta & SECONDS_FRAC_MASK;
+
+    match units {
+        Units::Milliseconds => {
+            convert_delays(delta_sec, delta_sec_fraction, MSEC_IN_SEC as u64)
+        }
+        Units::Microseconds => {
+            convert_delays(delta_sec, delta_sec_fraction, USEC_IN_SEC as u64)
+        }
+    }
+}
+
+fn offset_calculate(t1: u64, t2: u64, t3: u64, t4: u64, units: Units) -> i64 {
+    let theta = ((t2.wrapping_sub(t1) as i64) + (t3.wrapping_sub(t4) as i64))
+        as i64
+        / 2;
+    let theta_sec = (theta.abs() as u64 & SECONDS_MASK) >> 32;
+    let theta_sec_fraction = theta.abs() as u64 & SECONDS_FRAC_MASK;
+
+    match units {
+        Units::Milliseconds => {
+            convert_delays(theta_sec, theta_sec_fraction, MSEC_IN_SEC as u64)
+                as i64
+                * theta.signum()
+        }
+        Units::Microseconds => {
+            convert_delays(theta_sec, theta_sec_fraction, USEC_IN_SEC as u64)
+                as i64
+                * theta.signum()
+        }
+    }
+}
+
 #[cfg(debug_assertions)]
 fn debug_ntp_packet(packet: &NtpPacket, _recv_timestamp: u64) {
     let shifter = |val, mask, shift| (val & mask) >> shift;
@@ -1004,7 +1052,7 @@ fn debug_ntp_packet(packet: &NtpPacket, _recv_timestamp: u64) {
     {
         use core::str;
 
-        let delimiter_gen = || unsafe { str::from_utf8_unchecked(&[b'='; 52]) };
+        let delimiter_gen = || unsafe { str::from_utf8_unchecked(&[b'='; 64]) };
 
         debug!("{}", delimiter_gen());
         debug!("| Mode:\t\t{}", mode);
@@ -1031,10 +1079,7 @@ fn debug_ntp_packet(packet: &NtpPacket, _recv_timestamp: u64) {
             "| Transmit timestamp  (server):\t{:>16}",
             packet.tx_timestamp
         );
-        debug!(
-            "| Receive timestamp   (client):\t{:>16}",
-            packet.recv_timestamp
-        );
+        debug!("| Receive timestamp   (client):\t{:>16}", _recv_timestamp);
         debug!(
             "| Reference timestamp (server):\t{:>16}",
             packet.ref_timestamp
@@ -1047,37 +1092,39 @@ fn get_ntp_timestamp<T: NtpTimestampGenerator>(timestamp_gen: T) -> u64 {
     let timestamp = ((timestamp_gen.timestamp_sec()
         + (u64::from(NtpPacket::NTP_TIMESTAMP_DELTA)))
         << 32)
-        + u64::from(timestamp_gen.timestamp_subsec_micros());
+        + u64::from(
+            timestamp_gen.timestamp_subsec_micros() as u64 * u32::MAX as u64
+                / USEC_IN_SEC as u64,
+        );
 
     timestamp
 }
 
 #[cfg(test)]
 mod sntpc_ntp_result_tests {
-    use crate::{NtpResult, NSEC_IN_SEC};
+    use crate::NtpResult;
 
     #[test]
     fn test_ntp_result() {
         let result1 = NtpResult::new(0, 0, 0, 0);
 
         assert_eq!(0, result1.sec());
-        assert_eq!(0, result1.nsec());
+        assert_eq!(0, result1.sec_fraction());
         assert_eq!(0, result1.roundtrip());
         assert_eq!(0, result1.offset());
 
         let result2 = NtpResult::new(1, 2, 3, 4);
 
         assert_eq!(1, result2.sec());
-        assert_eq!(2, result2.nsec());
+        assert_eq!(2, result2.sec_fraction());
         assert_eq!(3, result2.roundtrip());
         assert_eq!(4, result2.offset());
 
-        let residue3 = u32::MAX / NSEC_IN_SEC;
         let result3 =
-            NtpResult::new(u32::MAX - residue3, u32::MAX, u64::MAX, i64::MAX);
+            NtpResult::new(u32::MAX - 1, u32::MAX, u64::MAX, i64::MAX);
 
         assert_eq!(u32::MAX, result3.sec());
-        assert_eq!(u32::MAX % NSEC_IN_SEC, result3.nsec());
+        assert_eq!(0, result3.sec_fraction());
         assert_eq!(u64::MAX, result3.roundtrip());
         assert_eq!(i64::MAX, result3.offset());
     }
@@ -1085,11 +1132,14 @@ mod sntpc_ntp_result_tests {
     #[test]
     fn test_ntp_nsec_overflow_result() {
         let result = NtpResult::new(0, u32::MAX, 0, 0);
-        let max_value_sec = u32::MAX / NSEC_IN_SEC;
-        let max_value_nsec = u32::MAX % NSEC_IN_SEC;
+        assert_eq!(1, result.sec());
+        assert_eq!(0, result.sec_fraction());
+        assert_eq!(0, result.roundtrip());
+        assert_eq!(0, result.offset());
 
-        assert_eq!(max_value_sec, result.sec());
-        assert_eq!(max_value_nsec, result.nsec());
+        let result = NtpResult::new(u32::MAX - 1, u32::MAX, 0, 0);
+        assert_eq!(u32::MAX, result.sec());
+        assert_eq!(0, result.sec_fraction());
         assert_eq!(0, result.roundtrip());
         assert_eq!(0, result.offset());
     }
@@ -1098,7 +1148,9 @@ mod sntpc_ntp_result_tests {
 #[cfg(all(test, feature = "std"))]
 mod sntpc_tests {
     use crate::net::{SocketAddr, ToSocketAddrs};
-    use crate::{get_time, Error, NtpContext, NtpTimestampGenerator, NtpUdpSocket};
+    use crate::{
+        get_time, Error, NtpContext, NtpTimestampGenerator, NtpUdpSocket, Units,
+    };
     use std::net::UdpSocket;
 
     impl NtpUdpSocket for UdpSocket {
@@ -1169,7 +1221,7 @@ mod sntpc_tests {
                 pool,
                 result.unwrap_err()
             );
-            assert_ne!(result.unwrap().sec, 0);
+            assert_ne!(result.unwrap().seconds, 0);
         }
     }
 
@@ -1202,5 +1254,11 @@ mod sntpc_tests {
         let result = get_time(pool, socket, context);
         assert!(result.is_err(), "{} is ok", pool);
         assert_eq!(result.unwrap_err(), Error::Network);
+    }
+
+    #[test]
+    fn test_units_str_representation() {
+        assert_eq!(format!("{}", Units::Milliseconds), "ms");
+        assert_eq!(format!("{}", Units::Microseconds), "us");
     }
 }
