@@ -1,4 +1,4 @@
-//! Demonstrates how to make a system timesync with OS specific [`utils`]
+//! Demonstrates how to make a system timesync with OS specific [`sntpc::utils`]
 //!
 //! You can run the `timesync` example in the terminal:
 //!

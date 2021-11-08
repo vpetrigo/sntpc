@@ -1,3 +1,81 @@
+//! Demonstrates how to use [`smoltcp`](https://github.com/smoltcp-rs/smoltcp) stack with the
+//! [`sntpc`] library
+//!
+//! Unfortunately, some `std` requirements still imposed due to TAP interface creation is dependent
+//! on UNIX OS specific calls in the standard library. This example should provide all details on
+//! how to setup networking interface to use with the `sntpc` library though.
+//!
+//! ## How to setup the environment (IPv4 only considered for now):
+//!
+//! - create TAP interface (`sudo` may require):
+//! ```sh
+//! $ ip tuntap add name tap0 mode tap
+//! $ ip link set tap0 up
+//! $ ip addr add 192.168.69.1/24 dev tap0
+//! ```
+//! - check that forwarding is enabled in the system:
+//! ```sh
+//! $ sysctl net.ipv4.ip_forward
+//! # net.ipv4.ip_forward = 1
+//! # if net.ipv4.ip_forward = 0 execute:
+//! $ sysctl net.ipv4.ip_forward=1
+//! ```
+//! - enable forwarding and masquerading to allow internet access for the example app:
+//! ```sh
+//! # Fedora firewalld (initial state)
+//! $ firewall-cmd --list-all
+//! FedoraWorkstation (active)
+//!   interfaces: ens33
+//!   forward: no
+//!   masquerade: yes
+//! # add tap0 interface to the active firewalld zone
+//! $ firewall-cmd --zone=FedoraWorkstation --add-interface=tap0
+//! $ firewall-cmd --list-all
+//! firewall-cmd --list-all
+//! FedoraWorkstation (active)
+//!   interfaces: ens33 tap0 <--- !
+//!   forward: no
+//!   masquerade: yes
+//! # enable masquerade and forward
+//! $ firewall-cmd --zone=FedoraWorkstation --add-masquerade
+//! $ firewall-cmd --zone=FedoraWorkstation --add-forward
+//! $ firewall-cmd --list-all
+//! FedoraWorkstation (active)
+//!   interfaces: ens33 tap0
+//!   forward: yes <--- !
+//!   masquerade: yes <--- !
+//!
+//! That is, you runtime firewalld setup should allow the example app to get access to internet
+//! hosts. In order to preserve that settings permanents you may execute the following command:
+//! ```sh
+//! $ firewall-cmd --runtime-to-permanent
+//! ```
+//! So that all firewalld configs will be preserved between reboots.
+//!
+//! ## How to run the example app:
+//!
+//! This example uses [`clap`](https://crates.io/crates/clap) to process command line arguments.
+//! Currently the following options available:
+//! ```sh
+//! OPTIONS:
+//!         --gw <gw>                  Device default gateway
+//!     -i, --interface <interface>    Ethernet interface smoltcp to bind to
+//!         --ip <ip>                  Device IP address assigned with the interface in the format <IP>/<Subnet Mask>
+//!     -m, --mac <mac>                Device MAC address [default: 02:00:00:00:00:02]
+//!     -p, --port <port>              NTP server port [default: 123]
+//!     -s, --server <server>          NTP server hostname [default: time.google.com]
+//!         --sock_port <sock_port>    Device port to bind UDP socket to [default: 6666]
+//! ```
+//!
+//! Ready-to-use command line that reflects network interface setup mentioned above:
+//! ```sh
+//! $ cargo run --package sntpc --example smoltcp_request --no-default-features --features "std log clap" -- --server "216.239.35.12" --port "123" -i "tap0" -m "02:00:00:00:00:02" --ip "192.168.69.2/24" --gw "192.168.69.1"
+//! ```
+//!
+//! As a result you should see something like that at the end of log output:
+//! ```
+//! $ 2021-11-08 23:53:29,950 INFO [smoltcp_request] Ok(NtpResult { seconds: 1636404809, seconds_fraction: 4004704152, roundtrip: 36149, offset: 927 })
+//! ```
 use core::cell::RefCell;
 use core::default::Default;
 use core::fmt::Debug;
