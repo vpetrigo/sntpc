@@ -129,5 +129,5 @@ fn main() {
     let time = sntpc::get_time(ntp_addr.as_str(), sock_wrapper, ntp_context)
         .expect(format!("Unable to receive time from: {}", ntp_addr).as_str());
 
-    sntpc::utils::update_system_time(time.sec(), time.nsec());
+    sntpc::utils::update_system_time(time.sec(), time.sec_fraction());
 }

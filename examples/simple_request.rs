@@ -81,7 +81,11 @@ fn main() {
         match result {
             Ok(time) => {
                 assert_ne!(time.sec(), 0);
-                println!("Got time: {}.{}", time.sec(), time.nsec());
+                println!(
+                    "Got time: {}.{}",
+                    time.sec(),
+                    time.sec_fraction() as u64 * 1_000_000 / u32::MAX as u64
+                );
             }
             Err(err) => println!("Err: {:?}", err),
         }
