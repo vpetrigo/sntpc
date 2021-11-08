@@ -137,7 +137,7 @@
 //!     # #[cfg(feature = "std")]
 //!     match result {
 //!        Ok(time) => {
-//!            println!("Got time: {}.{}", time.sec(), time.nsec());
+//!            println!("Got time: {}.{}", time.sec(), time.sec_fraction());
 //!        }
 //!        Err(err) => println!("Err: {:?}", err),
 //!     }
@@ -148,7 +148,8 @@
 #[cfg(feature = "utils")]
 pub mod utils;
 
-use core::fmt::Debug;
+use core::fmt::Formatter;
+use core::fmt::{Debug, Display};
 use core::iter::Iterator;
 use core::marker::Copy;
 use core::mem;
@@ -177,7 +178,16 @@ const LI_MASK: u8 = 0b1100_0000;
 /// SNTP LI bit mask shift value
 const LI_SHIFT: u8 = 6;
 /// SNTP nanoseconds in second constant
+#[allow(dead_code)]
 const NSEC_IN_SEC: u32 = 1_000_000_000;
+/// SNTP microseconds in second constant
+const USEC_IN_SEC: u32 = 1_000_000;
+/// SNTP milliseconds in second constant
+const MSEC_IN_SEC: u32 = 1_000;
+/// SNTP seconds mask
+const SECONDS_MASK: u64 = 0xffff_ffff_0000_0000;
+/// SNTP seconds fraction mask
+const SECONDS_FRAC_MASK: u64 = 0xffff_ffff;
 /// SNTP library result type
 pub type Result<T> = core::result::Result<T, Error>;
 
@@ -194,6 +204,45 @@ struct NtpPacket {
     origin_timestamp: u64,
     recv_timestamp: u64,
     tx_timestamp: u64,
+}
+
+#[derive(Debug, Copy, Clone)]
+struct NtpTimestamp {
+    seconds: i64,
+    seconds_fraction: i64,
+}
+
+impl From<u64> for NtpTimestamp {
+    fn from(v: u64) -> Self {
+        let seconds = (((v & SECONDS_MASK) >> 32)
+            - NtpPacket::NTP_TIMESTAMP_DELTA as u64)
+            as i64;
+        let microseconds = (v & SECONDS_FRAC_MASK) as i64;
+
+        NtpTimestamp {
+            seconds,
+            seconds_fraction: microseconds,
+        }
+    }
+}
+
+/// Helper enum for specification delay units
+#[allow(dead_code)]
+#[derive(Copy, Clone, Debug)]
+enum Units {
+    Milliseconds,
+    Microseconds,
+}
+
+impl Display for Units {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        let unit = match self {
+            Units::Microseconds => "us",
+            Units::Milliseconds => "ms",
+        };
+
+        write!(f, "{}", unit)
+    }
 }
 
 /// The error type for SNTP client
@@ -227,42 +276,46 @@ pub enum Error {
 #[derive(Debug)]
 pub struct NtpResult {
     /// NTP server seconds value
-    pub sec: u32,
-    /// NTP server nanoseconds value
-    pub nsec: u32,
-    /// Request roundtrip time in nanoseconds
+    pub seconds: u32,
+    /// NTP server seconds fraction value (microseconds)
+    pub seconds_fraction: u32,
+    /// Request roundtrip time in microseconds
     pub roundtrip: u64,
-    /// Offset of the current system time with one received from a NTP server in nanoseconds
+    /// Offset of the current system time with one received from a NTP server in microseconds
     pub offset: i64,
 }
 
 impl NtpResult {
     /// Create new NTP result
     /// Args:
-    /// * `sec` - number of seconds
-    /// * `nsec` - number of nanoseconds
+    /// * `seconds` - number of seconds
+    /// * `seconds_fraction` - number of nanoseconds
     /// * `roundtrip` - calculated roundtrip in microseconds
     /// * `offset` - calculated system clock offset in microseconds
-    pub fn new(sec: u32, nsec: u32, roundtrip: u64, offset: i64) -> Self {
-        let residue = nsec / NSEC_IN_SEC;
-        let nsec = nsec % NSEC_IN_SEC;
-        let sec = sec + residue;
+    pub fn new(
+        seconds: u32,
+        seconds_fraction: u32,
+        roundtrip: u64,
+        offset: i64,
+    ) -> Self {
+        let seconds = seconds + seconds_fraction / u32::MAX;
+        let seconds_fraction = seconds_fraction % u32::MAX;
 
         NtpResult {
-            sec,
-            nsec,
+            seconds,
+            seconds_fraction,
             roundtrip,
             offset,
         }
     }
     /// Returns number of seconds reported by an NTP server
     pub fn sec(&self) -> u32 {
-        self.sec
+        self.seconds
     }
 
-    /// Returns number of nanoseconds reported by an NTP server
-    pub fn nsec(&self) -> u32 {
-        self.nsec
+    /// Returns number of seconds fraction reported by an NTP server
+    pub fn sec_fraction(&self) -> u32 {
+        self.seconds_fraction
     }
 
     /// Returns request's roundtrip time (client -> server -> client) in microseconds
@@ -277,6 +330,7 @@ impl NtpResult {
 }
 
 impl NtpPacket {
+    // First day UNIX era offset https://www.rfc-editor.org/rfc/rfc5905
     const NTP_TIMESTAMP_DELTA: u32 = 2_208_988_800u32;
     const SNTP_CLIENT_MODE: u8 = 3;
     const SNTP_VERSION: u8 = 4 << 3;
@@ -860,7 +914,6 @@ fn process_response(
     const SNTP_UNICAST: u8 = 4;
     const SNTP_BROADCAST: u8 = 5;
     const LI_MAX_VALUE: u8 = 3;
-    const NSEC_MASK: u64 = 0x0000_0000_ffff_ffff;
     let shifter = |val, mask, shift| (val & mask) >> shift;
     let mut packet = NtpPacket::from(resp);
 
