@@ -3,7 +3,7 @@
 //! You can run the `timesync` example in the terminal:
 //!
 //! ```
-//! cargo run --example timesync --features="std clap utils"
+//! cargo run --example timesync --features="std utils"
 //! ```
 //!
 //! That will run the example with the default NTP server set to `time.google.com`. To

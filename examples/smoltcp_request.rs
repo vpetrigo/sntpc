@@ -69,7 +69,7 @@
 //!
 //! Ready-to-use command line that reflects network interface setup mentioned above:
 //! ```sh
-//! $ cargo run --package sntpc --example smoltcp_request --no-default-features --features "std log clap" -- --server "216.239.35.12" --port "123" -i "tap0" -m "02:00:00:00:00:02" --ip "192.168.69.2/24" --gw "192.168.69.1"
+//! $ cargo run --package sntpc --example smoltcp_request --no-default-features --features "std log" -- --server "216.239.35.12" --port "123" -i "tap0" -m "02:00:00:00:00:02" --ip "192.168.69.2/24" --gw "192.168.69.1"
 //! ```
 //!
 //! As a result you should see something like that at the end of log output:
