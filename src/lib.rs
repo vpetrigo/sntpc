@@ -1003,7 +1003,7 @@ fn roundtrip_calculate(
     t4: u64,
     units: Units,
 ) -> u64 {
-    let delta = (t4 - t1) - (t3 - t2);
+    let delta = t4.wrapping_sub(t1).wrapping_sub(t3.wrapping_sub(t2));
     let delta_sec = (delta & SECONDS_MASK) >> 32;
     let delta_sec_fraction = delta & SECONDS_FRAC_MASK;
 
@@ -1018,7 +1018,9 @@ fn roundtrip_calculate(
 }
 
 fn offset_calculate(t1: u64, t2: u64, t3: u64, t4: u64, units: Units) -> i64 {
-    let theta = (t2.wrapping_sub(t1) as i64).wrapping_add(t3.wrapping_sub(t4) as i64) / 2;
+    let theta = (t2.wrapping_sub(t1) as i64)
+        .wrapping_add(t3.wrapping_sub(t4) as i64)
+        / 2;
     let theta_sec = (theta.abs() as u64 & SECONDS_MASK) >> 32;
     let theta_sec_fraction = theta.abs() as u64 & SECONDS_FRAC_MASK;
 
