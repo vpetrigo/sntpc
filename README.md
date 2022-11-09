@@ -29,7 +29,7 @@ like so:
 
 ```toml
 [dependencies]
-sntpc = "0.3.1"
+sntpc = "0.3.2"
 ```
 
 By calling the `get_time()` method and providing a proper NTP pool or server you
