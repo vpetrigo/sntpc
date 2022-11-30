@@ -137,5 +137,5 @@ This project is licensed under:
 - [The 3-Clause BSD License](LICENSE.md)
 
 Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in time by you, as
-defined in the 3-Clause BSD License license, shall be dual licensed as above, without any additional terms or
+defined in the 3-Clause BSD License license, shall be licensed as above, without any additional terms or
 conditions.
