@@ -82,7 +82,7 @@ impl NtpUdpSocket for UdpSocketWrapper {
 }
 fn main() {
     let socket =
-        UdpSocket::bind("0.0.0.0:0").expect("Unable to crate UDP socket");
+        UdpSocket::bind("0.0.0.0:0").expect("Unable to create UDP socket");
     socket
        .set_read_timeout(Some(Duration::from_secs(2)))
        .expect("Unable to set UDP socket read timeout");
