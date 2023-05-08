@@ -29,7 +29,7 @@ like so:
 
 ```toml
 [dependencies]
-sntpc = "0.3.2"
+sntpc = "0.3.3"
 ```
 
 By calling the `get_time()` method and providing a proper NTP pool or server you
@@ -93,7 +93,8 @@ fn main() {
 
     match result {
        Ok(time) => {
-           println!("Got time: {}.{}", time.sec(), time.nsec());
+           let microseconds = time.sec_fraction() as u64 * 1_000_000u64 / u32::MAX as u64;
+           println!("Got time: {}.{}", time.sec(), microseconds);
        }
        Err(err) => println!("Err: {:?}", err),
     }
