@@ -281,8 +281,12 @@ pub struct NtpResult {
     pub seconds_fraction: u32,
     /// Request roundtrip time in microseconds
     pub roundtrip: u64,
-    /// Offset of the current system time with one received from a NTP server in microseconds
+    /// Estimated difference between the NTP reference and the system time in microseconds
     pub offset: i64,
+    /// Clock stratum of NTP server
+    pub ref_stratum: u8,
+    /// Precision of NTP server as log2(seconds) - this should usually be negative
+    pub ref_precision: i8,
 }
 
 impl NtpResult {
@@ -297,6 +301,8 @@ impl NtpResult {
         seconds_fraction: u32,
         roundtrip: u64,
         offset: i64,
+        ref_stratum: u8,
+        ref_precision: i8,
     ) -> Self {
         let seconds = seconds + seconds_fraction / u32::MAX;
         let seconds_fraction = seconds_fraction % u32::MAX;
@@ -306,6 +312,8 @@ impl NtpResult {
             seconds_fraction,
             roundtrip,
             offset,
+            ref_stratum,
+            ref_precision,
         }
     }
     /// Returns number of seconds reported by an NTP server
@@ -975,6 +983,8 @@ fn process_response(
         timestamp.seconds_fraction as u32,
         roundtrip,
         offset,
+        packet.stratum,
+        packet.precision,
     ))
 }
 
@@ -1106,38 +1116,43 @@ mod sntpc_ntp_result_tests {
 
     #[test]
     fn test_ntp_result() {
-        let result1 = NtpResult::new(0, 0, 0, 0);
+        let result1 = NtpResult::new(0, 0, 0, 0, 1, -2);
 
         assert_eq!(0, result1.sec());
         assert_eq!(0, result1.sec_fraction());
         assert_eq!(0, result1.roundtrip());
         assert_eq!(0, result1.offset());
+        assert_eq!(1, result1.ref_stratum);
+        assert_eq!(-2, result1.ref_precision);
 
-        let result2 = NtpResult::new(1, 2, 3, 4);
+        let result2 = NtpResult::new(1, 2, 3, 4, 5, -23);
 
         assert_eq!(1, result2.sec());
         assert_eq!(2, result2.sec_fraction());
         assert_eq!(3, result2.roundtrip());
         assert_eq!(4, result2.offset());
+        assert_eq!(5, result2.ref_stratum);
+        assert_eq!(-23, result2.ref_precision);
 
         let result3 =
-            NtpResult::new(u32::MAX - 1, u32::MAX, u64::MAX, i64::MAX);
+            NtpResult::new(u32::MAX - 1, u32::MAX, u64::MAX, i64::MAX, 1, -127);
 
         assert_eq!(u32::MAX, result3.sec());
         assert_eq!(0, result3.sec_fraction());
         assert_eq!(u64::MAX, result3.roundtrip());
         assert_eq!(i64::MAX, result3.offset());
+        assert_eq!(-127, result3.ref_precision);
     }
 
     #[test]
     fn test_ntp_nsec_overflow_result() {
-        let result = NtpResult::new(0, u32::MAX, 0, 0);
+        let result = NtpResult::new(0, u32::MAX, 0, 0, 1, -19);
         assert_eq!(1, result.sec());
         assert_eq!(0, result.sec_fraction());
         assert_eq!(0, result.roundtrip());
         assert_eq!(0, result.offset());
 
-        let result = NtpResult::new(u32::MAX - 1, u32::MAX, 0, 0);
+        let result = NtpResult::new(u32::MAX - 1, u32::MAX, 0, 0, 1, -17);
         assert_eq!(u32::MAX, result.sec());
         assert_eq!(0, result.sec_fraction());
         assert_eq!(0, result.roundtrip());
@@ -1207,7 +1222,7 @@ mod sntpc_tests {
             "stratum1.net:123",
         ];
 
-        for pool in pools {
+        for pool in &pools {
             let socket = UdpSocket::bind("0.0.0.0:0").unwrap();
             socket
                 .set_read_timeout(Some(std::time::Duration::from_secs(2)))
@@ -1231,7 +1246,7 @@ mod sntpc_tests {
 
         let pools = ["time.nist.gov:123", "time.windows.com:123"];
 
-        for pool in pools {
+        for pool in &pools {
             let socket = UdpSocket::bind("0.0.0.0:0").unwrap();
             socket
                 .set_read_timeout(Some(std::time::Duration::from_secs(2)))
