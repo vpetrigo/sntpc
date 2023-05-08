@@ -188,6 +188,7 @@ const MSEC_IN_SEC: u32 = 1_000;
 const SECONDS_MASK: u64 = 0xffff_ffff_0000_0000;
 /// SNTP seconds fraction mask
 const SECONDS_FRAC_MASK: u64 = 0xffff_ffff;
+
 /// SNTP library result type
 pub type Result<T> = core::result::Result<T, Error>;
 
@@ -277,32 +278,34 @@ pub enum Error {
 pub struct NtpResult {
     /// NTP server seconds value
     pub seconds: u32,
-    /// NTP server seconds fraction value (microseconds)
+    /// NTP server seconds fraction value
     pub seconds_fraction: u32,
     /// Request roundtrip time in microseconds
     pub roundtrip: u64,
     /// Estimated difference between the NTP reference and the system time in microseconds
     pub offset: i64,
     /// Clock stratum of NTP server
-    pub ref_stratum: u8,
+    pub stratum: u8,
     /// Precision of NTP server as log2(seconds) - this should usually be negative
-    pub ref_precision: i8,
+    pub precision: i8,
 }
 
 impl NtpResult {
     /// Create new NTP result
     /// Args:
     /// * `seconds` - number of seconds
-    /// * `seconds_fraction` - number of nanoseconds
+    /// * `seconds_fraction` - number of seconds fraction
     /// * `roundtrip` - calculated roundtrip in microseconds
     /// * `offset` - calculated system clock offset in microseconds
+    /// * `stratum` - integer indicating the stratum (level of server's hierarchy to stratum 0 - "reference clock")
+    /// * `precision` - an exponent of two, where the resulting value is the precision of the system clock in seconds
     pub fn new(
         seconds: u32,
         seconds_fraction: u32,
         roundtrip: u64,
         offset: i64,
-        ref_stratum: u8,
-        ref_precision: i8,
+        stratum: u8,
+        precision: i8,
     ) -> Self {
         let seconds = seconds + seconds_fraction / u32::MAX;
         let seconds_fraction = seconds_fraction % u32::MAX;
@@ -312,8 +315,8 @@ impl NtpResult {
             seconds_fraction,
             roundtrip,
             offset,
-            ref_stratum,
-            ref_precision,
+            stratum,
+            precision,
         }
     }
     /// Returns number of seconds reported by an NTP server
@@ -755,10 +758,7 @@ where
     debug!("Address: {:?}, Socket: {:?}", dest, *socket);
     let request = NtpPacket::new(context.timestamp_gen);
 
-    if let Err(err) = send_request(dest, &request, socket) {
-        return Err(err);
-    }
-
+    send_request(dest, &request, socket)?;
     Ok(SendRequestResult::from(request))
 }
 
@@ -885,14 +885,14 @@ where
     let result =
         process_response(send_req_result, response_buf, recv_timestamp);
 
-    return match result {
+    match result {
         Ok(result) => {
             #[cfg(feature = "log")]
             debug!("{:?}", result);
             Ok(result)
         }
         Err(err) => Err(err),
-    };
+    }
 }
 
 fn send_request<A: net::ToSocketAddrs, U: NtpUdpSocket>(
@@ -902,7 +902,7 @@ fn send_request<A: net::ToSocketAddrs, U: NtpUdpSocket>(
 ) -> core::result::Result<(), Error> {
     let buf = RawNtpPacket::from(req);
 
-    return match socket.send_to(&buf.0, dest) {
+    match socket.send_to(&buf.0, dest) {
         Ok(size) => {
             if size == buf.0.len() {
                 Ok(())
@@ -911,7 +911,7 @@ fn send_request<A: net::ToSocketAddrs, U: NtpUdpSocket>(
             }
         }
         Err(_) => Err(Error::Network),
-    };
+    }
 }
 
 fn process_response(
@@ -1031,8 +1031,8 @@ fn offset_calculate(t1: u64, t2: u64, t3: u64, t4: u64, units: Units) -> i64 {
     let theta = (t2.wrapping_sub(t1) as i64)
         .wrapping_add(t3.wrapping_sub(t4) as i64)
         / 2;
-    let theta_sec = (theta.abs() as u64 & SECONDS_MASK) >> 32;
-    let theta_sec_fraction = theta.abs() as u64 & SECONDS_FRAC_MASK;
+    let theta_sec = (theta.unsigned_abs() & SECONDS_MASK) >> 32;
+    let theta_sec_fraction = theta.unsigned_abs() & SECONDS_FRAC_MASK;
 
     match units {
         Units::Milliseconds => {
@@ -1099,15 +1099,11 @@ fn debug_ntp_packet(packet: &NtpPacket, _recv_timestamp: u64) {
 }
 
 fn get_ntp_timestamp<T: NtpTimestampGenerator>(timestamp_gen: T) -> u64 {
-    let timestamp = ((timestamp_gen.timestamp_sec()
+    ((timestamp_gen.timestamp_sec()
         + (u64::from(NtpPacket::NTP_TIMESTAMP_DELTA)))
         << 32)
-        + u64::from(
-            timestamp_gen.timestamp_subsec_micros() as u64 * u32::MAX as u64
-                / USEC_IN_SEC as u64,
-        );
-
-    timestamp
+        + timestamp_gen.timestamp_subsec_micros() as u64 * u32::MAX as u64
+            / USEC_IN_SEC as u64
 }
 
 #[cfg(test)]
@@ -1122,8 +1118,8 @@ mod sntpc_ntp_result_tests {
         assert_eq!(0, result1.sec_fraction());
         assert_eq!(0, result1.roundtrip());
         assert_eq!(0, result1.offset());
-        assert_eq!(1, result1.ref_stratum);
-        assert_eq!(-2, result1.ref_precision);
+        assert_eq!(1, result1.stratum);
+        assert_eq!(-2, result1.precision);
 
         let result2 = NtpResult::new(1, 2, 3, 4, 5, -23);
 
@@ -1131,8 +1127,8 @@ mod sntpc_ntp_result_tests {
         assert_eq!(2, result2.sec_fraction());
         assert_eq!(3, result2.roundtrip());
         assert_eq!(4, result2.offset());
-        assert_eq!(5, result2.ref_stratum);
-        assert_eq!(-23, result2.ref_precision);
+        assert_eq!(5, result2.stratum);
+        assert_eq!(-23, result2.precision);
 
         let result3 =
             NtpResult::new(u32::MAX - 1, u32::MAX, u64::MAX, i64::MAX, 1, -127);
@@ -1141,7 +1137,7 @@ mod sntpc_ntp_result_tests {
         assert_eq!(0, result3.sec_fraction());
         assert_eq!(u64::MAX, result3.roundtrip());
         assert_eq!(i64::MAX, result3.offset());
-        assert_eq!(-127, result3.ref_precision);
+        assert_eq!(-127, result3.precision);
     }
 
     #[test]
