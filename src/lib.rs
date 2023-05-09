@@ -1128,8 +1128,8 @@ mod sntpc_ntp_result_tests {
         assert_eq!(0, result1.sec_fraction());
         assert_eq!(0, result1.roundtrip());
         assert_eq!(0, result1.offset());
-        assert_eq!(1, result1.stratum);
-        assert_eq!(-2, result1.precision);
+        assert_eq!(1, result1.stratum());
+        assert_eq!(-2, result1.precision());
 
         let result2 = NtpResult::new(1, 2, 3, 4, 5, -23);
 
@@ -1137,8 +1137,8 @@ mod sntpc_ntp_result_tests {
         assert_eq!(2, result2.sec_fraction());
         assert_eq!(3, result2.roundtrip());
         assert_eq!(4, result2.offset());
-        assert_eq!(5, result2.stratum);
-        assert_eq!(-23, result2.precision);
+        assert_eq!(5, result2.stratum());
+        assert_eq!(-23, result2.precision());
 
         let result3 =
             NtpResult::new(u32::MAX - 1, u32::MAX, u64::MAX, i64::MAX, 1, -127);
@@ -1147,11 +1147,11 @@ mod sntpc_ntp_result_tests {
         assert_eq!(0, result3.sec_fraction());
         assert_eq!(u64::MAX, result3.roundtrip());
         assert_eq!(i64::MAX, result3.offset());
-        assert_eq!(-127, result3.precision);
+        assert_eq!(-127, result3.precision());
     }
 
     #[test]
-    fn test_ntp_nsec_overflow_result() {
+    fn test_ntp_fraction_overflow_result() {
         let result = NtpResult::new(0, u32::MAX, 0, 0, 1, -19);
         assert_eq!(1, result.sec());
         assert_eq!(0, result.sec_fraction());
