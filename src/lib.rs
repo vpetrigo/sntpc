@@ -338,6 +338,16 @@ impl NtpResult {
     pub fn offset(&self) -> i64 {
         self.offset
     }
+
+    /// Returns reported stratum value (level of server's hierarchy to stratum 0 - "reference clock")
+    pub fn stratum(&self) -> u8 {
+        self.stratum
+    }
+
+    /// Returns reported precision value (an exponent of two, which results in the precision of server's system clock in seconds)
+    pub fn precision(&self) -> i8 {
+        self.precision
+    }
 }
 
 impl NtpPacket {

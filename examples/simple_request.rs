@@ -22,8 +22,8 @@ struct StdTimestampGen {
 
 impl NtpTimestampGenerator for StdTimestampGen {
     fn init(&mut self) {
-        self.duration = std::time::SystemTime::now()
-            .duration_since(std::time::SystemTime::UNIX_EPOCH)
+        self.duration = time::SystemTime::now()
+            .duration_since(time::SystemTime::UNIX_EPOCH)
             .unwrap();
     }
 
@@ -89,6 +89,6 @@ fn main() {
             Err(err) => println!("Err: {:?}", err),
         }
 
-        thread::sleep(time::Duration::new(15, 0));
+        thread::sleep(Duration::new(15, 0));
     }
 }

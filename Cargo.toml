@@ -1,6 +1,6 @@
 [package]
 name = "sntpc"
-version = "0.3.3"
+version = "0.3.4"
 description = "Library for making SNTP requests"
 homepage = "https://github.com/vpetrigo/sntpc"
 repository = "https://github.com/vpetrigo/sntpc"
@@ -32,7 +32,7 @@ no-std-net = "~0.6"
 
 [dev-dependencies]
 simple_logger = { version = "~1.13" }
-smoltcp = { version = "~0.7", default-features = false, features = ["phy-tap_interface", "socket-udp", "proto-ipv4"] }
+smoltcp = { version = "~0.8", default-features = false, features = ["phy-tuntap_interface", "socket-udp", "proto-ipv4"] }
 clap = { version = "2.33", default-features = false }
 
 [badges]
