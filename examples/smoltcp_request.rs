@@ -82,22 +82,22 @@ use core::default::Default;
 use core::fmt::Debug;
 use core::str::FromStr;
 
-use std::collections::BTreeMap;
 use std::fmt::Formatter;
 use std::net::{IpAddr, SocketAddr, ToSocketAddrs};
 use std::os::unix::prelude::AsRawFd;
 
-use smoltcp::iface::{EthernetInterfaceBuilder, NeighborCache, Routes};
-use smoltcp::phy::wait;
-use smoltcp::phy::TapInterface;
-use smoltcp::socket::{SocketRef, SocketSet, UdpSocket, UdpSocketBuffer};
+use smoltcp::iface::{Config, Interface, SocketSet};
+use smoltcp::phy::TunTapInterface;
+use smoltcp::phy::{wait, Medium};
+// use smoltcp::socket::{SocketRef, SocketSet, UdpSocket, UdpSocketBuffer};
+use smoltcp::socket::udp;
 use smoltcp::storage::PacketMetadata;
 use smoltcp::time::Instant;
 use smoltcp::wire::{
     EthernetAddress, IpAddress, IpCidr, IpEndpoint, Ipv4Address,
 };
 
-use clap::{crate_version, App, Arg};
+use clap::{crate_version, App, Arg, ArgMatches};
 
 use sntpc::{self, Error, NtpContext, NtpTimestampGenerator, NtpUdpSocket};
 
@@ -125,18 +125,18 @@ impl Default for Buffers {
 }
 
 struct UdpSocketBuffers<'a> {
-    rx: UdpSocketBuffer<'a>,
-    tx: UdpSocketBuffer<'a>,
+    rx: udp::PacketBuffer<'a>,
+    tx: udp::PacketBuffer<'a>,
 }
 
 impl<'a> UdpSocketBuffers<'a> {
     fn new(buffers: &'a mut Buffers) -> Self {
         UdpSocketBuffers {
-            rx: UdpSocketBuffer::new(
+            rx: udp::PacketBuffer::new(
                 buffers.rx_meta.as_mut(),
                 buffers.rx_buffer.as_mut(),
             ),
-            tx: UdpSocketBuffer::new(
+            tx: udp::PacketBuffer::new(
                 buffers.tx_meta.as_mut(),
                 buffers.tx_buffer.as_mut(),
             ),
@@ -166,7 +166,7 @@ impl NtpTimestampGenerator for StdTimestampGen {
 }
 
 struct SmoltcpUdpSocketWrapper<'a, 'b> {
-    socket: RefCell<SocketRef<'b, UdpSocket<'a>>>,
+    socket: RefCell<&'b mut udp::Socket<'a>>,
 }
 
 impl<'a, 'b> Debug for SmoltcpUdpSocketWrapper<'a, 'b> {
@@ -195,9 +195,7 @@ impl<'a, 'b> NtpUdpSocket for SmoltcpUdpSocketWrapper<'a, 'b> {
                 SocketAddr::V6(_) => return Err(Error::Network),
             };
 
-            if let Ok(_) =
-                self.socket.borrow_mut().send_slice(&buf[..], endpoint)
-            {
+            if self.socket.borrow_mut().send_slice(buf, endpoint).is_ok() {
                 return Ok(buf.len());
             }
         }
@@ -211,12 +209,11 @@ impl<'a, 'b> NtpUdpSocket for SmoltcpUdpSocketWrapper<'a, 'b> {
         if let Ok((size, address)) = result {
             let sockaddr = match address.addr {
                 IpAddress::Ipv4(v4) => SocketAddr::new(
-                    std::net::IpAddr::V4(std::net::Ipv4Addr::new(
+                    IpAddr::V4(std::net::Ipv4Addr::new(
                         v4.0[0], v4.0[1], v4.0[2], v4.0[3],
                     )),
                     address.port,
                 ),
-                _ => return Err(Error::Network),
             };
 
             return Ok((size, sockaddr));
@@ -226,16 +223,11 @@ impl<'a, 'b> NtpUdpSocket for SmoltcpUdpSocketWrapper<'a, 'b> {
     }
 }
 
-fn main() {
-    #[cfg(feature = "log")]
-    if cfg!(feature = "log") {
-        simple_logger::init_with_level(log::Level::Trace).unwrap();
-    }
-
-    const GOOGLE_NTP_ADDR: &str = "time.google.com";
+fn create_app_cli<'a>() -> ArgMatches<'a> {
+    const GOOGLE_NTP_ADDR: &str = "pool.ntp.org";
     const APP_PORT: &str = "6666";
 
-    let app = App::new("smoltcp_request")
+    App::new("smoltcp_request")
         .version(crate_version!())
         .arg(
             Arg::with_name("server")
@@ -290,11 +282,19 @@ fn main() {
                 .default_value(APP_PORT)
                 .help("Device port to bind UDP socket to"),
         )
-        .get_matches();
+        .get_matches()
+}
 
+fn main() {
+    #[cfg(feature = "log")]
+    if cfg!(feature = "log") {
+        simple_logger::init_with_level(log::Level::Trace).unwrap();
+    }
+
+    let app = create_app_cli();
     let interface_name = app.value_of("interface").unwrap();
-    let tuntap =
-        TapInterface::new(interface_name).expect("Cannot create TAP interface");
+    let mut tuntap = TunTapInterface::new(interface_name, Medium::Ethernet)
+        .expect("Cannot create TAP interface");
 
     let server_ip = app.value_of("server").unwrap();
     let server_port = u16::from_str(app.value_of("port").unwrap())
@@ -313,79 +313,72 @@ fn main() {
     let mut buffer = Buffers::default();
     let udp_buffer = UdpSocketBuffers::new(&mut buffer);
 
-    let mut socket = UdpSocket::new(udp_buffer.rx, udp_buffer.tx);
+    let mut socket = udp::Socket::new(udp_buffer.rx, udp_buffer.tx);
     socket.bind(sock_port).unwrap();
-    let ip_addrs = [ip_addr];
-    let mut routes_storage = [None; 3];
-    let mut routes = Routes::new(&mut routes_storage[..]);
-    routes.add_default_ipv4_route(default_gw.into()).unwrap();
-    let neighbor_cache = NeighborCache::new(BTreeMap::new());
+    let mut config = Config::new();
 
-    let mut iface = EthernetInterfaceBuilder::new(tuntap)
-        .ethernet_addr(eth_address)
-        .neighbor_cache(neighbor_cache)
-        .ip_addrs(ip_addrs)
-        .routes(routes)
-        .finalize();
+    config.random_seed = 0;
+    config.hardware_addr = Some(eth_address.into());
 
-    let mut socket_items = [None; 1];
-    let mut sockets = SocketSet::new(socket_items.as_mut());
+    let mut iface = Interface::new(config, &mut tuntap);
+    iface.update_ip_addrs(|ip_addrs| ip_addrs.push(ip_addr).unwrap());
+    iface
+        .routes_mut()
+        .add_default_ipv4_route(default_gw)
+        .unwrap();
 
+    // let mut socket_items = [None; 1];
+    let mut sockets = SocketSet::new(vec![]);
     let udp_handle = sockets.add(socket);
     let mut once_tx = true;
     let mut once_rx = true;
-    let mut send_result = Option::None;
+    let mut send_result = None;
 
     while once_rx {
         let timestamp = Instant::now();
 
-        match iface.poll(&mut sockets, timestamp) {
-            Ok(_) => {
-                #[cfg(feature = "log")]
-                log::trace!("Poll ok!");
-            }
-            Err(_e) => {
-                #[cfg(feature = "log")]
-                log::trace!("Poll error: {}!", _e);
-            }
+        if iface.poll(timestamp, &mut tuntap, &mut sockets) {
+            #[cfg(feature = "log")]
+            log::trace!("Poll ok!");
         }
 
-        {
-            if once_tx && sockets.get::<UdpSocket>(udp_handle).can_send() {
-                once_tx = false;
-                let sock_wrapper = SmoltcpUdpSocketWrapper {
-                    socket: RefCell::new(sockets.get::<UdpSocket>(udp_handle)),
-                };
-                let context = NtpContext::new(StdTimestampGen::default());
-                let result = sntpc::sntp_send_request(
-                    server_sock_addr,
-                    &sock_wrapper,
-                    context,
-                );
+        if once_tx && sockets.get::<udp::Socket>(udp_handle).can_send() {
+            once_tx = false;
+            let sock_wrapper = SmoltcpUdpSocketWrapper {
+                socket: RefCell::new(
+                    sockets.get_mut::<udp::Socket>(udp_handle),
+                ),
+            };
+            let context = NtpContext::new(StdTimestampGen::default());
+            let result = sntpc::sntp_send_request(
+                server_sock_addr,
+                &sock_wrapper,
+                context,
+            );
 
-                match result {
-                    Ok(result) => {
-                        send_result = Some(result);
-                    }
-                    Err(_e) => {
-                        #[cfg(feature = "log")]
-                        log::error!("send error: {:?}", _e);
-                        once_tx = true;
-                    }
+            match result {
+                Ok(result) => {
+                    send_result = Some(result);
                 }
-
-                #[cfg(feature = "log")]
-                log::trace!("{:?}", &result);
+                Err(_e) => {
+                    #[cfg(feature = "log")]
+                    log::error!("send error: {:?}", _e);
+                    once_tx = true;
+                }
             }
 
-            if once_rx
-                && sockets.get::<UdpSocket>(udp_handle).can_recv()
-                && send_result.is_some()
-            {
+            #[cfg(feature = "log")]
+            log::trace!("{:?}", &result);
+        }
+
+        if let Some(tx_result) = send_result {
+            if once_rx && sockets.get::<udp::Socket>(udp_handle).can_recv() {
                 once_rx = false;
 
                 let sock_wrapper = SmoltcpUdpSocketWrapper {
-                    socket: RefCell::new(sockets.get::<UdpSocket>(udp_handle)),
+                    socket: RefCell::new(
+                        sockets.get_mut::<udp::Socket>(udp_handle),
+                    ),
                 };
                 let context = NtpContext::new(StdTimestampGen::default());
 
@@ -393,7 +386,7 @@ fn main() {
                     server_sock_addr,
                     &sock_wrapper,
                     context,
-                    send_result.unwrap(),
+                    tx_result,
                 );
 
                 #[cfg(feature = "log")]
@@ -402,8 +395,8 @@ fn main() {
         }
 
         wait(
-            iface.device().as_raw_fd(),
-            iface.poll_delay(&sockets, Instant::from_secs(1)),
+            tuntap.as_raw_fd(),
+            iface.poll_delay(Instant::from_secs(1), &sockets),
         )
         .unwrap();
     }
