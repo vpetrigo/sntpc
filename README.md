@@ -114,7 +114,7 @@ general idea on how to bootstrap `no_std` networking and timestamping tools for 
 ----------
 
 You can find several examples that shows how to use the library in details under [examples/] folder.
-Currently there are examples that show:
+Currently, there are examples that show:
 - usage of SNTP library in `std` environment
 - usage of SNTP library with [`smoltcp`][smoltcp] TCP/IP stack. Some `std` dependencies
 required only due to smoltcp available interfaces
@@ -138,5 +138,5 @@ This project is licensed under:
 - [The 3-Clause BSD License](LICENSE.md)
 
 Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in time by you, as
-defined in the 3-Clause BSD License license, shall be licensed as above, without any additional terms or
+defined in the 3-Clause BSD license, shall be licensed as above, without any additional terms or
 conditions.
