@@ -23,7 +23,6 @@ exclude = [
 default = ["std"]
 std = []
 utils = ["std", "chrono/clock"]
-sup = []
 
 [dependencies]
 log = { version = "~0.4", optional = true }
@@ -41,11 +40,11 @@ travis-ci = { repository = "vpetrigo/sntpc", branch = "master" }
 
 [[example]]
 name = "simple_request"
-required-features = ["std", "sup"]
+required-features = ["std"]
 
 [[example]]
 name = "timesync"
-required-features = ["utils", "sup"]
+required-features = ["utils"]
 
 [[example]]
 name = "smoltcp_request"

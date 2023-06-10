@@ -102,10 +102,14 @@
 
 extern crate core;
 
-#[cfg(all(feature = "std", feature = "sup"))]
+#[cfg(feature = "std")]
+mod traits;
+#[cfg(feature = "std")]
+pub use crate::traits::*;
+#[cfg(feature = "std")]
 mod sup;
-#[cfg(all(feature = "std", feature = "sup"))]
-pub use crate::sup::simple_get_time;
+#[cfg(feature = "std")]
+pub use crate::sup::*;
 #[cfg(feature = "utils")]
 pub mod utils;
 
@@ -1129,53 +1133,8 @@ mod sntpc_ntp_result_tests {
 
 #[cfg(all(test, feature = "std"))]
 mod sntpc_tests {
-    use crate::net::{SocketAddr, ToSocketAddrs};
-    use crate::{
-        get_time, Error, NtpContext, NtpTimestampGenerator, NtpUdpSocket, Units,
-    };
+    use crate::{get_time, Error, NtpContext, StdTimestampGen, Units};
     use std::net::UdpSocket;
-
-    impl NtpUdpSocket for UdpSocket {
-        fn send_to<T: ToSocketAddrs>(
-            &self,
-            buf: &[u8],
-            addr: T,
-        ) -> Result<usize, Error> {
-            match self.send_to(buf, addr) {
-                Ok(usize) => Ok(usize),
-                Err(_) => Err(Error::Network),
-            }
-        }
-
-        fn recv_from(
-            &self,
-            buf: &mut [u8],
-        ) -> Result<(usize, SocketAddr), Error> {
-            match self.recv_from(buf) {
-                Ok((size, addr)) => Ok((size, addr)),
-                Err(_) => Err(Error::Network),
-            }
-        }
-    }
-
-    #[derive(Copy, Clone, Default)]
-    struct StdTimestampGen(std::time::Duration);
-
-    impl NtpTimestampGenerator for StdTimestampGen {
-        fn init(&mut self) {
-            self.0 = std::time::SystemTime::now()
-                .duration_since(std::time::SystemTime::UNIX_EPOCH)
-                .unwrap();
-        }
-
-        fn timestamp_sec(&self) -> u64 {
-            self.0.as_secs()
-        }
-
-        fn timestamp_subsec_micros(&self) -> u32 {
-            self.0.subsec_micros()
-        }
-    }
 
     #[test]
     fn test_ntp_request_sntpv4_supported() {
