@@ -1,7 +1,8 @@
 //! Helper utils to synchronize time of a system
 //!
 //! Currently Unix and Windows based systems are supported
-#[cfg(feature = "utils")]
+#[cfg(feature = "log")]
+use chrono::Timelike;
 use chrono::{Local, TimeZone, Utc};
 #[cfg(feature = "log")]
 use log::debug;
@@ -27,19 +28,19 @@ pub fn update_system_time(sec: u32, nsec: u32) {
         let local_time = time.with_timezone(&Local);
         #[cfg(feature = "log")]
         debug!(
-        "UTC time: {:02}:{:02}:{:02}",
-        time.hour(),
-        time.minute(),
-        time.second()
-    );
+            "UTC time: {:02}:{:02}:{:02}",
+            time.hour(),
+            time.minute(),
+            time.second()
+        );
         #[cfg(feature = "log")]
         debug!(
-        "{} time: {:02}:{:02}:{:02}",
-        local_time.offset(),
-        local_time.hour(),
-        local_time.minute(),
-        local_time.second()
-    );
+            "{} time: {:02}:{:02}:{:02}",
+            local_time.offset(),
+            local_time.hour(),
+            local_time.minute(),
+            local_time.second()
+        );
 
         sync_time(local_time);
     }

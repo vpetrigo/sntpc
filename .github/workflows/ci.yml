@@ -13,8 +13,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      - name: Run clippy with std
+        run: cargo clippy --no-default-features --features="std log utils"
+      - name: Run clippy with no_std
+        run: cargo clippy --no-default-features --features="log"
       - name: Build with std
-        run: cargo build --all --no-default-features --features="std sup utils"
+        run: cargo build --all --no-default-features --features="std utils"
       - name: Build with no_std
         run: cargo build --all --no-default-features
       - name: Run tests with std
