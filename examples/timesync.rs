@@ -19,60 +19,15 @@
 //!
 //! Example provides a basic implementation of [`NtpTimestampGenerator`] and [`NtpUdpSocket`]
 //! required for the [`sntpc`] library
-use std::net::{SocketAddr, ToSocketAddrs, UdpSocket};
+use std::net::UdpSocket;
 use std::str::FromStr;
 use std::time::Duration;
 
 use clap::{crate_version, App, Arg};
 #[cfg(feature = "log")]
 use simple_logger;
-use sntpc::{Error, NtpContext, NtpTimestampGenerator, NtpUdpSocket};
 
 const GOOGLE_NTP_ADDR: &str = "time.google.com";
-
-#[derive(Copy, Clone, Default)]
-struct StdTimestampGen {
-    duration: Duration,
-}
-
-impl NtpTimestampGenerator for StdTimestampGen {
-    fn init(&mut self) {
-        self.duration = std::time::SystemTime::now()
-            .duration_since(std::time::SystemTime::UNIX_EPOCH)
-            .unwrap();
-    }
-
-    fn timestamp_sec(&self) -> u64 {
-        self.duration.as_secs()
-    }
-
-    fn timestamp_subsec_micros(&self) -> u32 {
-        self.duration.subsec_micros()
-    }
-}
-
-#[derive(Debug)]
-struct UdpSocketWrapper(UdpSocket);
-
-impl NtpUdpSocket for UdpSocketWrapper {
-    fn send_to<T: ToSocketAddrs>(
-        &self,
-        buf: &[u8],
-        addr: T,
-    ) -> Result<usize, Error> {
-        match self.0.send_to(buf, addr) {
-            Ok(usize) => Ok(usize),
-            Err(_) => Err(Error::Network),
-        }
-    }
-
-    fn recv_from(&self, buf: &mut [u8]) -> Result<(usize, SocketAddr), Error> {
-        match self.0.recv_from(buf) {
-            Ok((size, addr)) => Ok((size, addr)),
-            Err(_) => Err(Error::Network),
-        }
-    }
-}
 
 fn main() {
     let app = App::new("timesync")
@@ -123,11 +78,10 @@ fn main() {
     socket
         .set_read_timeout(Some(Duration::from_secs(2)))
         .expect("Unable to set UDP socket read timeout");
-    let sock_wrapper = UdpSocketWrapper(socket);
-    let ntp_context = NtpContext::new(StdTimestampGen::default());
-
-    let time = sntpc::get_time(ntp_addr.as_str(), sock_wrapper, ntp_context)
-        .expect(format!("Unable to receive time from: {}", ntp_addr).as_str());
+    let time =
+        sntpc::simple_get_time(ntp_addr.as_str(), socket).unwrap_or_else(|_| {
+            panic!("Unable to receive time from: {}", ntp_addr)
+        });
 
     sntpc::utils::update_system_time(time.sec(), time.sec_fraction());
 }
