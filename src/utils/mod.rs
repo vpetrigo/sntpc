@@ -2,7 +2,7 @@
 //!
 //! Currently Unix and Windows based systems are supported
 #[cfg(feature = "utils")]
-use chrono::{Local, TimeZone, Timelike, Utc};
+use chrono::{Local, TimeZone, Utc};
 #[cfg(feature = "log")]
 use log::debug;
 

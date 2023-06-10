@@ -6,7 +6,7 @@ use chrono::{DateTime, Datelike, Local, Timelike};
 /// command line tool
 pub(super) fn sync_time(time: DateTime<Local>) {
     let cmd = Command::new("cmd")
-        .args(&[
+        .args([
             "/C",
             format!(
                 "powershell Set-Date -Date \"{}/{}/{} {}:{}:{}\"",
@@ -28,7 +28,7 @@ pub(super) fn sync_time(time: DateTime<Local>) {
                 .expect("Time synchronization finished incorrectly");
         }
         Err(e) => {
-            eprintln!("Error occurred: {}", e.to_string());
+            eprintln!("Error occurred: {}", e);
         }
     };
 }

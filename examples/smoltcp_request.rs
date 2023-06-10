@@ -80,7 +80,6 @@
 #[cfg(unix)]
 fn main() {
     use core::cell::RefCell;
-    use core::default::Default;
     use core::fmt::Debug;
     use core::str::FromStr;
 
@@ -101,7 +100,7 @@ fn main() {
 
     use clap::{crate_version, App, Arg, ArgMatches};
 
-    use sntpc::{self, Error, NtpContext, NtpTimestampGenerator, NtpUdpSocket};
+    use sntpc::{Error, NtpContext, NtpTimestampGenerator, NtpUdpSocket};
 
     #[cfg(feature = "log")]
     use log;
