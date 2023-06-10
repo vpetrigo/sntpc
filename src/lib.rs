@@ -52,9 +52,31 @@
 //! # Example
 //!
 //! ```rust
+//! # #[cfg(not(feature = "std"))]
+//! # use no_std_net::{SocketAddr, ToSocketAddrs, IpAddr, Ipv4Addr};
+//! # use sntpc::Result;
 //! # #[cfg(feature = "std")]
 //! use std::net::UdpSocket;
 //! use std::time::Duration;
+//!
+//! # #[cfg(not(feature = "std"))]
+//! # #[derive(Debug)]
+//! # struct UdpSocket;
+//! # #[cfg(not(feature = "std"))]
+//! # impl UdpSocket {
+//! #     fn bind(addr: &str) -> Result<Self> {
+//! #         Ok(UdpSocket)
+//! #     }
+//! #     fn send_to<T: ToSocketAddrs>(&self, buf: &[u8], dest: T) -> Result<usize> {
+//! #         Ok(0usize)
+//! #     }
+//! #     fn recv_from(&self, buf: &mut [u8]) -> Result<(usize, SocketAddr)> {
+//! #         Ok((0usize, SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 0)))
+//! #     }
+//! #     fn set_read_timeout<T>(&self, _arg: T) -> Result<()> {
+//! #         Ok(())
+//! #     }
+//! # }
 //!
 //! fn main() {
 //!     let socket =
@@ -73,6 +95,9 @@
 //!     }
 //!  }
 //! ```
+//!
+//! For more complex example with custom timestamp generator and UDP socket implementation, see
+//! `examples/smoltcp_request.rs`.
 #![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate core;
