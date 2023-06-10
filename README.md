@@ -36,8 +36,7 @@ By calling the `get_time()` method and providing a proper NTP pool or server you
 should get a valid synchronization timestamp:
 
 ```rust
-use sntpc::{Error, NtpContext, NtpTimestampGenerator, NtpUdpSocket, Result};
-use std::net::{SocketAddr, ToSocketAddrs, UdpSocket};
+use std::net::UdpSocket;
 use std::time::Duration;
 
 fn main() {
