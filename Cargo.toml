@@ -1,6 +1,6 @@
 [package]
 name = "sntpc"
-version = "0.3.4"
+version = "0.3.5"
 description = "Library for making SNTP requests"
 homepage = "https://github.com/vpetrigo/sntpc"
 repository = "https://github.com/vpetrigo/sntpc"
@@ -23,6 +23,7 @@ exclude = [
 default = ["std"]
 std = []
 utils = ["std", "chrono/clock"]
+sup = []
 
 [dependencies]
 log = { version = "~0.4", optional = true }
@@ -40,11 +41,11 @@ travis-ci = { repository = "vpetrigo/sntpc", branch = "master" }
 
 [[example]]
 name = "simple_request"
-required-features = ["std"]
+required-features = ["std", "sup"]
 
 [[example]]
 name = "timesync"
-required-features = ["utils"]
+required-features = ["utils", "sup"]
 
 [[example]]
 name = "smoltcp_request"
