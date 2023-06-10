@@ -14,7 +14,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Build with std
-        run: cargo build --all --no-default-features --features="std utils"
+        run: cargo build --all --no-default-features --features="std sup utils"
       - name: Build with no_std
         run: cargo build --all --no-default-features
       - name: Run tests with std
