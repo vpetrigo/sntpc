@@ -12,7 +12,7 @@
 //! Put this in your `Cargo.toml`:
 //! ```cargo
 //! [dependencies]
-//! sntpc = "0.3.5"
+//! sntpc = "0.3.6"
 //! ```
 //!
 //! ## Features
@@ -54,7 +54,6 @@
 //! ```rust
 //! # #[cfg(not(feature = "std"))]
 //! # use no_std_net::{SocketAddr, ToSocketAddrs, IpAddr, Ipv4Addr};
-//! # use sntpc::Result;
 //! # #[cfg(feature = "std")]
 //! use std::net::UdpSocket;
 //! use std::time::Duration;
@@ -64,16 +63,16 @@
 //! # struct UdpSocket;
 //! # #[cfg(not(feature = "std"))]
 //! # impl UdpSocket {
-//! #     fn bind(addr: &str) -> Result<Self> {
+//! #     fn bind(addr: &str) -> sntpc::Result<Self> {
 //! #         Ok(UdpSocket)
 //! #     }
-//! #     fn send_to<T: ToSocketAddrs>(&self, buf: &[u8], dest: T) -> Result<usize> {
+//! #     fn send_to<T: ToSocketAddrs>(&self, buf: &[u8], dest: T) -> sntpc::Result<usize> {
 //! #         Ok(0usize)
 //! #     }
-//! #     fn recv_from(&self, buf: &mut [u8]) -> Result<(usize, SocketAddr)> {
+//! #     fn recv_from(&self, buf: &mut [u8]) -> sntpc::Result<(usize, SocketAddr)> {
 //! #         Ok((0usize, SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 0)))
 //! #     }
-//! #     fn set_read_timeout<T>(&self, _arg: T) -> Result<()> {
+//! #     fn set_read_timeout<T>(&self, _arg: T) -> sntpc::Result<()> {
 //! #         Ok(())
 //! #     }
 //! # }
@@ -89,7 +88,7 @@
 //!     # #[cfg(all(feature = "std", feature = "sup"))]
 //!     match result {
 //!        Ok(time) => {
-//!            println!("Got time: {}.{}", time.sec(), time.sec_fraction());
+//!            println!("Got time: {}.{}", time.sec(), sntpc::fraction_to_milliseconds(time.sec_fraction()));
 //!        }
 //!        Err(err) => println!("Err: {:?}", err),
 //!     }
@@ -685,9 +684,36 @@ fn get_ntp_timestamp<T: NtpTimestampGenerator>(timestamp_gen: T) -> u64 {
             / USEC_IN_SEC as u64
 }
 
+/// Convert second fraction value to milliseconds value
+pub fn fraction_to_milliseconds(sec_fraction: u32) -> u32 {
+    (u64::from(sec_fraction) * u64::from(MSEC_IN_SEC) / u64::from(u32::MAX))
+        as u32
+}
+
+/// Convert second fraction value to microseconds value
+pub fn fraction_to_microseconds(sec_fraction: u32) -> u32 {
+    (u64::from(sec_fraction) * u64::from(USEC_IN_SEC) / u64::from(u32::MAX))
+        as u32
+}
+
+/// Convert second fraction value to nanoseconds value
+pub fn fraction_to_nanoseconds(sec_fraction: u32) -> u32 {
+    (u64::from(sec_fraction) * u64::from(NSEC_IN_SEC) / u64::from(u32::MAX))
+        as u32
+}
+
+/// Convert second fraction value to picoseconds value
+pub fn fraction_to_picoseconds(sec_fraction: u32) -> u64 {
+    (u128::from(sec_fraction) * u128::from(PSEC_IN_SEC) / u128::from(u32::MAX))
+        as u64
+}
+
 #[cfg(test)]
 mod sntpc_ntp_result_tests {
-    use crate::NtpResult;
+    use crate::{
+        fraction_to_microseconds, fraction_to_milliseconds,
+        fraction_to_nanoseconds, fraction_to_picoseconds, NtpResult,
+    };
 
     #[test]
     fn test_ntp_result() {
@@ -732,6 +758,54 @@ mod sntpc_ntp_result_tests {
         assert_eq!(0, result.sec_fraction());
         assert_eq!(0, result.roundtrip());
         assert_eq!(0, result.offset());
+    }
+
+    #[test]
+    fn test_conversion_to_ms() {
+        let result = NtpResult::new(0, u32::MAX - 1, 0, 0, 1, 0);
+        let milliseconds = fraction_to_milliseconds(result.seconds_fraction);
+        assert_eq!(999u32, milliseconds);
+
+        let result = NtpResult::new(0, 0, 0, 0, 1, 0);
+        let milliseconds = fraction_to_milliseconds(result.seconds_fraction);
+        assert_eq!(0u32, milliseconds);
+    }
+
+    #[test]
+    fn test_conversion_to_us() {
+        let result = NtpResult::new(0, u32::MAX - 1, 0, 0, 1, 0);
+        let microseconds = fraction_to_microseconds(result.seconds_fraction);
+        assert_eq!(999999u32, microseconds);
+
+        let result = NtpResult::new(0, 0, 0, 0, 1, 0);
+        let microseconds = fraction_to_microseconds(result.seconds_fraction);
+        assert_eq!(0u32, microseconds);
+    }
+
+    #[test]
+    fn test_conversion_to_ns() {
+        let result = NtpResult::new(0, u32::MAX - 1, 0, 0, 1, 0);
+        let nanoseconds = fraction_to_nanoseconds(result.seconds_fraction);
+        assert_eq!(999999999u32, nanoseconds);
+
+        let result = NtpResult::new(0, 0, 0, 0, 1, 0);
+        let nanoseconds = fraction_to_nanoseconds(result.seconds_fraction);
+        assert_eq!(0u32, nanoseconds);
+    }
+
+    #[test]
+    fn test_conversion_to_ps() {
+        let result = NtpResult::new(0, u32::MAX - 1, 0, 0, 1, 0);
+        let picoseconds = fraction_to_picoseconds(result.seconds_fraction);
+        assert_eq!(999999999767u64, picoseconds);
+
+        let result = NtpResult::new(0, 1, 0, 0, 1, 0);
+        let picoseconds = fraction_to_picoseconds(result.seconds_fraction);
+        assert_eq!(232u64, picoseconds);
+
+        let result = NtpResult::new(0, 0, 0, 0, 1, 0);
+        let picoseconds = fraction_to_picoseconds(result.seconds_fraction);
+        assert_eq!(0u64, picoseconds);
     }
 }
 

@@ -20,8 +20,9 @@ pub(crate) const VERSION_SHIFT: u8 = 3;
 pub(crate) const LI_MASK: u8 = 0b1100_0000;
 /// SNTP LI bit mask shift value
 pub(crate) const LI_SHIFT: u8 = 6;
+/// SNTP picoseconds in second constant
+pub(crate) const PSEC_IN_SEC: u64 = 1_000_000_000_000;
 /// SNTP nanoseconds in second constant
-#[allow(dead_code)]
 pub(crate) const NSEC_IN_SEC: u32 = 1_000_000_000;
 /// SNTP microseconds in second constant
 pub(crate) const USEC_IN_SEC: u32 = 1_000_000;
