@@ -895,10 +895,10 @@ fn process_response(
     const SNTP_UNICAST: u8 = 4;
     const SNTP_BROADCAST: u8 = 5;
     const LI_MAX_VALUE: u8 = 3;
-    let shifter = |val, mask, shift| (val & mask) >> shift;
     let mut packet = NtpPacket::from(resp);
 
     convert_from_network(&mut packet);
+    #[cfg(feature = "log")]
     debug_ntp_packet(&packet, recv_timestamp);
 
     if send_req_result.originate_timestamp != packet.origin_timestamp {
@@ -958,6 +958,10 @@ fn process_response(
         packet.stratum,
         packet.precision,
     ))
+}
+
+fn shifter(val: u8, mask: u8, shift: u8) -> u8 {
+    (val & mask) >> shift
 }
 
 fn convert_from_network(packet: &mut NtpPacket) {
@@ -1020,54 +1024,47 @@ fn offset_calculate(t1: u64, t2: u64, t3: u64, t4: u64, units: Units) -> i64 {
     }
 }
 
-#[cfg(debug_assertions)]
+#[cfg(feature = "log")]
 fn debug_ntp_packet(packet: &NtpPacket, _recv_timestamp: u64) {
-    let shifter = |val, mask, shift| (val & mask) >> shift;
-    #[allow(unused)]
     let mode = shifter(packet.li_vn_mode, MODE_MASK, MODE_SHIFT);
-    #[allow(unused)]
     let version = shifter(packet.li_vn_mode, VERSION_MASK, VERSION_SHIFT);
-    #[allow(unused)]
     let li = shifter(packet.li_vn_mode, LI_MASK, LI_SHIFT);
 
-    #[cfg(feature = "log")]
-    {
-        use core::str;
+    use core::str;
 
-        let delimiter_gen = || unsafe { str::from_utf8_unchecked(&[b'='; 64]) };
+    let delimiter_gen = || unsafe { str::from_utf8_unchecked(&[b'='; 64]) };
 
-        debug!("{}", delimiter_gen());
-        debug!("| Mode:\t\t{}", mode);
-        debug!("| Version:\t{}", version);
-        debug!("| Leap:\t\t{}", li);
-        debug!("| Stratum:\t{}", packet.stratum);
-        debug!("| Poll:\t\t{}", packet.poll);
-        debug!("| Precision:\t\t{}", packet.precision);
-        debug!("| Root delay:\t\t{}", packet.root_delay);
-        debug!("| Root dispersion:\t{}", packet.root_dispersion);
-        debug!(
-            "| Reference ID:\t\t{}",
-            str::from_utf8(&packet.ref_id.to_be_bytes()).unwrap_or("")
-        );
-        debug!(
-            "| Origin timestamp    (client):\t{:>16}",
-            packet.origin_timestamp
-        );
-        debug!(
-            "| Receive timestamp   (server):\t{:>16}",
-            packet.recv_timestamp
-        );
-        debug!(
-            "| Transmit timestamp  (server):\t{:>16}",
-            packet.tx_timestamp
-        );
-        debug!("| Receive timestamp   (client):\t{:>16}", _recv_timestamp);
-        debug!(
-            "| Reference timestamp (server):\t{:>16}",
-            packet.ref_timestamp
-        );
-        debug!("{}", delimiter_gen());
-    }
+    debug!("{}", delimiter_gen());
+    debug!("| Mode:\t\t{}", mode);
+    debug!("| Version:\t{}", version);
+    debug!("| Leap:\t\t{}", li);
+    debug!("| Stratum:\t{}", packet.stratum);
+    debug!("| Poll:\t\t{}", packet.poll);
+    debug!("| Precision:\t\t{}", packet.precision);
+    debug!("| Root delay:\t\t{}", packet.root_delay);
+    debug!("| Root dispersion:\t{}", packet.root_dispersion);
+    debug!(
+        "| Reference ID:\t\t{}",
+        str::from_utf8(&packet.ref_id.to_be_bytes()).unwrap_or("")
+    );
+    debug!(
+        "| Origin timestamp    (client):\t{:>16}",
+        packet.origin_timestamp
+    );
+    debug!(
+        "| Receive timestamp   (server):\t{:>16}",
+        packet.recv_timestamp
+    );
+    debug!(
+        "| Transmit timestamp  (server):\t{:>16}",
+        packet.tx_timestamp
+    );
+    debug!("| Receive timestamp   (client):\t{:>16}", _recv_timestamp);
+    debug!(
+        "| Reference timestamp (server):\t{:>16}",
+        packet.ref_timestamp
+    );
+    debug!("{}", delimiter_gen());
 }
 
 fn get_ntp_timestamp<T: NtpTimestampGenerator>(timestamp_gen: T) -> u64 {
