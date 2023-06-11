@@ -860,14 +860,12 @@ where
     let result =
         process_response(send_req_result, response_buf, recv_timestamp);
 
-    match result {
-        Ok(result) => {
-            #[cfg(feature = "log")]
-            debug!("{:?}", result);
-            Ok(result)
-        }
-        Err(err) => Err(err),
+    if let Ok(_r) = &result {
+        #[cfg(feature = "log")]
+        debug!("{:?}", _r);
     }
+
+    result
 }
 
 fn send_request<A: net::ToSocketAddrs, U: NtpUdpSocket>(
@@ -901,7 +899,6 @@ fn process_response(
     let mut packet = NtpPacket::from(resp);
 
     convert_from_network(&mut packet);
-    #[cfg(debug_assertions)]
     debug_ntp_packet(&packet, recv_timestamp);
 
     if send_req_result.originate_timestamp != packet.origin_timestamp {

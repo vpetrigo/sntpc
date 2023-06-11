@@ -15,7 +15,7 @@ pub(super) fn sync_time(time: DateTime<Local>) {
         time.second()
     );
     let sync_cmd_status = Command::new("date")
-        .args(&["-s", time_str.as_str()])
+        .args(["-s", time_str.as_str()])
         .status()
         .expect("Unable to execute date command");
 

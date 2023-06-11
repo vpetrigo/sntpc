@@ -9,7 +9,7 @@ on:
       - master
 
 jobs:
-  build:
+  clippy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -17,6 +17,16 @@ jobs:
         run: cargo clippy --no-default-features --features="std log utils"
       - name: Run clippy with no_std
         run: cargo clippy --no-default-features --features="log"
+  check_format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Check formatting
+        run: cargo fmt --check
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
       - name: Build with std
         run: cargo build --all --no-default-features --features="std utils"
       - name: Build with no_std
