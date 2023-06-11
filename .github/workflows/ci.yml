@@ -12,7 +12,7 @@ jobs:
   clippy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Run clippy with std
         run: cargo clippy --no-default-features --features="std log utils"
       - name: Run clippy with no_std
@@ -20,13 +20,13 @@ jobs:
   check_format:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Check formatting
         run: cargo fmt --check
-  build:
+  build_test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Build with std
         run: cargo build --all --no-default-features --features="std utils"
       - name: Build with no_std
