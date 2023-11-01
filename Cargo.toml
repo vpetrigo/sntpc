@@ -30,6 +30,8 @@ chrono = { version = "~0.4", default-features = false, optional = true }
 # requred till this https://github.com/rust-lang/rfcs/pull/2832 is not addressed
 no-std-net = "~0.6"
 
+async-trait = { version = "0.1" }
+
 [dev-dependencies]
 simple_logger = { version = "~1.13" }
 smoltcp = { version = "~0.9", default-features = false, features = ["phy-tuntap_interface", "socket-udp", "proto-ipv4"] }
