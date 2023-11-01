@@ -1,22 +1,18 @@
 use crate::types::{
-    Error, NtpPacket, NtpResult, NtpTimestampGenerator, RawNtpPacket, Result,
-    SendRequestResult,
+    Error, NtpContext, NtpPacket, NtpResult, NtpTimestampGenerator,
+    RawNtpPacket, Result, SendRequestResult,
 };
 use crate::{get_ntp_timestamp, process_response};
 use core::fmt::Debug;
 
 #[cfg(feature = "std")]
-use std::net::{SocketAddr, ToSocketAddrs};
-// pub trait ToSocketAddrs {
-//     type Iter: Iterator<Item = SocketAddr>;
-
-//     // Required method
-//     fn to_socket_addrs(&self) -> Result<Self::Iter>;
-// }
+use std::net::SocketAddr;
+#[cfg(all(feature = "std", feature = "tokio"))]
+use tokio::net::{lookup_host, ToSocketAddrs};
 
 #[async_trait::async_trait]
 pub trait NtpUdpSocket {
-    async fn send_to<T: ToSocketAddrs>(
+    async fn send_to<T: ToSocketAddrs + Send>(
         &self,
         buf: &[u8],
         addr: T,
@@ -25,25 +21,13 @@ pub trait NtpUdpSocket {
     async fn recv_from(&self, buf: &mut [u8]) -> Result<(usize, SocketAddr)>;
 }
 
-#[derive(Copy, Clone)]
-pub struct NtpContext<T: NtpTimestampGenerator> {
-    pub timestamp_gen: T,
-}
-
-impl<T: NtpTimestampGenerator + Copy> NtpContext<T> {
-    /// Create SNTP client context with the given timestamp generator
-    pub fn new(timestamp_gen: T) -> Self {
-        NtpContext { timestamp_gen }
-    }
-}
-
 pub async fn sntp_send_request<A, U, T>(
     dest: A,
     socket: &U,
     context: NtpContext<T>,
 ) -> Result<SendRequestResult>
 where
-    A: ToSocketAddrs + Debug,
+    A: ToSocketAddrs + Debug + Send,
     U: NtpUdpSocket + Debug,
     T: NtpTimestampGenerator + Copy,
 {
@@ -55,7 +39,7 @@ where
     Ok(SendRequestResult::from(request))
 }
 
-async fn send_request<A: ToSocketAddrs, U: NtpUdpSocket>(
+async fn send_request<A: ToSocketAddrs + Send, U: NtpUdpSocket>(
     dest: A,
     req: &NtpPacket,
     socket: &U,
@@ -92,7 +76,7 @@ where
     #[cfg(feature = "log")]
     debug!("Response: {}", response);
 
-    match dest.to_socket_addrs() {
+    match lookup_host(dest).await {
         Err(_) => return Err(Error::AddressResolve),
         Ok(mut it) => {
             if !it.any(|addr| addr == src) {
@@ -122,7 +106,7 @@ pub async fn get_time<A, U, T>(
     context: NtpContext<T>,
 ) -> Result<NtpResult>
 where
-    A: ToSocketAddrs + Copy + Debug,
+    A: ToSocketAddrs + Copy + Debug + Send,
     U: NtpUdpSocket + Debug,
     T: NtpTimestampGenerator + Copy,
 {
