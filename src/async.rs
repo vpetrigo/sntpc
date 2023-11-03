@@ -4,6 +4,8 @@ use crate::types::{
 };
 use crate::{get_ntp_timestamp, process_response};
 use core::fmt::Debug;
+#[cfg(feature = "log")]
+use log::debug;
 
 #[cfg(feature = "std")]
 use std::net::SocketAddr;
