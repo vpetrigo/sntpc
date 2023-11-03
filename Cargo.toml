@@ -23,8 +23,9 @@ exclude = [
 default = ["std"]
 std = []
 utils = ["std", "chrono/clock"]
-async = ["async-trait"]
-async_tokio = ["std", "async", "tokio"]
+async = []
+async_tokio = ["std", "async", "tokio", "async-trait"]
+embassy = ["async"]
 
 [dependencies]
 log = { version = "~0.4", optional = true }

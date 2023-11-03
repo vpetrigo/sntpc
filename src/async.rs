@@ -1,3 +1,4 @@
+#[allow(async_fn_in_trait)]
 use crate::types::{
     Error, NtpContext, NtpPacket, NtpResult, NtpTimestampGenerator,
     RawNtpPacket, Result, SendRequestResult,
@@ -7,9 +8,26 @@ use core::fmt::Debug;
 
 #[cfg(feature = "std")]
 use std::net::SocketAddr;
-#[cfg(all(feature = "std", feature = "tokio"))]
+#[cfg(feature = "tokio")]
 use tokio::net::{lookup_host, ToSocketAddrs};
 
+#[cfg(not(feature = "std"))]
+use no_std_net::{SocketAddr, ToSocketAddrs};
+
+#[cfg(not(feature = "std"))]
+async fn lookup_host<T>(host: T) -> Result<impl Iterator<Item = SocketAddr>>
+where
+    T: ToSocketAddrs,
+{
+    #[allow(unused_variables)]
+    host.to_socket_addrs().map_err(|e| {
+        #[cfg(feature = "log")]
+        debug!("ToScoketAddrs: {}", e);
+        Error::AddressResolve
+    })
+}
+
+#[cfg(feature = "tokio")]
 #[async_trait::async_trait]
 pub trait NtpUdpSocket {
     async fn send_to<T: ToSocketAddrs + Send>(
@@ -19,6 +37,20 @@ pub trait NtpUdpSocket {
     ) -> Result<usize>;
 
     async fn recv_from(&self, buf: &mut [u8]) -> Result<(usize, SocketAddr)>;
+}
+
+#[cfg(not(feature = "std"))]
+pub trait NtpUdpSocket {
+    fn send_to<T: ToSocketAddrs + Send>(
+        &self,
+        buf: &[u8],
+        addr: T,
+    ) -> impl core::future::Future<Output = Result<usize>> + Send;
+
+    fn recv_from(
+        &self,
+        buf: &mut [u8],
+    ) -> impl core::future::Future<Output = Result<(usize, SocketAddr)>> + Send;
 }
 
 pub async fn sntp_send_request<A, U, T>(
