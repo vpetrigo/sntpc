@@ -25,7 +25,6 @@ std = []
 utils = ["std", "chrono/clock"]
 async = []
 async_tokio = ["std", "async", "tokio", "async-trait"]
-embassy = ["async"]
 
 [dependencies]
 log = { version = "~0.4", optional = true }
