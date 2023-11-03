@@ -1,4 +1,3 @@
-#[allow(async_fn_in_trait)]
 use crate::types::{
     Error, NtpContext, NtpPacket, NtpResult, NtpTimestampGenerator,
     RawNtpPacket, Result, SendRequestResult,
@@ -12,7 +11,7 @@ use std::net::SocketAddr;
 use tokio::net::{lookup_host, ToSocketAddrs};
 
 #[cfg(not(feature = "std"))]
-use no_std_net::{SocketAddr, ToSocketAddrs};
+pub use no_std_net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs};
 
 #[cfg(not(feature = "std"))]
 async fn lookup_host<T>(host: T) -> Result<impl Iterator<Item = SocketAddr>>
@@ -45,12 +44,12 @@ pub trait NtpUdpSocket {
         &self,
         buf: &[u8],
         addr: T,
-    ) -> impl core::future::Future<Output = Result<usize>> + Send;
+    ) -> impl core::future::Future<Output = Result<usize>>;
 
     fn recv_from(
         &self,
         buf: &mut [u8],
-    ) -> impl core::future::Future<Output = Result<(usize, SocketAddr)>> + Send;
+    ) -> impl core::future::Future<Output = Result<(usize, SocketAddr)>>;
 }
 
 pub async fn sntp_send_request<A, U, T>(
