@@ -66,6 +66,15 @@ Currently there are basic `no_std` support available, thanks [`no-std-net`](http
 crate. There is an example available on how to use [`smoltcp`][smoltcp] stack and that should provide
 general idea on how to bootstrap `no_std` networking and timestamping tools for `sntpc` library usage
 
+## `async` support
+
+-------------------
+
+Feature `async_tokio` allows to use crate together with `tokio` crate. There is an example: `examples/tokio.rs`.
+
+There are also `no_std` support with feature `async`, but it requires Rust >= nightly 1.75 version. The example can be found in [separate repository](https://github.com/vpikulik/sntpc_embassy).
+
+
 # Examples
 
 ----------
