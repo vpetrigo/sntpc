@@ -70,7 +70,7 @@ general idea on how to bootstrap `no_std` networking and timestamping tools for 
 
 -------------------
 
-Feature `async_tokio` allows to use crate together with `tokio` crate. There is an example: `examples/tokio.rs`.
+Feature `async_tokio` allows to use crate together with [tokio](https://docs.rs/tokio/latest/tokio/). There is an example: `examples/tokio.rs`.
 
 There are also `no_std` support with feature `async`, but it requires Rust >= nightly 1.75 version. The example can be found in [separate repository](https://github.com/vpikulik/sntpc_embassy).
 
