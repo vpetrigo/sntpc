@@ -106,7 +106,7 @@ mod types;
 pub use crate::types::*;
 
 #[cfg(feature = "async")]
-pub mod r#async;
+pub mod async_impl;
 
 use core::fmt::Debug;
 use core::iter::Iterator;

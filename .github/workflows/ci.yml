@@ -20,7 +20,7 @@ jobs:
       - name: Run clippy for tokio feature
         run: cargo clippy --features="tokio"
       - name: Run clippy for async feature
-        run: cargo clippy --no-default-feature --features="async"
+        run: cargo clippy --no-default-features --features="async"
   check_format:
     runs-on: ubuntu-latest
     steps:

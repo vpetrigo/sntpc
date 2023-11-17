@@ -1,5 +1,5 @@
 use sntpc::{
-    r#async::{get_time, NtpUdpSocket},
+    async_impl::{get_time, NtpUdpSocket},
     Error, NtpContext, Result, StdTimestampGen,
 };
 use std::net::SocketAddr;
