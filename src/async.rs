@@ -13,7 +13,7 @@ use std::net::SocketAddr;
 use tokio::net::{lookup_host, ToSocketAddrs};
 
 #[cfg(not(feature = "std"))]
-pub use no_std_net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs};
+use no_std_net::{SocketAddr, ToSocketAddrs};
 
 #[cfg(not(feature = "std"))]
 async fn lookup_host<T>(host: T) -> Result<impl Iterator<Item = SocketAddr>>
