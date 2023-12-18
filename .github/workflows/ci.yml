@@ -26,6 +26,8 @@ jobs:
     steps:
       - name: Install nightly toolchain
         run: rustup toolchain add nightly
+      - name: Install clippy
+        run: rustup component add clippy --toolchain nightly
       - name: Run clippy for async feature
         run: cargo +nightly clippy --no-default-features --features="async"
   check_format:
