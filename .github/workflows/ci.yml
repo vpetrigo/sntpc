@@ -19,8 +19,15 @@ jobs:
         run: cargo clippy --no-default-features --features="log"
       - name: Run clippy for tokio feature
         run: cargo clippy --features="tokio"
+  clippy_async_no_std:
+    runs-on: ubuntu-latest
+    container:
+      image: rust:latest
+    steps:
+      - name: Install nightly toolchain
+        run: rustup toolchain add nightly
       - name: Run clippy for async feature
-        run: cargo clippy --no-default-features --features="async"
+        run: cargo +nightly clippy --no-default-features --features="async"
   check_format:
     runs-on: ubuntu-latest
     steps:
