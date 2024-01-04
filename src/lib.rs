@@ -105,6 +105,9 @@ pub mod utils;
 mod types;
 pub use crate::types::*;
 
+#[cfg(feature = "async")]
+pub mod async_impl;
+
 use core::fmt::Debug;
 use core::iter::Iterator;
 use core::marker::Copy;
