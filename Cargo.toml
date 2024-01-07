@@ -1,12 +1,12 @@
 [package]
 name = "sntpc"
-version = "0.3.6"
+version = "0.3.7"
 description = "Library for making SNTP requests"
 homepage = "https://github.com/vpetrigo/sntpc"
 repository = "https://github.com/vpetrigo/sntpc"
 documentation = "https://docs.rs/sntpc"
 readme = "README.md"
-categories = ["date-and-time", "no-std", "embedded"]
+categories = ["date-and-time", "no-std", "embedded", "asynchronous"]
 keywords = ["sntp", "ntp", "sntp-client", "ntp-client"]
 license = "BSD-3-Clause"
 authors = ["Vladimir Petrigo <vladimir.petrigo@gmail.com>"]

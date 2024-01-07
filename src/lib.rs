@@ -12,7 +12,7 @@
 //! Put this in your `Cargo.toml`:
 //! ```cargo
 //! [dependencies]
-//! sntpc = "0.3.6"
+//! sntpc = "0.3.7"
 //! ```
 //!
 //! ## Features
@@ -21,6 +21,7 @@
 //! - `std`: includes functionality that depends on the standard library
 //! - `utils`: includes functionality that mostly OS specific and allows system time sync
 //! - `log`: enables library debug output during execution
+//! - `async`: enables asynchronous feature support
 //!
 //! <div class="example-wrap" style="display:inline-block"><pre class="compile_fail" style="white-space:normal;font:inherit;">
 //!
@@ -97,6 +98,8 @@
 //!
 //! For more complex example with custom timestamp generator and UDP socket implementation, see
 //! `examples/smoltcp_request.rs`.
+//!
+//! For usage SNTP-client in an asynchronous environment, see `examples/tokio.rs`
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(feature = "utils")]
@@ -826,7 +829,6 @@ mod sntpc_tests {
             "time.apple.com:123",
             "time.cloudflare.com:123",
             "time.facebook.com:123",
-            "stratum1.net:123",
         ];
 
         for pool in &pools {
