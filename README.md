@@ -29,7 +29,7 @@ like so:
 
 ```toml
 [dependencies]
-sntpc = "0.3.6"
+sntpc = "0.3.7"
 ```
 
 By calling the `get_time()` method and providing a proper NTP pool or server you
@@ -62,7 +62,7 @@ fn main() {
 
 -------------------
 
-Currently there are basic `no_std` support available, thanks [`no-std-net`](https://crates.io/crates/no-std-net)
+Currently, there are basic `no_std` support available, thanks to [`no-std-net`](https://crates.io/crates/no-std-net)
 crate. There is an example available on how to use [`smoltcp`][smoltcp] stack and that should provide
 general idea on how to bootstrap `no_std` networking and timestamping tools for `sntpc` library usage
 
@@ -70,10 +70,11 @@ general idea on how to bootstrap `no_std` networking and timestamping tools for 
 
 -------------------
 
-Feature `async_tokio` allows to use crate together with [tokio](https://docs.rs/tokio/latest/tokio/). There is an example: `examples/tokio.rs`.
+Feature `async_tokio` allows to use crate together with [tokio](https://docs.rs/tokio/latest/tokio/).
+There is an example: [`examples/tokio.rs`](examples/examples/tokio.rs).
 
-There is also `no_std` support with feature `async`, but it requires Rust >= `1.75-nightly` version. The example can be found in [separate repository](https://github.com/vpikulik/sntpc_embassy).
-
+There is also `no_std` support with feature `async`, but it requires Rust >= `1.75-nightly` version.
+The example can be found in [separate repository](https://github.com/vpikulik/sntpc_embassy).
 
 # Examples
 
@@ -94,6 +95,16 @@ required only due to smoltcp available interfaces
 Contributions are always welcome! If you have an idea, it's best to float it by me before working on it to ensure no
 effort is wasted. If there's already an open issue for it, knock yourself out. See the
 [**contributing section**](CONTRIBUTING.md) for additional details
+
+## Thanks
+
+1. [Frank A. Stevenson](https://github.com/snakehand): for implementing stricter adherence to RFC4330 verification scheme
+2. [Timothy Mertz](https://github.com/mertzt89): for fixing possible overflow in offset calculation
+3. [HannesH](https://github.com/HannesGitH): for fixing a typo in the README.md
+4. [Richard Penney](https://github.com/rwpenney): for adding two indicators of the NTP server's accuracy into the `NtpResult` structure 
+5. [Vitali Pikulik](https://github.com/vpikulik): for adding `async` support
+
+Really appreciate all your efforts! Please [let me know](mailto:vladimir.petrigo@gmail.com) if I forgot someone.
 
 # License
 
