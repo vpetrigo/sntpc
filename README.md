@@ -1,5 +1,4 @@
 [![sntpc test](https://github.com/vpetrigo/sntpc/actions/workflows/ci.yml/badge.svg)](https://github.com/vpetrigo/sntpc/actions/workflows/ci.yml)
-[![Build Status](https://travis-ci.com/vpetrigo/sntpc.svg?branch=master)](https://travis-ci.com/vpetrigo/sntpc)
 [![](https://img.shields.io/crates/v/sntpc)](https://crates.io/crates/sntpc)
 [![](https://img.shields.io/crates/l/sntpc)](https://github.com/vpetrigo/sntpc/blob/master/LICENSE.md)
 
@@ -103,6 +102,7 @@ effort is wasted. If there's already an open issue for it, knock yourself out. S
 3. [HannesH](https://github.com/HannesGitH): for fixing a typo in the README.md
 4. [Richard Penney](https://github.com/rwpenney): for adding two indicators of the NTP server's accuracy into the `NtpResult` structure 
 5. [Vitali Pikulik](https://github.com/vpikulik): for adding `async` support
+6. [tsingwong](https://github.com/tsingwong): for fixing invalid link in the `README.md`
 
 Really appreciate all your efforts! Please [let me know](mailto:vladimir.petrigo@gmail.com) if I forgot someone.
 
