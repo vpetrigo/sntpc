@@ -619,9 +619,7 @@ fn roundtrip_calculate(
 }
 
 fn offset_calculate(t1: u64, t2: u64, t3: u64, t4: u64, units: Units) -> i64 {
-    let theta = (t2.wrapping_sub(t1) as i64)
-        .wrapping_add(t3.wrapping_sub(t4) as i64)
-        / 2;
+    let theta = (t2.wrapping_sub(t1) / 2) as i64 + (t3.wrapping_sub(t4) / 2) as i64;
     let theta_sec = (theta.unsigned_abs() & SECONDS_MASK) >> 32;
     let theta_sec_fraction = theta.unsigned_abs() & SECONDS_FRAC_MASK;
 
@@ -637,6 +635,19 @@ fn offset_calculate(t1: u64, t2: u64, t3: u64, t4: u64, units: Units) -> i64 {
                 * theta.signum()
         }
     }
+}
+
+#[test]
+fn test_offset_calculate() {
+    let t1 = 9487534663484046772u64;
+    let t2 = 16882120099581835046u64;
+    let t3 = 16882120099583884144u64;
+    let t4 = 9487534663651464597u64;
+
+    assert_eq!(
+        offset_calculate(t1, t2, t3, t4, Units::Microseconds),
+        1721686086620926
+    );
 }
 
 #[cfg(feature = "log")]
