@@ -84,9 +84,9 @@
 //!     socket
 //!        .set_read_timeout(Some(Duration::from_secs(2)))
 //!        .expect("Unable to set UDP socket read timeout");
-//!     # #[cfg(all(feature = "std", feature = "sup"))]
+//!     # #[cfg(all(feature = "std"))]
 //!     let result = sntpc::simple_get_time("time.google.com:123", socket);
-//!     # #[cfg(all(feature = "std", feature = "sup"))]
+//!     # #[cfg(all(feature = "std"))]
 //!     match result {
 //!        Ok(time) => {
 //!            println!("Got time: {}.{}", time.sec(), sntpc::fraction_to_milliseconds(time.sec_fraction()));
@@ -604,7 +604,7 @@ fn roundtrip_calculate(
     t4: u64,
     units: Units,
 ) -> u64 {
-    let delta = t4.wrapping_sub(t1).wrapping_sub(t3.wrapping_sub(t2));
+    let delta = t4.wrapping_sub(t1).saturating_sub(t3.wrapping_sub(t2));
     let delta_sec = (delta & SECONDS_MASK) >> 32;
     let delta_sec_fraction = delta & SECONDS_FRAC_MASK;
 
@@ -619,9 +619,8 @@ fn roundtrip_calculate(
 }
 
 fn offset_calculate(t1: u64, t2: u64, t3: u64, t4: u64, units: Units) -> i64 {
-    let theta = (t2.wrapping_sub(t1) as i64)
-        .wrapping_add(t3.wrapping_sub(t4) as i64)
-        / 2;
+    let theta = ((t2.wrapping_sub(t1) / 2) as i64)
+        .saturating_add((t3.wrapping_sub(t4) / 2) as i64);
     let theta_sec = (theta.unsigned_abs() & SECONDS_MASK) >> 32;
     let theta_sec_fraction = theta.unsigned_abs() & SECONDS_FRAC_MASK;
 
@@ -637,6 +636,19 @@ fn offset_calculate(t1: u64, t2: u64, t3: u64, t4: u64, units: Units) -> i64 {
                 * theta.signum()
         }
     }
+}
+
+#[test]
+fn test_offset_calculate() {
+    let t1 = 9487534663484046772u64;
+    let t2 = 16882120099581835046u64;
+    let t3 = 16882120099583884144u64;
+    let t4 = 9487534663651464597u64;
+
+    assert_eq!(
+        offset_calculate(t1, t2, t3, t4, Units::Microseconds),
+        1721686086620926
+    );
 }
 
 #[cfg(feature = "log")]
