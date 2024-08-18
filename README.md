@@ -28,7 +28,7 @@ like so:
 
 ```toml
 [dependencies]
-sntpc = "0.3.7"
+sntpc = "0.3.8"
 ```
 
 By calling the `get_time()` method and providing a proper NTP pool or server you
@@ -103,6 +103,7 @@ effort is wasted. If there's already an open issue for it, knock yourself out. S
 4. [Richard Penney](https://github.com/rwpenney): for adding two indicators of the NTP server's accuracy into the `NtpResult` structure 
 5. [Vitali Pikulik](https://github.com/vpikulik): for adding `async` support
 6. [tsingwong](https://github.com/tsingwong): for fixing invalid link in the `README.md`
+7. [Robert Bastian](https://github.com/robertbastian): for fixing the overflow issue in the `calculate_offset`
 
 Really appreciate all your efforts! Please [let me know](mailto:vladimir.petrigo@gmail.com) if I forgot someone.
 
