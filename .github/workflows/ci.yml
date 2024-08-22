@@ -14,11 +14,11 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Run clippy with std
-        run: cargo clippy --no-default-features --features="std log utils"
+        run: cargo clippy --no-default-features --features="std log utils" -- -D clippy::all -D clippy::pedantic
       - name: Run clippy with no_std
-        run: cargo clippy --no-default-features --features="log"
+        run: cargo clippy --no-default-features --features="log" -- -D clippy::all -D clippy::pedantic
       - name: Run clippy for tokio feature
-        run: cargo clippy --features="tokio"
+        run: cargo clippy --features="tokio" -- -D clippy::all -D clippy::pedantic
   clippy_async_no_std:
     runs-on: ubuntu-latest
     container:
@@ -30,7 +30,7 @@ jobs:
       - name: Install clippy
         run: rustup component add clippy --toolchain nightly
       - name: Run clippy for async feature
-        run: cargo +nightly clippy --no-default-features --features="async"
+        run: cargo +nightly clippy --no-default-features --features="async" -- -D clippy::all -D clippy::pedantic
   check_format:
     runs-on: ubuntu-latest
     steps:
