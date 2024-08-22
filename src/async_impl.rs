@@ -16,6 +16,7 @@ use tokio::net::{lookup_host, ToSocketAddrs};
 use no_std_net::{SocketAddr, ToSocketAddrs};
 
 #[cfg(not(feature = "std"))]
+#[allow(clippy::unused_async)]
 async fn lookup_host<T>(host: T) -> Result<impl Iterator<Item = SocketAddr>>
 where
     T: ToSocketAddrs,
@@ -23,7 +24,7 @@ where
     #[allow(unused_variables)]
     host.to_socket_addrs().map_err(|e| {
         #[cfg(feature = "log")]
-        debug!("ToScoketAddrs: {}", e);
+        debug!("ToSocketAddrs: {:?}", e);
         Error::AddressResolve
     })
 }
@@ -54,6 +55,9 @@ pub trait NtpUdpSocket {
     ) -> impl core::future::Future<Output = Result<(usize, SocketAddr)>>;
 }
 
+/// # Errors
+///
+/// Will return `Err` if an SNTP request sending fails
 pub async fn sntp_send_request<A, U, T>(
     dest: A,
     socket: &U,
@@ -91,6 +95,9 @@ async fn send_request<A: ToSocketAddrs + Send, U: NtpUdpSocket>(
     }
 }
 
+/// # Errors
+///
+/// Will return `Err` if an SNTP response processing fails
 pub async fn sntp_process_response<A, U, T>(
     dest: A,
     socket: &U,
@@ -105,7 +112,7 @@ where
     let mut response_buf = RawNtpPacket::default();
     let (response, src) = socket.recv_from(response_buf.0.as_mut()).await?;
     context.timestamp_gen.init();
-    let recv_timestamp = get_ntp_timestamp(context.timestamp_gen);
+    let recv_timestamp = get_ntp_timestamp(&context.timestamp_gen);
     #[cfg(feature = "log")]
     debug!("Response: {}", response);
 
@@ -118,7 +125,7 @@ where
         }
     }
 
-    if response != core::mem::size_of::<NtpPacket>() {
+    if response != size_of::<NtpPacket>() {
         return Err(Error::IncorrectPayload);
     }
 
@@ -133,6 +140,9 @@ where
     result
 }
 
+/// # Errors
+///
+/// Will return `Err` if an SNTP request cannot be sent or SNTP response fails
 pub async fn get_time<A, U, T>(
     pool_addrs: A,
     socket: U,
