@@ -643,7 +643,7 @@ fn test_offset_calculate() {
     struct Timestamps(u64, u64, u64, u64);
     struct TestCase(Timestamps, i64);
 
-    let tests = vec![
+    let tests = [
         TestCase(
             Timestamps(
                 16893142954672769962,
