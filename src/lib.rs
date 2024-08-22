@@ -638,63 +638,6 @@ fn offset_calculate(t1: u64, t2: u64, t3: u64, t4: u64, units: Units) -> i64 {
     }
 }
 
-#[test]
-fn test_offset_calculate() {
-    struct Timestamps(u64, u64, u64, u64);
-    struct TestCase(Timestamps, i64);
-
-    let tests = [
-        TestCase(
-            Timestamps(
-                16893142954672769962,
-                16893142959053084959,
-                16893142959053112968,
-                16893142954793063406,
-            ),
-            1005870,
-        ),
-        TestCase(
-            Timestamps(
-                16893362966131575843,
-                16893362966715800791,
-                16893362966715869584,
-                16893362967084349913,
-            ),
-            25115,
-        ),
-        TestCase(
-            Timestamps(
-                16893399716399327198,
-                16893399716453045029,
-                16893399716453098083,
-                16893399716961924964,
-            ),
-            -52981,
-        ),
-        TestCase(
-            Timestamps(
-                9487534663484046772u64,
-                16882120099581835046u64,
-                16882120099583884144u64,
-                9487534663651464597u64,
-            ),
-            1721686086620926,
-        ),
-    ];
-
-    for t in tests {
-        let offset = offset_calculate(
-            t.0 .0,
-            t.0 .1,
-            t.0 .2,
-            t.0 .3,
-            Units::Microseconds,
-        );
-        let expected = t.1;
-        assert_eq!(offset, expected);
-    }
-}
-
 #[cfg(feature = "log")]
 fn debug_ntp_packet(packet: &NtpPacket, _recv_timestamp: u64) {
     let mode = shifter(packet.li_vn_mode, MODE_MASK, MODE_SHIFT);
@@ -873,8 +816,41 @@ mod sntpc_ntp_result_tests {
 
 #[cfg(all(test, feature = "std"))]
 mod sntpc_tests {
-    use crate::{get_time, Error, NtpContext, StdTimestampGen, Units};
+    use crate::{
+        get_time, offset_calculate, Error, NtpContext, StdTimestampGen, Units,
+    };
     use std::net::UdpSocket;
+
+    struct Timestamps(u64, u64, u64, u64);
+    struct OffsetCalcTestCase {
+        timestamp: Timestamps,
+        expected: i64,
+    }
+
+    impl OffsetCalcTestCase {
+        fn new(t1: u64, t2: u64, t3: u64, t4: u64, expected: i64) -> Self {
+            OffsetCalcTestCase {
+                timestamp: Timestamps(t1, t2, t3, t4),
+                expected,
+            }
+        }
+
+        fn t1(&self) -> u64 {
+            self.timestamp.0
+        }
+
+        fn t2(&self) -> u64 {
+            self.timestamp.1
+        }
+
+        fn t3(&self) -> u64 {
+            self.timestamp.2
+        }
+
+        fn t4(&self) -> u64 {
+            self.timestamp.3
+        }
+    }
 
     #[test]
     fn test_ntp_request_sntpv4_supported() {
@@ -940,5 +916,51 @@ mod sntpc_tests {
     fn test_units_str_representation() {
         assert_eq!(format!("{}", Units::Milliseconds), "ms");
         assert_eq!(format!("{}", Units::Microseconds), "us");
+    }
+
+    #[test]
+    fn test_offset_calculate() {
+        let tests = [
+            OffsetCalcTestCase::new(
+                16893142954672769962,
+                16893142959053084959,
+                16893142959053112968,
+                16893142954793063406,
+                1005870,
+            ),
+            OffsetCalcTestCase::new(
+                16893362966131575843,
+                16893362966715800791,
+                16893362966715869584,
+                16893362967084349913,
+                25115,
+            ),
+            OffsetCalcTestCase::new(
+                16893399716399327198,
+                16893399716453045029,
+                16893399716453098083,
+                16893399716961924964,
+                -52981,
+            ),
+            OffsetCalcTestCase::new(
+                9487534663484046772u64,
+                16882120099581835046u64,
+                16882120099583884144u64,
+                9487534663651464597u64,
+                1721686086620926,
+            ),
+        ];
+
+        for t in tests {
+            let offset = offset_calculate(
+                t.t1(),
+                t.t2(),
+                t.t3(),
+                t.t4(),
+                Units::Microseconds,
+            );
+            let expected = t.expected;
+            assert_eq!(offset, expected);
+        }
     }
 }
