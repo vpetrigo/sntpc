@@ -115,6 +115,8 @@ use core::fmt::Debug;
 use core::iter::Iterator;
 use core::marker::Copy;
 use core::mem;
+#[cfg(feature = "log")]
+use core::str;
 
 pub(crate) mod net {
     #[cfg(not(feature = "std"))]
@@ -487,9 +489,9 @@ where
     let result =
         process_response(send_req_result, response_buf, recv_timestamp);
 
-    if let Ok(_r) = &result {
-        #[cfg(feature = "log")]
-        debug!("{:?}", _r);
+    #[cfg(feature = "log")]
+    if let Ok(r) = &result {
+        debug!("{:?}", r);
     }
 
     result
@@ -667,13 +669,10 @@ fn offset_calculate(t1: u64, t2: u64, t3: u64, t4: u64, units: Units) -> i64 {
 }
 
 #[cfg(feature = "log")]
-fn debug_ntp_packet(packet: &NtpPacket, _recv_timestamp: u64) {
+fn debug_ntp_packet(packet: &NtpPacket, recv_timestamp: u64) {
     let mode = shifter(packet.li_vn_mode, MODE_MASK, MODE_SHIFT);
     let version = shifter(packet.li_vn_mode, VERSION_MASK, VERSION_SHIFT);
     let li = shifter(packet.li_vn_mode, LI_MASK, LI_SHIFT);
-
-    use core::str;
-
     let delimiter_gen = || unsafe { str::from_utf8_unchecked(&[b'='; 64]) };
 
     debug!("{}", delimiter_gen());
@@ -701,7 +700,7 @@ fn debug_ntp_packet(packet: &NtpPacket, _recv_timestamp: u64) {
         "| Transmit timestamp  (server):\t{:>16}",
         packet.tx_timestamp
     );
-    debug!("| Receive timestamp   (client):\t{:>16}", _recv_timestamp);
+    debug!("| Receive timestamp   (client):\t{:>16}", recv_timestamp);
     debug!(
         "| Reference timestamp (server):\t{:>16}",
         packet.ref_timestamp

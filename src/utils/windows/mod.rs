@@ -28,7 +28,7 @@ pub(super) fn sync_time(time: DateTime<Local>) {
                 .expect("Time synchronization finished incorrectly");
         }
         Err(e) => {
-            eprintln!("Error occurred: {}", e);
+            eprintln!("Error occurred: {e}");
         }
     };
 }
