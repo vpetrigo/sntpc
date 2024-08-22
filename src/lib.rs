@@ -12,7 +12,7 @@
 //! Put this in your `Cargo.toml`:
 //! ```cargo
 //! [dependencies]
-//! sntpc = "0.3.7"
+//! sntpc = "0.3.9"
 //! ```
 //!
 //! ## Features
