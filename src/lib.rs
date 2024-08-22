@@ -619,8 +619,8 @@ fn roundtrip_calculate(
 }
 
 fn offset_calculate(t1: u64, t2: u64, t3: u64, t4: u64, units: Units) -> i64 {
-    let theta = ((t2.wrapping_sub(t1) / 2) as i64)
-        .saturating_add((t3.wrapping_sub(t4) / 2) as i64);
+    let theta = (t2.wrapping_sub(t1) as i64 / 2)
+        .saturating_add(t3.wrapping_sub(t4) as i64 / 2);
     let theta_sec = (theta.unsigned_abs() & SECONDS_MASK) >> 32;
     let theta_sec_fraction = theta.unsigned_abs() & SECONDS_FRAC_MASK;
 
@@ -640,15 +640,59 @@ fn offset_calculate(t1: u64, t2: u64, t3: u64, t4: u64, units: Units) -> i64 {
 
 #[test]
 fn test_offset_calculate() {
-    let t1 = 9487534663484046772u64;
-    let t2 = 16882120099581835046u64;
-    let t3 = 16882120099583884144u64;
-    let t4 = 9487534663651464597u64;
+    struct Timestamps(u64, u64, u64, u64);
+    struct TestCase(Timestamps, i64);
 
-    assert_eq!(
-        offset_calculate(t1, t2, t3, t4, Units::Microseconds),
-        1721686086620926
-    );
+    let tests = vec![
+        TestCase(
+            Timestamps(
+                16893142954672769962,
+                16893142959053084959,
+                16893142959053112968,
+                16893142954793063406,
+            ),
+            1005870,
+        ),
+        TestCase(
+            Timestamps(
+                16893362966131575843,
+                16893362966715800791,
+                16893362966715869584,
+                16893362967084349913,
+            ),
+            25115,
+        ),
+        TestCase(
+            Timestamps(
+                16893399716399327198,
+                16893399716453045029,
+                16893399716453098083,
+                16893399716961924964,
+            ),
+            -52981,
+        ),
+        TestCase(
+            Timestamps(
+                9487534663484046772u64,
+                16882120099581835046u64,
+                16882120099583884144u64,
+                9487534663651464597u64,
+            ),
+            1721686086620926,
+        ),
+    ];
+
+    for t in tests {
+        let offset = offset_calculate(
+            t.0 .0,
+            t.0 .1,
+            t.0 .2,
+            t.0 .3,
+            Units::Microseconds,
+        );
+        let expected = t.1;
+        assert_eq!(offset, expected);
+    }
 }
 
 #[cfg(feature = "log")]
