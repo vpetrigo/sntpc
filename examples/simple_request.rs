@@ -28,7 +28,7 @@ fn main() {
             .set_read_timeout(Some(Duration::from_secs(2)))
             .expect("Unable to set UDP socket read timeout");
 
-        let result = sntpc::simple_get_time(POOL_NTP_ADDR, socket);
+        let result = sntpc::simple_get_time(POOL_NTP_ADDR, &socket);
 
         match result {
             Ok(time) => {

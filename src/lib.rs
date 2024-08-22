@@ -32,18 +32,18 @@
 //!
 //! There are multiple approaches how the library can be used:
 //! - under environments where a networking stuff is hidden in system/RTOS kernel, [`get_time`] can
-//! be used since it encapsulates network I/O
+//!   be used since it encapsulates network I/O
 //! - under environments where TCP/IP stack requires to call some helper functions like `poll`,
-//! `wait`, etc. and/or there are no options to perform I/O operations within a single call,
-//! [`sntp_send_request`] and [`sntp_process_response`] can be used
+//!   `wait`, etc. and/or there are no options to perform I/O operations within a single call,
+//!   [`sntp_send_request`] and [`sntp_process_response`] can be used
 //!
 //! As `sntpc` supports `no_std` environment as well, it was
 //! decided to provide a set of traits to implement for a network object (`UdpSocket`)
 //! and timestamp generator:
 //! - [`NtpUdpSocket`] trait should be implemented for `UdpSocket`-like objects for the
-//! library to be able to send and receive data from NTP servers
+//!   library to be able to send and receive data from NTP servers
 //! - [`NtpTimestampGenerator`] trait should be implemented for timestamp generator objects to
-//! provide the library with system related timestamps
+//!   provide the library with system related timestamps
 //!
 //! ## Logging support
 //!
@@ -85,7 +85,7 @@
 //!        .set_read_timeout(Some(Duration::from_secs(2)))
 //!        .expect("Unable to set UDP socket read timeout");
 //!     # #[cfg(all(feature = "std"))]
-//!     let result = sntpc::simple_get_time("time.google.com:123", socket);
+//!     let result = sntpc::simple_get_time("time.google.com:123", &socket);
 //!     # #[cfg(all(feature = "std"))]
 //!     match result {
 //!        Ok(time) => {
@@ -136,7 +136,7 @@ use log::debug;
 /// **Args:**
 /// - `pool_addrs` - Server's name or IP address with port specification as a string
 /// - `socket` - UDP socket object that will be used during NTP request-response
-/// communication
+///   communication
 /// - `context` - SNTP client context to provide timestamp generation feature
 ///
 /// # Example
@@ -211,15 +211,18 @@ use log::debug;
 /// let ntp_context = NtpContext::new(StdTimestampGen::default());
 /// let socket = UdpSocketWrapper(UdpSocket::bind("0.0.0.0:0").expect("something"));
 /// # #[cfg(feature = "std")]
-/// let result = sntpc::get_time("time.google.com:123", socket, ntp_context);
+/// let result = sntpc::get_time("time.google.com:123", &socket, ntp_context);
 /// // OR
-/// // let result = sntpc::get_time("83.168.200.199:123", socket, context);
+/// // let result = sntpc::get_time("83.168.200.199:123", &socket, context);
 ///
 /// // .. process the result
 /// ```
+/// # Errors
+///
+/// Will return `Err` if an SNTP request cannot be sent or SNTP response fails
 pub fn get_time<A, U, T>(
     pool_addrs: A,
-    socket: U,
+    socket: &U,
     context: NtpContext<T>,
 ) -> Result<NtpResult>
 where
@@ -227,17 +230,20 @@ where
     U: NtpUdpSocket + Debug,
     T: NtpTimestampGenerator + Copy,
 {
-    let result = sntp_send_request(pool_addrs, &socket, context)?;
+    let result = sntp_send_request(pool_addrs, socket, context)?;
 
-    sntp_process_response(pool_addrs, &socket, context, result)
+    sntp_process_response(pool_addrs, socket, context, result)
 }
 
 #[cfg(feature = "std")]
 /// Supplementary `get_time` alternative that wraps provided UDP socket into a wrapper type
 /// that implements necessary traits for SNTP client proper operation
+/// # Errors
+///
+/// Will return `Err` if an SNTP request cannot be sent or SNTP response fails
 pub fn simple_get_time<A>(
     pool_addrs: A,
-    socket: net::UdpSocket,
+    socket: &net::UdpSocket,
 ) -> Result<NtpResult>
 where
     A: net::ToSocketAddrs + Copy + Debug,
@@ -334,6 +340,9 @@ where
 /// # #[cfg(feature = "std")]
 /// let result = sntpc::sntp_send_request("time.google.com:123", &socket, ntp_context);
 /// ```
+/// # Errors
+///
+/// Will return `Err` if an SNTP request sending fails
 pub fn sntp_send_request<A, U, T>(
     dest: A,
     socket: &U,
@@ -441,6 +450,9 @@ where
 ///     let time = sntpc::sntp_process_response("time.google.com:123", &socket, ntp_context, result);
 /// }
 /// ```
+/// # Errors
+///
+/// Will return `Err` if an SNTP response processing fails
 pub fn sntp_process_response<A, U, T>(
     dest: A,
     socket: &U,
@@ -455,7 +467,7 @@ where
     let mut response_buf = RawNtpPacket::default();
     let (response, src) = socket.recv_from(response_buf.0.as_mut())?;
     context.timestamp_gen.init();
-    let recv_timestamp = get_ntp_timestamp(context.timestamp_gen);
+    let recv_timestamp = get_ntp_timestamp(&context.timestamp_gen);
     #[cfg(feature = "log")]
     debug!("Response: {}", response);
 
@@ -502,6 +514,11 @@ fn send_request<A: net::ToSocketAddrs, U: NtpUdpSocket>(
     }
 }
 
+#[allow(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    clippy::cast_possible_wrap
+)]
 fn process_response(
     send_req_result: SendRequestResult,
     resp: RawNtpPacket,
@@ -580,21 +597,21 @@ fn shifter(val: u8, mask: u8, shift: u8) -> u8 {
 }
 
 fn convert_from_network(packet: &mut NtpPacket) {
-    fn ntohl<T: NtpNum>(val: T) -> T::Type {
+    fn ntohl<T: NtpNum>(val: &T) -> T::Type {
         val.ntohl()
     }
 
-    packet.root_delay = ntohl(packet.root_delay);
-    packet.root_dispersion = ntohl(packet.root_dispersion);
-    packet.ref_id = ntohl(packet.ref_id);
-    packet.ref_timestamp = ntohl(packet.ref_timestamp);
-    packet.origin_timestamp = ntohl(packet.origin_timestamp);
-    packet.recv_timestamp = ntohl(packet.recv_timestamp);
-    packet.tx_timestamp = ntohl(packet.tx_timestamp);
+    packet.root_delay = ntohl(&packet.root_delay);
+    packet.root_dispersion = ntohl(&packet.root_dispersion);
+    packet.ref_id = ntohl(&packet.ref_id);
+    packet.ref_timestamp = ntohl(&packet.ref_timestamp);
+    packet.origin_timestamp = ntohl(&packet.origin_timestamp);
+    packet.recv_timestamp = ntohl(&packet.recv_timestamp);
+    packet.tx_timestamp = ntohl(&packet.tx_timestamp);
 }
 
 fn convert_delays(sec: u64, fraction: u64, units: u64) -> u64 {
-    sec * units + fraction * units / u32::MAX as u64
+    sec * units + fraction * units / u64::from(u32::MAX)
 }
 
 fn roundtrip_calculate(
@@ -609,15 +626,20 @@ fn roundtrip_calculate(
     let delta_sec_fraction = delta & SECONDS_FRAC_MASK;
 
     match units {
-        Units::Milliseconds => {
-            convert_delays(delta_sec, delta_sec_fraction, MSEC_IN_SEC as u64)
-        }
-        Units::Microseconds => {
-            convert_delays(delta_sec, delta_sec_fraction, USEC_IN_SEC as u64)
-        }
+        Units::Milliseconds => convert_delays(
+            delta_sec,
+            delta_sec_fraction,
+            u64::from(MSEC_IN_SEC),
+        ),
+        Units::Microseconds => convert_delays(
+            delta_sec,
+            delta_sec_fraction,
+            u64::from(USEC_IN_SEC),
+        ),
     }
 }
 
+#[allow(clippy::cast_possible_wrap)]
 fn offset_calculate(t1: u64, t2: u64, t3: u64, t4: u64, units: Units) -> i64 {
     let theta = (t2.wrapping_sub(t1) as i64 / 2)
         .saturating_add(t3.wrapping_sub(t4) as i64 / 2);
@@ -626,13 +648,19 @@ fn offset_calculate(t1: u64, t2: u64, t3: u64, t4: u64, units: Units) -> i64 {
 
     match units {
         Units::Milliseconds => {
-            convert_delays(theta_sec, theta_sec_fraction, MSEC_IN_SEC as u64)
-                as i64
+            convert_delays(
+                theta_sec,
+                theta_sec_fraction,
+                u64::from(MSEC_IN_SEC),
+            ) as i64
                 * theta.signum()
         }
         Units::Microseconds => {
-            convert_delays(theta_sec, theta_sec_fraction, USEC_IN_SEC as u64)
-                as i64
+            convert_delays(
+                theta_sec,
+                theta_sec_fraction,
+                u64::from(USEC_IN_SEC),
+            ) as i64
                 * theta.signum()
         }
     }
@@ -681,33 +709,42 @@ fn debug_ntp_packet(packet: &NtpPacket, _recv_timestamp: u64) {
     debug!("{}", delimiter_gen());
 }
 
-fn get_ntp_timestamp<T: NtpTimestampGenerator>(timestamp_gen: T) -> u64 {
+fn get_ntp_timestamp<T: NtpTimestampGenerator>(timestamp_gen: &T) -> u64 {
     ((timestamp_gen.timestamp_sec()
         + (u64::from(NtpPacket::NTP_TIMESTAMP_DELTA)))
         << 32)
-        + timestamp_gen.timestamp_subsec_micros() as u64 * u32::MAX as u64
-            / USEC_IN_SEC as u64
+        + u64::from(timestamp_gen.timestamp_subsec_micros())
+            * u64::from(u32::MAX)
+            / u64::from(USEC_IN_SEC)
 }
 
 /// Convert second fraction value to milliseconds value
+#[allow(clippy::cast_possible_truncation)]
+#[must_use]
 pub fn fraction_to_milliseconds(sec_fraction: u32) -> u32 {
     (u64::from(sec_fraction) * u64::from(MSEC_IN_SEC) / u64::from(u32::MAX))
         as u32
 }
 
 /// Convert second fraction value to microseconds value
+#[allow(clippy::cast_possible_truncation)]
+#[must_use]
 pub fn fraction_to_microseconds(sec_fraction: u32) -> u32 {
     (u64::from(sec_fraction) * u64::from(USEC_IN_SEC) / u64::from(u32::MAX))
         as u32
 }
 
 /// Convert second fraction value to nanoseconds value
+#[allow(clippy::cast_possible_truncation)]
+#[must_use]
 pub fn fraction_to_nanoseconds(sec_fraction: u32) -> u32 {
     (u64::from(sec_fraction) * u64::from(NSEC_IN_SEC) / u64::from(u32::MAX))
         as u32
 }
 
 /// Convert second fraction value to picoseconds value
+#[allow(clippy::cast_possible_truncation)]
+#[must_use]
 pub fn fraction_to_picoseconds(sec_fraction: u32) -> u64 {
     (u128::from(sec_fraction) * u128::from(PSEC_IN_SEC) / u128::from(u32::MAX))
         as u64
@@ -869,7 +906,7 @@ mod sntpc_tests {
                 .set_read_timeout(Some(std::time::Duration::from_secs(2)))
                 .expect("Unable to set up socket timeout");
 
-            let result = get_time(pool, socket, context);
+            let result = get_time(pool, &socket, context);
 
             assert!(
                 result.is_ok(),
@@ -892,7 +929,7 @@ mod sntpc_tests {
             socket
                 .set_read_timeout(Some(std::time::Duration::from_secs(2)))
                 .expect("Unable to set up socket timeout");
-            let result = get_time(pool, socket, context);
+            let result = get_time(pool, &socket, context);
             assert!(result.is_err(), "{} is ok", pool);
             assert_eq!(result.unwrap_err(), Error::IncorrectResponseVersion);
         }
@@ -907,7 +944,7 @@ mod sntpc_tests {
             .set_read_timeout(Some(std::time::Duration::from_secs(2)))
             .expect("Unable to set up socket timeout");
 
-        let result = get_time(pool, socket, context);
+        let result = get_time(pool, &socket, context);
         assert!(result.is_err(), "{} is ok", pool);
         assert_eq!(result.unwrap_err(), Error::Network);
     }

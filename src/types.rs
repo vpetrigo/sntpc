@@ -58,9 +58,10 @@ pub(crate) struct NtpTimestamp {
 }
 
 impl From<u64> for NtpTimestamp {
+    #[allow(clippy::cast_possible_wrap)]
     fn from(v: u64) -> Self {
         let seconds = (((v & SECONDS_MASK) >> 32)
-            - NtpPacket::NTP_TIMESTAMP_DELTA as u64)
+            - u64::from(NtpPacket::NTP_TIMESTAMP_DELTA))
             as i64;
         let microseconds = (v & SECONDS_FRAC_MASK) as i64;
 
@@ -86,7 +87,7 @@ impl Display for Units {
             Units::Milliseconds => "ms",
         };
 
-        write!(f, "{}", unit)
+        write!(f, "{unit}")
     }
 }
 
@@ -102,11 +103,11 @@ pub enum Error {
     IncorrectMode,
     /// Incorrect Leap Indicator (LI) value in a NTP response
     IncorrectLeapIndicator,
-    /// Incorrect version in a NTP response. Currently SNTPv4 is supported
+    /// Incorrect version in a NTP response. Currently, `SNTPv4` is supported
     IncorrectResponseVersion,
     /// Incorrect stratum headers in a NTP response
     IncorrectStratumHeaders,
-    /// Payload size of a NTP response does not meet SNTPv4 specification
+    /// Payload size of a NTP response does not meet `SNTPv4` specification
     IncorrectPayload,
     /// Network error occurred.
     Network,
@@ -143,6 +144,7 @@ impl NtpResult {
     /// * `offset` - calculated system clock offset in microseconds
     /// * `stratum` - integer indicating the stratum (level of server's hierarchy to stratum 0 - "reference clock")
     /// * `precision` - an exponent of two, where the resulting value is the precision of the system clock in seconds
+    #[must_use]
     pub fn new(
         seconds: u32,
         seconds_fraction: u32,
@@ -164,31 +166,37 @@ impl NtpResult {
         }
     }
     /// Returns number of seconds reported by an NTP server
+    #[must_use]
     pub fn sec(&self) -> u32 {
         self.seconds
     }
 
     /// Returns number of seconds fraction reported by an NTP server
+    #[must_use]
     pub fn sec_fraction(&self) -> u32 {
         self.seconds_fraction
     }
 
     /// Returns request's roundtrip time (client -> server -> client) in microseconds
+    #[must_use]
     pub fn roundtrip(&self) -> u64 {
         self.roundtrip
     }
 
     /// Returns system clock offset value in microseconds
+    #[must_use]
     pub fn offset(&self) -> i64 {
         self.offset
     }
 
     /// Returns reported stratum value (level of server's hierarchy to stratum 0 - "reference clock")
+    #[must_use]
     pub fn stratum(&self) -> u8 {
         self.stratum
     }
 
     /// Returns reported precision value (an exponent of two, which results in the precision of server's system clock in seconds)
+    #[must_use]
     pub fn precision(&self) -> i8 {
         self.precision
     }
@@ -202,7 +210,7 @@ impl NtpPacket {
 
     pub fn new<T: NtpTimestampGenerator>(mut timestamp_gen: T) -> NtpPacket {
         timestamp_gen.init();
-        let tx_timestamp = get_ntp_timestamp(timestamp_gen);
+        let tx_timestamp = get_ntp_timestamp(&timestamp_gen);
 
         #[cfg(feature = "log")]
         debug!(target: "NtpPacket::new", "{}", tx_timestamp);
@@ -296,9 +304,12 @@ pub trait NtpUdpSocket {
     /// Send the given buffer to an address provided. On success, returns the number
     /// of bytes written.
     ///
-    /// Since multiple SocketAddr objects can hide behind the type (domain name can be
+    /// Since multiple `SocketAddr` objects can hide behind the type (domain name can be
     /// resolved to multiple addresses), the method should send data to a single address
     /// available in `addr`
+    /// # Errors
+    ///
+    /// Will return `Err` if an underlying UDP send fails
     fn send_to<T: net::ToSocketAddrs>(
         &self,
         buf: &[u8],
@@ -310,6 +321,9 @@ pub trait NtpUdpSocket {
     ///
     /// The function will be called with valid byte array `buf` of sufficient size to
     /// hold the message bytes
+    /// # Errors
+    ///
+    /// Will return `Err` if an underlying UDP receive fails
     fn recv_from(&self, buf: &mut [u8]) -> Result<(usize, net::SocketAddr)>;
 }
 
@@ -432,7 +446,9 @@ impl From<RawNtpPacket> for NtpPacket {
         NtpPacket {
             li_vn_mode: val.0[0],
             stratum: val.0[1],
+            #[allow(clippy::cast_possible_wrap)]
             poll: val.0[2] as i8,
+            #[allow(clippy::cast_possible_wrap)]
             precision: val.0[3] as i8,
             root_delay: u32::from_le_bytes(to_array_u32(&val.0[4..8])),
             root_dispersion: u32::from_le_bytes(to_array_u32(&val.0[8..12])),
@@ -446,6 +462,7 @@ impl From<RawNtpPacket> for NtpPacket {
 }
 
 impl From<&NtpPacket> for RawNtpPacket {
+    #[allow(clippy::cast_sign_loss)]
     fn from(val: &NtpPacket) -> Self {
         let mut tmp_buf = [0u8; mem::size_of::<NtpPacket>()];
 
