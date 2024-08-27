@@ -125,7 +125,7 @@ where
         }
     }
 
-    if response != size_of::<NtpPacket>() {
+    if response != core::mem::size_of::<NtpPacket>() {
         return Err(Error::IncorrectPayload);
     }
 
