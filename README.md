@@ -40,21 +40,18 @@ use std::time::Duration;
 
 fn main() {
     let socket =
-        UdpSocket::bind("0.0.0.0:0").expect("Unable to create UDP socket");
+        UdpSocket::bind("0.0.0.0:0").expect("Unable to crate UDP socket");
     socket
        .set_read_timeout(Some(Duration::from_secs(2)))
        .expect("Unable to set UDP socket read timeout");
-    let result =
-        sntpc::simple_get_time("time.google.com:123", socket);
-
+    let result = sntpc::simple_get_time("time.google.com:123", &socket);
     match result {
        Ok(time) => {
-           let microseconds = sntpc::fraction_to_microseconds(time.sec_fraction());
-           println!("Got time: {}.{}", time.sec(), microseconds);
+           println!("Got time: {}.{}", time.sec(), sntpc::fraction_to_milliseconds(time.sec_fraction()));
        }
        Err(err) => println!("Err: {:?}", err),
     }
- }
+}
 ```
 
 ## `no_std` support
