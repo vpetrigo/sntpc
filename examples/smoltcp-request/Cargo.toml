@@ -1,0 +1,13 @@
+[package]
+name = "example-smoltcp-request"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[features]
+log = ["simple_logger"]
+
+[dependencies]
+sntpc = { path = "../../sntpc" }
+simple_logger = { version = "~1.13", optional = true }
+smoltcp = { version = "~0.9", default-features = false, features = ["phy-tuntap_interface", "socket-udp", "proto-ipv4"] }

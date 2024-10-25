@@ -1,0 +1,12 @@
+[package]
+name = "example-simple-request"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[features]
+log = ["simple_logger"]
+
+[dependencies]
+sntpc = { path = "../../sntpc" }
+simple_logger = { version = "~1.13", optional = true }

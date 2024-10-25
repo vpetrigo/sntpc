@@ -78,7 +78,7 @@ fn main() {
     socket
         .set_read_timeout(Some(Duration::from_secs(2)))
         .expect("Unable to set UDP socket read timeout");
-    let time = sntpc::simple_get_time(ntp_addr.as_str(), socket)
+    let time = sntpc::simple_get_time(ntp_addr.as_str(), &socket)
         .unwrap_or_else(|_| {
             panic!("Unable to receive time from: {}", ntp_addr)
         });
