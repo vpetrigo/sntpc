@@ -2,8 +2,6 @@
 //!
 //! Example provides a basic implementation of [`NtpTimestampGenerator`] and [`NtpUdpSocket`]
 //! required for the `sntpc` library
-#[cfg(feature = "log")]
-use simple_logger;
 use std::net::UdpSocket;
 use std::thread;
 use std::time::Duration;
@@ -34,11 +32,11 @@ fn main() {
             Ok(time) => {
                 assert_ne!(time.sec(), 0);
                 let seconds = time.sec();
-                let microseconds =
-                    time.sec_fraction() as u64 * 1_000_000 / u32::MAX as u64;
-                println!("Got time: {}.{}", seconds, microseconds);
+                let microseconds = u64::from(time.sec_fraction()) * 1_000_000
+                    / u64::from(u32::MAX);
+                println!("Got time: {seconds}.{microseconds}");
             }
-            Err(err) => println!("Err: {:?}", err),
+            Err(err) => println!("Err: {err:?}"),
         }
 
         thread::sleep(Duration::new(15, 0));

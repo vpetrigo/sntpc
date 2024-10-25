@@ -6,3 +6,4 @@ publish = false
 
 [dependencies]
 sntpc = { path = "../../sntpc", default-features = false, features = ["async"] }
+executor = "0.8.4"

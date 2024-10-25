@@ -5,7 +5,7 @@ edition = "2021"
 publish = false
 
 [features]
-log = ["simple_logger"]
+log = ["dep:simple_logger"]
 
 [dependencies]
 sntpc = { path = "../../sntpc" }

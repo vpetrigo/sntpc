@@ -5,9 +5,10 @@ edition = "2021"
 publish = false
 
 [features]
-log = ["simple_logger"]
+log = ["dep:simple_logger", "dep:log"]
 
 [dependencies]
 sntpc = { path = "../../sntpc", default-features = false, features = ["utils"] }
 clap = { version = "2.33", default-features = false }
-simple_logger = { version = "~1.13" , optional = true}
+simple_logger = { version = "~1.13", optional = true }
+log = { version = "~0.4", optional = true }

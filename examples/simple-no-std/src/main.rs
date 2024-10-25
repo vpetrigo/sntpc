@@ -1,11 +1,76 @@
 #![no_std]
 #![no_main]
+use core::alloc::{GlobalAlloc, Layout};
+use core::cell::UnsafeCell;
 use core::future::Future;
-use core::task::Poll;
+use core::ptr::null_mut;
+use core::sync::atomic::{AtomicUsize, Ordering::Relaxed};
 use sntpc::net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs};
 use sntpc::{
     async_impl::{get_time, NtpUdpSocket},
     NtpContext, NtpTimestampGenerator, Result,
+};
+
+const ARENA_SIZE: usize = 128 * 1024;
+const MAX_SUPPORTED_ALIGN: usize = 4096;
+#[repr(C, align(4096))] // 4096 == MAX_SUPPORTED_ALIGN
+struct SimpleAllocator {
+    arena: UnsafeCell<[u8; ARENA_SIZE]>,
+    remaining: AtomicUsize, // we allocate from the top, counting down
+}
+
+unsafe impl Sync for SimpleAllocator {}
+
+unsafe impl GlobalAlloc for SimpleAllocator {
+    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+        let size = layout.size();
+        let align = layout.align();
+
+        // `Layout` contract forbids making a `Layout` with align=0, or align not power of 2.
+        // So we can safely use a mask to ensure alignment without worrying about UB.
+        let align_mask_to_round_down = !(align - 1);
+
+        if align > MAX_SUPPORTED_ALIGN {
+            return null_mut();
+        }
+
+        let mut allocated = 0;
+        if self
+            .remaining
+            .fetch_update(Relaxed, Relaxed, |mut remaining| {
+                if size > remaining {
+                    return None;
+                }
+                remaining -= size;
+                remaining &= align_mask_to_round_down;
+                allocated = remaining;
+                Some(remaining)
+            })
+            .is_err()
+        {
+            return null_mut();
+        };
+        self.arena.get().cast::<u8>().add(allocated)
+    }
+
+    unsafe fn dealloc(&self, _ptr: *mut u8, _layout: Layout) {
+        todo!()
+    }
+
+    unsafe fn realloc(
+        &self,
+        _ptr: *mut u8,
+        _layout: Layout,
+        _new_size: usize,
+    ) -> *mut u8 {
+        todo!()
+    }
+}
+
+#[global_allocator]
+static ALLOCATOR: SimpleAllocator = SimpleAllocator {
+    arena: UnsafeCell::new([0x55; ARENA_SIZE]),
+    remaining: AtomicUsize::new(ARENA_SIZE),
 };
 
 #[derive(Copy, Clone, Default)]
@@ -23,7 +88,7 @@ impl NtpTimestampGenerator for TimestampGen {
     }
 
     fn timestamp_subsec_micros(&self) -> u32 {
-        (self.duration & 0xffffffffu64) as u32
+        (self.duration & 0xff_ff_ff_ffu64) as u32
     }
 }
 
@@ -36,7 +101,7 @@ impl NtpUdpSocket for SimpleUdp {
         _buf: &[u8],
         _addr: T,
     ) -> impl Future<Output = Result<usize>> {
-        core::future::ready(Ok(0))
+        core::future::ready(Ok(48))
     }
 
     fn recv_from(
@@ -50,7 +115,7 @@ impl NtpUdpSocket for SimpleUdp {
     }
 }
 
-async fn body() -> Poll<Result<i32>> {
+async fn body() -> Result<i32> {
     let timestamp_gen = TimestampGen::default();
     let context = NtpContext::new(timestamp_gen);
     let socket = SimpleUdp;
@@ -60,12 +125,12 @@ async fn body() -> Poll<Result<i32>> {
         Ok(time) => {
             assert_ne!(time.sec(), 0);
             let _seconds = time.sec();
-            let _microseconds =
-                time.sec_fraction() as u64 * 1_000_000 / u32::MAX as u64;
+            let _microseconds = u64::from(time.sec_fraction()) * 1_000_000
+                / u64::from(u32::MAX);
 
-            Poll::Ready(Ok(0))
+            Ok(0)
         }
-        Err(err) => Poll::Ready(Err(err)),
+        Err(err) => Err(err),
     }
 }
 
@@ -76,6 +141,10 @@ fn panic(_panic: &PanicInfo<'_>) -> ! {
     loop {}
 }
 
+/// # Safety
+///
+/// This function is used in `no_std` environment as an entry point and should not be called
+/// directly.
 #[no_mangle]
 pub unsafe extern "C" fn Reset() -> ! {
     main()
@@ -92,9 +161,11 @@ pub extern "C" fn WinMain() {
 }
 
 fn main() -> ! {
-    loop {
-        let _ = async move {
+    executor::run(async {
+        loop {
             let _ = body().await;
-        };
-    }
+        }
+    });
+
+    panic!();
 }
