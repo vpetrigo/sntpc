@@ -822,7 +822,7 @@ mod sntpc_ntp_result_tests {
     fn test_conversion_to_us() {
         let result = NtpResult::new(0, u32::MAX - 1, 0, 0, 1, 0);
         let microseconds = fraction_to_microseconds(result.seconds_fraction);
-        assert_eq!(999999u32, microseconds);
+        assert_eq!(999_999u32, microseconds);
 
         let result = NtpResult::new(0, 0, 0, 0, 1, 0);
         let microseconds = fraction_to_microseconds(result.seconds_fraction);
@@ -833,7 +833,7 @@ mod sntpc_ntp_result_tests {
     fn test_conversion_to_ns() {
         let result = NtpResult::new(0, u32::MAX - 1, 0, 0, 1, 0);
         let nanoseconds = fraction_to_nanoseconds(result.seconds_fraction);
-        assert_eq!(999999999u32, nanoseconds);
+        assert_eq!(999_999_999u32, nanoseconds);
 
         let result = NtpResult::new(0, 0, 0, 0, 1, 0);
         let nanoseconds = fraction_to_nanoseconds(result.seconds_fraction);
@@ -844,7 +844,7 @@ mod sntpc_ntp_result_tests {
     fn test_conversion_to_ps() {
         let result = NtpResult::new(0, u32::MAX - 1, 0, 0, 1, 0);
         let picoseconds = fraction_to_picoseconds(result.seconds_fraction);
-        assert_eq!(999999999767u64, picoseconds);
+        assert_eq!(999_999_999_767u64, picoseconds);
 
         let result = NtpResult::new(0, 1, 0, 0, 1, 0);
         let picoseconds = fraction_to_picoseconds(result.seconds_fraction);
@@ -935,7 +935,7 @@ mod sntpc_tests {
                 .set_read_timeout(Some(std::time::Duration::from_secs(2)))
                 .expect("Unable to set up socket timeout");
             let result = get_time(pool, &socket, context);
-            assert!(result.is_err(), "{} is ok", pool);
+            assert!(result.is_err(), "{pool} is ok");
             assert_eq!(result.unwrap_err(), Error::IncorrectResponseVersion);
         }
     }
@@ -950,7 +950,7 @@ mod sntpc_tests {
             .expect("Unable to set up socket timeout");
 
         let result = get_time(pool, &socket, context);
-        assert!(result.is_err(), "{} is ok", pool);
+        assert!(result.is_err(), "{pool} is ok");
         assert_eq!(result.unwrap_err(), Error::Network);
     }
 
@@ -964,32 +964,32 @@ mod sntpc_tests {
     fn test_offset_calculate() {
         let tests = [
             OffsetCalcTestCase::new(
-                16893142954672769962,
-                16893142959053084959,
-                16893142959053112968,
-                16893142954793063406,
-                1005870,
+                16_893_142_954_672_769_962,
+                16_893_142_959_053_084_959,
+                16_893_142_959_053_112_968,
+                16_893_142_954_793_063_406,
+                1_005_870,
             ),
             OffsetCalcTestCase::new(
-                16893362966131575843,
-                16893362966715800791,
-                16893362966715869584,
-                16893362967084349913,
+                16_893_362_966_131_575_843,
+                16_893_362_966_715_800_791,
+                16_893_362_966_715_869_584,
+                16_893_362_967_084_349_913,
                 25115,
             ),
             OffsetCalcTestCase::new(
-                16893399716399327198,
-                16893399716453045029,
-                16893399716453098083,
-                16893399716961924964,
+                16_893_399_716_399_327_198,
+                16_893_399_716_453_045_029,
+                16_893_399_716_453_098_083,
+                16_893_399_716_961_924_964,
                 -52981,
             ),
             OffsetCalcTestCase::new(
-                9487534663484046772u64,
-                16882120099581835046u64,
-                16882120099583884144u64,
-                9487534663651464597u64,
-                1721686086620926,
+                9_487_534_663_484_046_772u64,
+                16_882_120_099_581_835_046u64,
+                16_882_120_099_583_884_144u64,
+                9_487_534_663_651_464_597u64,
+                1_721_686_086_620_926,
             ),
         ];
 

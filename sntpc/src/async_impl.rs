@@ -131,9 +131,9 @@ where
     let result =
         process_response(send_req_result, response_buf, recv_timestamp);
 
-    if let Ok(_r) = &result {
-        #[cfg(feature = "log")]
-        debug!("{:?}", _r);
+    #[cfg(feature = "log")]
+    if let Ok(r) = &result {
+        debug!("{r:?}");
     }
 
     result
