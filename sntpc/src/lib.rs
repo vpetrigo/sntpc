@@ -118,12 +118,18 @@ use core::mem;
 #[cfg(feature = "log")]
 use core::str;
 
-pub(crate) mod net {
+pub mod net {
     #[cfg(not(feature = "std"))]
-    pub use no_std_net::{SocketAddr, ToSocketAddrs};
+    pub use no_std_net::{
+        IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6,
+        ToSocketAddrs,
+    };
 
     #[cfg(feature = "std")]
-    pub use std::net::{SocketAddr, ToSocketAddrs, UdpSocket};
+    pub use std::net::{
+        IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6,
+        ToSocketAddrs, UdpSocket,
+    };
 }
 
 #[cfg(feature = "log")]

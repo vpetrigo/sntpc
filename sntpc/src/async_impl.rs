@@ -7,13 +7,12 @@ use core::fmt::Debug;
 #[cfg(feature = "log")]
 use log::debug;
 
-#[cfg(feature = "std")]
-use std::net::SocketAddr;
+use crate::net::SocketAddr;
+#[cfg(not(feature = "std"))]
+use crate::net::ToSocketAddrs;
+
 #[cfg(feature = "tokio")]
 use tokio::net::{lookup_host, ToSocketAddrs};
-
-#[cfg(not(feature = "std"))]
-use no_std_net::{SocketAddr, ToSocketAddrs};
 
 #[cfg(not(feature = "std"))]
 #[allow(clippy::unused_async)]
