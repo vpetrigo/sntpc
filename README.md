@@ -16,43 +16,48 @@ Supported SNTP protocol versions:
 
 -----------------
 
-https://docs.rs/sntpc
+More information about this crate can be found in the [crate documentation](https://docs.rs/sntpc)
 
-### Installation
-
-----------------
-
-This crate works with Cargo and is on
-[crates.io](https://crates.io/crates/sntpc). Add it to your `Cargo.toml`
-like so:
-
-```toml
-[dependencies]
-sntpc = "0.3.9"
-```
-
-By calling the `get_time()` method and providing a proper NTP pool or server you
-should get a valid synchronization timestamp:
+### Usage example
 
 ```rust
 use std::net::UdpSocket;
+use std::thread;
 use std::time::Duration;
 
+#[allow(dead_code)]
+const POOL_NTP_ADDR: &str = "pool.ntp.org:123";
+#[allow(dead_code)]
+const GOOGLE_NTP_ADDR: &str = "time.google.com:123";
+
 fn main() {
-    let socket =
-        UdpSocket::bind("0.0.0.0:0").expect("Unable to crate UDP socket");
-    socket
-       .set_read_timeout(Some(Duration::from_secs(2)))
-       .expect("Unable to set UDP socket read timeout");
-    let result = sntpc::simple_get_time("time.google.com:123", &socket);
-    match result {
-       Ok(time) => {
-           println!("Got time: {}.{}", time.sec(), sntpc::fraction_to_milliseconds(time.sec_fraction()));
-       }
-       Err(err) => println!("Err: {:?}", err),
+    for _ in 0..5 {
+        let socket =
+            UdpSocket::bind("0.0.0.0:0").expect("Unable to crate UDP socket");
+        socket
+            .set_read_timeout(Some(Duration::from_secs(2)))
+            .expect("Unable to set UDP socket read timeout");
+
+        let result = sntpc::simple_get_time(POOL_NTP_ADDR, &socket);
+
+        match result {
+            Ok(time) => {
+                assert_ne!(time.sec(), 0);
+                let seconds = time.sec();
+                let microseconds =
+                    u64::from(time.sec_fraction()) * 1_000_000 / u64::from(u32::MAX);
+                println!("Got time: {seconds}.{microseconds}");
+            }
+            Err(err) => println!("Err: {err:?}"),
+        }
+
+        thread::sleep(Duration::new(15, 0));
     }
 }
 ```
+
+You can find this [example](examples/simple-request) as well as other example projects in the
+[example directory](examples).
 
 ## `no_std` support
 
@@ -71,18 +76,6 @@ There is an example: [`examples/tokio.rs`](examples/tokio.rs).
 
 There is also `no_std` support with feature `async`, but it requires Rust >= `1.75-nightly` version.
 The example can be found in [separate repository](https://github.com/vpikulik/sntpc_embassy).
-
-# Examples
-
-----------
-
-You can find several examples that shows how to use the library in details under [examples/] folder.
-Currently, there are examples that show:
-- usage of SNTP library in `std` environment
-- usage of SNTP library with [`smoltcp`][smoltcp] TCP/IP stack. Some `std` dependencies
-required only due to smoltcp available interfaces
-
-[smoltcp]: https://github.com/smoltcp-rs/smoltcp
 
 # Contribution
 
@@ -108,10 +101,22 @@ Really appreciate all your efforts! Please [let me know](mailto:vladimir.petrigo
 
 ---------
 
+<sub>
 This project is licensed under:
+</sub>
 
-- [The 3-Clause BSD License](LICENSE.md)
+<br/>
+<br/>
 
+<sub>
+- <a href="LICENSE.md">The 3-Clause BSD License</a>
+</sub>
+
+<br/>
+<br/>
+
+<sub>
 Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in time by you, as
 defined in the 3-Clause BSD license, shall be licensed as above, without any additional terms or
 conditions.
+</sub>
