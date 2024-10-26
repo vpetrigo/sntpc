@@ -137,12 +137,15 @@ async fn body() -> Result<i32> {
 use core::panic::PanicInfo;
 
 #[panic_handler]
-fn panic(_panic: &PanicInfo<'_>) -> ! {
+fn panic(_info: &PanicInfo) -> ! {
     loop {}
 }
 
 #[no_mangle]
-pub extern "C" fn _start() {
+pub extern "C" fn rust_eh_personality() {}
+
+#[no_mangle]
+pub unsafe extern "C" fn _start() -> ! {
     main()
 }
 
@@ -152,11 +155,18 @@ pub extern "C" fn WinMain() {
 }
 
 fn main() -> ! {
-    executor::run(async {
-        loop {
-            let _ = body().await;
-        }
-    });
+    let executor = yash_executor::Executor::new();
 
-    panic!();
+    let _ = unsafe {
+        #[allow(never_type_fallback_flowing_into_unsafe)]
+        executor.spawn(async {
+            loop {
+                let _ = body().await;
+            }
+        });
+    };
+
+    loop {
+        let _ = executor.run_until_stalled();
+    }
 }
