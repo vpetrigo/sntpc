@@ -144,6 +144,9 @@ fn panic(_info: &PanicInfo) -> ! {
 #[no_mangle]
 pub extern "C" fn rust_eh_personality() {}
 
+/// # Safety
+///
+/// This is a definition of an entry point of a program that should not be called directly
 #[no_mangle]
 pub unsafe extern "C" fn _start() -> ! {
     main()
@@ -157,14 +160,14 @@ pub extern "C" fn WinMain() {
 fn main() -> ! {
     let executor = yash_executor::Executor::new();
 
-    let _ = unsafe {
+    unsafe {
         #[allow(never_type_fallback_flowing_into_unsafe)]
         executor.spawn(async {
             loop {
                 let _ = body().await;
             }
         });
-    };
+    }
 
     loop {
         let _ = executor.run_until_stalled();
