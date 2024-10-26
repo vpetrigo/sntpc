@@ -24,8 +24,6 @@ use std::str::FromStr;
 use std::time::Duration;
 
 use clap::{crate_version, App, Arg};
-#[cfg(feature = "log")]
-use simple_logger;
 
 const GOOGLE_NTP_ADDR: &str = "time.google.com";
 
@@ -63,25 +61,20 @@ fn main() {
     let ntp_port = match ntp_port {
         Ok(ntp_port) => ntp_port,
         Err(err) => {
-            eprintln!(
-                "Unable to convert NTP server port value: {}",
-                err.to_string()
-            );
+            eprintln!("Unable to convert NTP server port value: {err}");
             return;
         }
     };
 
-    let ntp_addr = format!("{}:{}", ntp_server, ntp_port);
+    let ntp_addr = format!("{ntp_server}:{ntp_port}");
 
     let socket =
         UdpSocket::bind("0.0.0.0:0").expect("Unable to create UDP socket");
     socket
         .set_read_timeout(Some(Duration::from_secs(2)))
         .expect("Unable to set UDP socket read timeout");
-    let time = sntpc::simple_get_time(ntp_addr.as_str(), socket)
-        .unwrap_or_else(|_| {
-            panic!("Unable to receive time from: {}", ntp_addr)
-        });
+    let time = sntpc::simple_get_time(ntp_addr.as_str(), &socket)
+        .unwrap_or_else(|_| panic!("Unable to receive time from: {ntp_addr}"));
 
     sntpc::utils::update_system_time(time.sec(), time.sec_fraction());
 }

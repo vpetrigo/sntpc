@@ -78,40 +78,38 @@
 //! ```
 //!
 #[cfg(unix)]
-fn main() {
-    use core::cell::RefCell;
-    use core::fmt::Debug;
-    use core::str::FromStr;
+use {
+    core::cell::RefCell,
+    core::str::FromStr,
+    smoltcp::iface::{Config, Interface, SocketSet},
+    smoltcp::phy::TunTapInterface,
+    smoltcp::phy::{wait, Medium},
+    smoltcp::socket::udp,
+    smoltcp::time::Instant,
+    smoltcp::wire::{EthernetAddress, IpCidr, Ipv4Address},
+    sntpc::NtpContext,
+    std::net::{IpAddr, SocketAddr},
+    std::os::unix::prelude::AsRawFd,
+};
 
-    use std::fmt::Formatter;
-    use std::net::{IpAddr, SocketAddr, ToSocketAddrs};
-    use std::os::unix::prelude::AsRawFd;
-
-    use smoltcp::iface::{Config, Interface, SocketSet};
-    use smoltcp::phy::TunTapInterface;
-    use smoltcp::phy::{wait, Medium};
-    // use smoltcp::socket::{SocketRef, SocketSet, UdpSocket, UdpSocketBuffer};
-    use smoltcp::socket::udp;
-    use smoltcp::storage::PacketMetadata;
-    use smoltcp::time::Instant;
-    use smoltcp::wire::{
-        EthernetAddress, IpAddress, IpCidr, IpEndpoint, Ipv4Address,
+#[cfg(unix)]
+pub mod internal {
+    use {
+        clap::{crate_version, App, Arg, ArgMatches},
+        core::cell::RefCell,
+        core::fmt::Debug,
+        smoltcp::socket::udp,
+        smoltcp::storage::PacketMetadata,
+        smoltcp::wire::{IpAddress, IpEndpoint},
+        sntpc::{Error, NtpTimestampGenerator, NtpUdpSocket},
+        std::fmt::Formatter,
+        std::net::{IpAddr, SocketAddr, ToSocketAddrs},
     };
-
-    use clap::{crate_version, App, Arg, ArgMatches};
-
-    use sntpc::{Error, NtpContext, NtpTimestampGenerator, NtpUdpSocket};
-
-    #[cfg(feature = "log")]
-    use log;
-    #[cfg(feature = "log")]
-    use simple_logger;
-
-    struct Buffers {
-        rx_meta: [PacketMetadata<IpEndpoint>; 16],
-        tx_meta: [PacketMetadata<IpEndpoint>; 16],
-        rx_buffer: [u8; 256],
-        tx_buffer: [u8; 256],
+    pub struct Buffers {
+        pub rx_meta: [PacketMetadata<IpEndpoint>; 16],
+        pub tx_meta: [PacketMetadata<IpEndpoint>; 16],
+        pub rx_buffer: [u8; 256],
+        pub tx_buffer: [u8; 256],
     }
 
     impl Default for Buffers {
@@ -125,13 +123,13 @@ fn main() {
         }
     }
 
-    struct UdpSocketBuffers<'a> {
-        rx: udp::PacketBuffer<'a>,
-        tx: udp::PacketBuffer<'a>,
+    pub struct UdpSocketBuffers<'a> {
+        pub rx: udp::PacketBuffer<'a>,
+        pub tx: udp::PacketBuffer<'a>,
     }
 
     impl<'a> UdpSocketBuffers<'a> {
-        fn new(buffers: &'a mut Buffers) -> Self {
+        pub fn new(buffers: &'a mut Buffers) -> Self {
             UdpSocketBuffers {
                 rx: udp::PacketBuffer::new(
                     buffers.rx_meta.as_mut(),
@@ -146,7 +144,7 @@ fn main() {
     }
 
     #[derive(Copy, Clone, Default)]
-    struct StdTimestampGen {
+    pub struct StdTimestampGen {
         duration: std::time::Duration,
     }
 
@@ -166,8 +164,8 @@ fn main() {
         }
     }
 
-    struct SmoltcpUdpSocketWrapper<'a, 'b> {
-        socket: RefCell<&'b mut udp::Socket<'a>>,
+    pub struct SmoltcpUdpSocketWrapper<'a, 'b> {
+        pub socket: RefCell<&'b mut udp::Socket<'a>>,
     }
 
     impl<'a, 'b> Debug for SmoltcpUdpSocketWrapper<'a, 'b> {
@@ -185,9 +183,7 @@ fn main() {
             addr: T,
         ) -> Result<usize, Error> {
             if let Ok(mut iter) = addr.to_socket_addrs() {
-                let addr = if let Some(sock_addr) = iter.next() {
-                    sock_addr
-                } else {
+                let Some(addr) = iter.next() else {
                     return Err(Error::Network);
                 };
 
@@ -227,7 +223,8 @@ fn main() {
         }
     }
 
-    fn create_app_cli<'a>() -> ArgMatches<'a> {
+    #[must_use]
+    pub fn create_app_cli<'a>() -> ArgMatches<'a> {
         const GOOGLE_NTP_ADDR: &str = "pool.ntp.org";
         const APP_PORT: &str = "6666";
 
@@ -288,7 +285,16 @@ fn main() {
             )
             .get_matches()
     }
+}
 
+#[cfg(unix)]
+use internal::{
+    create_app_cli, Buffers, SmoltcpUdpSocketWrapper, StdTimestampGen,
+    UdpSocketBuffers,
+};
+
+#[cfg(unix)]
+fn main() {
     #[cfg(feature = "log")]
     if cfg!(feature = "log") {
         simple_logger::init_with_level(log::Level::Trace).unwrap();
@@ -363,9 +369,9 @@ fn main() {
                 Ok(result) => {
                     send_result = Some(result);
                 }
-                Err(_e) => {
+                Err(e) => {
                     #[cfg(feature = "log")]
-                    log::error!("send error: {:?}", _e);
+                    log::error!("send error: {e:?}");
                     once_tx = true;
                 }
             }
@@ -378,22 +384,24 @@ fn main() {
             if once_rx && sockets.get::<udp::Socket>(udp_handle).can_recv() {
                 once_rx = false;
 
-                let sock_wrapper = SmoltcpUdpSocketWrapper {
-                    socket: RefCell::new(
-                        sockets.get_mut::<udp::Socket>(udp_handle),
-                    ),
-                };
-                let context = NtpContext::new(StdTimestampGen::default());
-
-                let _result = sntpc::sntp_process_response(
-                    server_sock_addr,
-                    &sock_wrapper,
-                    context,
-                    tx_result,
-                );
-
                 #[cfg(feature = "log")]
-                log::info!("{:?}", _result);
+                {
+                    let context = NtpContext::new(StdTimestampGen::default());
+                    let sock_wrapper = SmoltcpUdpSocketWrapper {
+                        socket: RefCell::new(
+                            sockets.get_mut::<udp::Socket>(udp_handle),
+                        ),
+                    };
+                    let result = sntpc::sntp_process_response(
+                        server_sock_addr,
+                        &sock_wrapper,
+                        context,
+                        tx_result,
+                    );
+
+                    #[cfg(feature = "log")]
+                    log::info!("{result:?}");
+                }
             }
         }
 

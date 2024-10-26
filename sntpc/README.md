@@ -10,54 +10,50 @@ This crate provides a method for sending requests to NTP servers and process res
 extracting received timestamp.
 
 Supported SNTP protocol versions:
+
 - [SNTPv4](https://datatracker.ietf.org/doc/html/rfc4330)
 
 ### Documentation
 
 -----------------
 
-More information about this crate can be found in the [crate documentation](https://docs.rs/sntpc)
+https://docs.rs/sntpc
 
-### Usage example
+### Installation
+
+----------------
+
+This crate works with Cargo and is on
+[crates.io](https://crates.io/crates/sntpc). Add it to your `Cargo.toml`
+like so:
+
+```toml
+[dependencies]
+sntpc = "0.4.0"
+```
+
+By calling the `get_time()` method and providing a proper NTP pool or server you
+should get a valid synchronization timestamp:
 
 ```rust
 use std::net::UdpSocket;
-use std::thread;
 use std::time::Duration;
 
-#[allow(dead_code)]
-const POOL_NTP_ADDR: &str = "pool.ntp.org:123";
-#[allow(dead_code)]
-const GOOGLE_NTP_ADDR: &str = "time.google.com:123";
-
 fn main() {
-    for _ in 0..5 {
-        let socket =
-            UdpSocket::bind("0.0.0.0:0").expect("Unable to crate UDP socket");
-        socket
-            .set_read_timeout(Some(Duration::from_secs(2)))
-            .expect("Unable to set UDP socket read timeout");
-
-        let result = sntpc::simple_get_time(POOL_NTP_ADDR, &socket);
-
-        match result {
-            Ok(time) => {
-                assert_ne!(time.sec(), 0);
-                let seconds = time.sec();
-                let microseconds =
-                    u64::from(time.sec_fraction()) * 1_000_000 / u64::from(u32::MAX);
-                println!("Got time: {seconds}.{microseconds}");
-            }
-            Err(err) => println!("Err: {err:?}"),
+    let socket =
+        UdpSocket::bind("0.0.0.0:0").expect("Unable to crate UDP socket");
+    socket
+        .set_read_timeout(Some(Duration::from_secs(2)))
+        .expect("Unable to set UDP socket read timeout");
+    let result = sntpc::simple_get_time("time.google.com:123", &socket);
+    match result {
+        Ok(time) => {
+            println!("Got time: {}.{}", time.sec(), sntpc::fraction_to_milliseconds(time.sec_fraction()));
         }
-
-        thread::sleep(Duration::new(15, 0));
+        Err(err) => println!("Err: {:?}", err),
     }
 }
 ```
-
-You can find this [example](examples/simple-request) as well as other example projects in the
-[example directory](examples).
 
 ## `no_std` support
 
@@ -72,10 +68,23 @@ general idea on how to bootstrap `no_std` networking and timestamping tools for 
 -------------------
 
 Feature `async_tokio` allows to use crate together with [tokio](https://docs.rs/tokio/latest/tokio/).
-There is an example: [`examples/tokio.rs`](examples/tokio.rs).
+Example available in the [repository](https://github.com/vpetrigo/sntpc).
 
 There is also `no_std` support with feature `async`, but it requires Rust >= `1.75-nightly` version.
 The example can be found in [separate repository](https://github.com/vpikulik/sntpc_embassy).
+
+# Examples
+
+----------
+
+You can find several examples that shows how to use the library in details under [examples/] folder.
+Currently, there are examples that show:
+
+- usage of SNTP library in `std` environment
+- usage of SNTP library with [`smoltcp`][smoltcp] TCP/IP stack. Some `std` dependencies
+  required only due to smoltcp available interfaces
+
+[smoltcp]: https://github.com/smoltcp-rs/smoltcp
 
 # Contribution
 
@@ -83,14 +92,16 @@ The example can be found in [separate repository](https://github.com/vpikulik/sn
 
 Contributions are always welcome! If you have an idea, it's best to float it by me before working on it to ensure no
 effort is wasted. If there's already an open issue for it, knock yourself out. See the
-[**contributing section**](CONTRIBUTING.md) for additional details
+[**contributing section**](https://github.com/vpetrigo/sntpc/blob/master/CONTRIBUTING.md) for additional details
 
 ## Thanks
 
-1. [Frank A. Stevenson](https://github.com/snakehand): for implementing stricter adherence to RFC4330 verification scheme
+1. [Frank A. Stevenson](https://github.com/snakehand): for implementing stricter adherence to RFC4330 verification
+   scheme
 2. [Timothy Mertz](https://github.com/mertzt89): for fixing possible overflow in offset calculation
 3. [HannesH](https://github.com/HannesGitH): for fixing a typo in the README.md
-4. [Richard Penney](https://github.com/rwpenney): for adding two indicators of the NTP server's accuracy into the `NtpResult` structure 
+4. [Richard Penney](https://github.com/rwpenney): for adding two indicators of the NTP server's accuracy into the
+   `NtpResult` structure
 5. [Vitali Pikulik](https://github.com/vpikulik): for adding `async` support
 6. [tsingwong](https://github.com/tsingwong): for fixing invalid link in the `README.md`
 7. [Robert Bastian](https://github.com/robertbastian): for fixing the overflow issue in the `calculate_offset`

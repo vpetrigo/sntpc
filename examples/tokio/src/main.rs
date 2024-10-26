@@ -35,12 +35,12 @@ async fn main() {
     let sock = UdpSocket::bind("0.0.0.0:0".parse::<SocketAddr>().unwrap())
         .await
         .expect("Socket creation");
-    let socket = Socket { sock: sock };
+    let socket = Socket { sock };
     let ntp_context = NtpContext::new(StdTimestampGen::default());
 
     let res = get_time(POOL_NTP_ADDR, socket, ntp_context)
         .await
         .expect("get_time error");
 
-    println!("RESULT: {:?}", res);
+    println!("RESULT: {res:?}");
 }

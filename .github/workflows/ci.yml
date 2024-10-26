@@ -12,19 +12,17 @@ jobs:
   clippy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - name: Run clippy with std
-        run: cargo clippy --no-default-features --features="std log utils" -- -D clippy::all -D clippy::pedantic
+      - uses: actions/checkout@v4
+      - name: Run clippy with all features
+        run: cargo clippy --workspace --exclude example-simple-no-std --all-features -- -D clippy::all -D clippy::pedantic
       - name: Run clippy with no_std
-        run: cargo clippy --no-default-features --features="log" -- -D clippy::all -D clippy::pedantic
-      - name: Run clippy for tokio feature
-        run: cargo clippy --features="tokio" -- -D clippy::all -D clippy::pedantic
+        run: cargo clippy -p example-simple-no-std --no-default-features --profile no-std -- -D clippy::all -D clippy::pedantic
   clippy_async_no_std:
     runs-on: ubuntu-latest
     container:
       image: rust:latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Install nightly toolchain
         run: rustup toolchain add nightly
       - name: Install clippy
@@ -34,17 +32,19 @@ jobs:
   check_format:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Check formatting
         run: cargo fmt --check
   build_test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Build with std
-        run: cargo build --all --no-default-features --features="std utils"
+        run: cargo build --workspace --exclude example-simple-no-std --all-features
       - name: Build with no_std
-        run: cargo build --all --no-default-features
+        run: |
+          cargo build -p sntpc --no-default-features
+          cargo build -p example-simple-no-std --profile no-std
       - name: Run tests with std
         run: cargo test
       - name: Run tests with no_std

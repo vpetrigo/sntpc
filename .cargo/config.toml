@@ -1,0 +1,3 @@
+[profile.no-std]
+inherits = "dev"
+panic = "abort"
