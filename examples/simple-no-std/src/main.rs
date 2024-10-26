@@ -141,17 +141,8 @@ fn panic(_panic: &PanicInfo<'_>) -> ! {
     loop {}
 }
 
-/// # Safety
-///
-/// This function is used in `no_std` environment as an entry point and should not be called
-/// directly.
 #[no_mangle]
-pub unsafe extern "C" fn Reset() -> ! {
-    main()
-}
-
-#[no_mangle]
-pub extern "C" fn start() {
+pub extern "C" fn _start() {
     main()
 }
 
