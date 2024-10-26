@@ -101,22 +101,14 @@ Really appreciate all your efforts! Please [let me know](mailto:vladimir.petrigo
 
 ---------
 
-<sub>
-This project is licensed under:
-</sub>
+<sup>
+This project is licensed under <a href="LICENSE.md">The 3-Clause BSD License</a>
+</sup>
 
 <br/>
-<br/>
 
-<sub>
-- <a href="LICENSE.md">The 3-Clause BSD License</a>
-</sub>
-
-<br/>
-<br/>
-
-<sub>
+<sup>
 Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in time by you, as
 defined in the 3-Clause BSD license, shall be licensed as above, without any additional terms or
 conditions.
-</sub>
+</sup>
