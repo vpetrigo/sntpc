@@ -28,7 +28,7 @@ like so:
 
 ```toml
 [dependencies]
-sntpc = "0.3.9"
+sntpc = "0.4.0"
 ```
 
 By calling the `get_time()` method and providing a proper NTP pool or server you
@@ -67,7 +67,7 @@ general idea on how to bootstrap `no_std` networking and timestamping tools for 
 -------------------
 
 Feature `async_tokio` allows to use crate together with [tokio](https://docs.rs/tokio/latest/tokio/).
-There is an example: [`examples/tokio.rs`](examples/tokio.rs).
+Example available in the repository.
 
 There is also `no_std` support with feature `async`, but it requires Rust >= `1.75-nightly` version.
 The example can be found in [separate repository](https://github.com/vpikulik/sntpc_embassy).
@@ -90,7 +90,7 @@ required only due to smoltcp available interfaces
 
 Contributions are always welcome! If you have an idea, it's best to float it by me before working on it to ensure no
 effort is wasted. If there's already an open issue for it, knock yourself out. See the
-[**contributing section**](CONTRIBUTING.md) for additional details
+[**contributing section**](../CONTRIBUTING.md) for additional details
 
 ## Thanks
 

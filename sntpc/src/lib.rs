@@ -12,7 +12,7 @@
 //! Put this in your `Cargo.toml`:
 //! ```cargo
 //! [dependencies]
-//! sntpc = "0.3.9"
+//! sntpc = "0.4.0"
 //! ```
 //!
 //! ## Features
@@ -22,6 +22,7 @@
 //! - `utils`: includes functionality that mostly OS specific and allows system time sync
 //! - `log`: enables library debug output during execution
 //! - `async`: enables asynchronous feature support
+//! - `async_tokio`: enable asynchronous support with `tokio` runtime
 //!
 //! <div class="example-wrap" style="display:inline-block"><pre class="compile_fail" style="white-space:normal;font:inherit;">
 //!
@@ -91,7 +92,7 @@
 //!        Ok(time) => {
 //!            println!("Got time: {}.{}", time.sec(), sntpc::fraction_to_milliseconds(time.sec_fraction()));
 //!        }
-//!        Err(err) => println!("Err: {:?}", err),
+//!        Err(err) => println!("Err: {err:?}"),
 //!     }
 //!  }
 //! ```
