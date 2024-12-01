@@ -121,16 +121,120 @@ use core::str;
 
 pub mod net {
     #[cfg(not(feature = "std"))]
-    pub use no_std_net::{
+    mod detail {
+        pub use core::net::{
+            IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6,
+        };
+
+        pub trait ToSocketAddrs {
+            /// Returned iterator over socket addresses which this type may correspond
+            /// to.
+            type Iter: Iterator<Item = SocketAddr>;
+
+            /// Converts this object to an iterator of resolved `SocketAddr`s.
+            ///
+            /// The returned iterator may not actually yield any values depending on the
+            /// outcome of any resolution performed.
+            ///
+            /// Note that this function may block the current thread while resolution is
+            /// performed.
+            fn to_socket_addrs(&self) -> Result<Self::Iter, ToSocketAddrError>;
+        }
+
+        #[derive(Debug)]
+        pub enum ToSocketAddrError {}
+
+        impl ToSocketAddrs for SocketAddr {
+            type Iter = core::option::IntoIter<SocketAddr>;
+            fn to_socket_addrs(
+                &self,
+            ) -> Result<core::option::IntoIter<SocketAddr>, ToSocketAddrError>
+            {
+                Ok(Some(*self).into_iter())
+            }
+        }
+
+        impl ToSocketAddrs for SocketAddrV4 {
+            type Iter = core::option::IntoIter<SocketAddr>;
+            fn to_socket_addrs(
+                &self,
+            ) -> Result<core::option::IntoIter<SocketAddr>, ToSocketAddrError>
+            {
+                SocketAddr::V4(*self).to_socket_addrs()
+            }
+        }
+
+        impl ToSocketAddrs for SocketAddrV6 {
+            type Iter = core::option::IntoIter<SocketAddr>;
+            fn to_socket_addrs(
+                &self,
+            ) -> Result<core::option::IntoIter<SocketAddr>, ToSocketAddrError>
+            {
+                SocketAddr::V6(*self).to_socket_addrs()
+            }
+        }
+
+        impl ToSocketAddrs for (IpAddr, u16) {
+            type Iter = core::option::IntoIter<SocketAddr>;
+            fn to_socket_addrs(
+                &self,
+            ) -> Result<core::option::IntoIter<SocketAddr>, ToSocketAddrError>
+            {
+                let (ip, port) = *self;
+                match ip {
+                    IpAddr::V4(ref a) => (*a, port).to_socket_addrs(),
+                    IpAddr::V6(ref a) => (*a, port).to_socket_addrs(),
+                }
+            }
+        }
+
+        impl ToSocketAddrs for (Ipv4Addr, u16) {
+            type Iter = core::option::IntoIter<SocketAddr>;
+            fn to_socket_addrs(
+                &self,
+            ) -> Result<core::option::IntoIter<SocketAddr>, ToSocketAddrError>
+            {
+                let (ip, port) = *self;
+                SocketAddrV4::new(ip, port).to_socket_addrs()
+            }
+        }
+
+        impl ToSocketAddrs for (Ipv6Addr, u16) {
+            type Iter = core::option::IntoIter<SocketAddr>;
+            fn to_socket_addrs(
+                &self,
+            ) -> Result<core::option::IntoIter<SocketAddr>, ToSocketAddrError>
+            {
+                let (ip, port) = *self;
+                SocketAddrV6::new(ip, port, 0, 0).to_socket_addrs()
+            }
+        }
+
+        impl<'a> ToSocketAddrs for &'a [SocketAddr] {
+            type Iter = core::iter::Cloned<core::slice::Iter<'a, SocketAddr>>;
+
+            fn to_socket_addrs(&self) -> Result<Self::Iter, ToSocketAddrError> {
+                Ok(self.iter().cloned())
+            }
+        }
+
+        impl<'a, T: ToSocketAddrs + ?Sized> ToSocketAddrs for &'a T {
+            type Iter = T::Iter;
+            fn to_socket_addrs(&self) -> Result<T::Iter, ToSocketAddrError> {
+                (**self).to_socket_addrs()
+            }
+        }
+    }
+
+    pub use core::net::{
         IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6,
-        ToSocketAddrs,
     };
 
+    #[cfg(not(feature = "std"))]
+    pub use detail::ToSocketAddrs;
+
     #[cfg(feature = "std")]
-    pub use std::net::{
-        IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6,
-        ToSocketAddrs, UdpSocket,
-    };
+    pub use std::net::{ToSocketAddrs, UdpSocket};
 }
 
 #[cfg(feature = "log")]

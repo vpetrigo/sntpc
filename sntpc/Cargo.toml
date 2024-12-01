@@ -29,9 +29,6 @@ async_tokio = ["std", "async", "tokio", "async-trait"]
 [dependencies]
 log = { version = "~0.4", optional = true }
 chrono = { version = "~0.4", default-features = false, optional = true }
-# requred till this https://github.com/rust-lang/rfcs/pull/2832 is not addressed
-no-std-net = "~0.6"
-
 async-trait = { version = "0.1", optional = true }
 tokio = { version = "1", features = ["full"], optional = true }
 
