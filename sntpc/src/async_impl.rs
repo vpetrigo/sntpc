@@ -50,6 +50,67 @@ pub trait NtpUdpSocket {
     ) -> impl core::future::Future<Output = Result<(usize, SocketAddr)>>;
 }
 
+impl NtpUdpSocket for &embassy_net::udp::UdpSocket<'_> {
+    async fn send_to<T: ToSocketAddrs + Send>(
+        &self,
+        buf: &[u8],
+        addr: T,
+    ) -> Result<usize> {
+        let saddr: SocketAddr = addr
+            .to_socket_addrs()
+            .map_err(|_| Error::AddressResolve)?
+            .next()
+            .ok_or(Error::AddressResolve)?;
+
+        // Currently smoltcp still has its own address enum
+        let endpoint = embassy_net::IpEndpoint::new(
+            match saddr.ip() {
+                crate::net::IpAddr::V4(addr) => {
+                    embassy_net::IpAddress::Ipv4(addr)
+                }
+                crate::net::IpAddr::V6(addr) => {
+                    embassy_net::IpAddress::Ipv6(addr)
+                }
+            },
+            saddr.port(),
+        );
+
+        match embassy_net::udp::UdpSocket::send_to(self, buf, endpoint).await {
+            Ok(_) => Ok(buf.len()),
+            Err(e) => {
+                #[cfg(feature = "log")]
+                log::error!("Error while sending to {}: {:?}", endpoint, e);
+                Err(Error::Network)
+            }
+        }
+    }
+
+    async fn recv_from(&self, buf: &mut [u8]) -> Result<(usize, SocketAddr)> {
+        let to_addr = |ep: embassy_net::IpEndpoint| {
+            SocketAddr::new(
+                match ep.addr {
+                    embassy_net::IpAddress::Ipv4(val) => {
+                        crate::net::IpAddr::V4(val)
+                    }
+                    embassy_net::IpAddress::Ipv6(val) => {
+                        crate::net::IpAddr::V6(val)
+                    }
+                },
+                ep.port,
+            )
+        };
+
+        match embassy_net::udp::UdpSocket::recv_from(self, buf).await {
+            Ok((len, ep)) => Ok((len, to_addr(ep.endpoint))),
+            Err(e) => {
+                #[cfg(feature = "log")]
+                log::error!("Error receiving {:?}", e);
+                Err(Error::Network)
+            }
+        }
+    }
+}
+
 /// # Errors
 ///
 /// Will return `Err` if an SNTP request sending fails
@@ -60,11 +121,11 @@ pub async fn sntp_send_request<A, U, T>(
 ) -> Result<SendRequestResult>
 where
     A: ToSocketAddrs + Debug + Send,
-    U: NtpUdpSocket + Debug,
+    U: NtpUdpSocket,
     T: NtpTimestampGenerator + Copy,
 {
     #[cfg(feature = "log")]
-    debug!("Address: {:?}, Socket: {:?}", dest, *socket);
+    debug!("Address: {:?}", dest);
     let request = NtpPacket::new(context.timestamp_gen);
 
     send_request(dest, &request, socket).await?;
@@ -104,7 +165,7 @@ pub async fn sntp_process_response<A, U, T>(
 ) -> Result<NtpResult>
 where
     A: ToSocketAddrs + Debug,
-    U: NtpUdpSocket + Debug,
+    U: NtpUdpSocket,
     T: NtpTimestampGenerator + Copy,
 {
     let mut response_buf = RawNtpPacket::default();
@@ -148,7 +209,7 @@ pub async fn get_time<A, U, T>(
 ) -> Result<NtpResult>
 where
     A: ToSocketAddrs + Copy + Debug + Send,
-    U: NtpUdpSocket + Debug,
+    U: NtpUdpSocket,
     T: NtpTimestampGenerator + Copy,
 {
     let result = sntp_send_request(pool_addrs, &socket, context).await?;
