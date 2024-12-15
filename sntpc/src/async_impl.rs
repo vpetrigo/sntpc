@@ -50,6 +50,7 @@ pub trait NtpUdpSocket {
     ) -> impl core::future::Future<Output = Result<(usize, SocketAddr)>>;
 }
 
+#[cfg(feature = "embassy")]
 impl NtpUdpSocket for &embassy_net::udp::UdpSocket<'_> {
     async fn send_to<T: ToSocketAddrs + Send>(
         &self,
