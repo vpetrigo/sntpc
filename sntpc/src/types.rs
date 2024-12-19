@@ -304,17 +304,10 @@ pub trait NtpUdpSocket {
     /// Send the given buffer to an address provided. On success, returns the number
     /// of bytes written.
     ///
-    /// Since multiple `SocketAddr` objects can hide behind the type (domain name can be
-    /// resolved to multiple addresses), the method should send data to a single address
-    /// available in `addr`
     /// # Errors
     ///
     /// Will return `Err` if an underlying UDP send fails
-    fn send_to<T: net::ToSocketAddrs>(
-        &self,
-        buf: &[u8],
-        addr: T,
-    ) -> Result<usize>;
+    fn send_to(&self, buf: &[u8], addr: net::SocketAddr) -> Result<usize>;
 
     /// Receives a single datagram message on the socket. On success, returns the number
     /// of bytes read and the origin.
@@ -329,10 +322,10 @@ pub trait NtpUdpSocket {
 
 #[cfg(feature = "std")]
 impl NtpUdpSocket for net::UdpSocket {
-    fn send_to<T: net::ToSocketAddrs>(
+    fn send_to(
         &self,
         buf: &[u8],
-        addr: T,
+        addr: net::SocketAddr,
     ) -> core::result::Result<usize, Error> {
         match self.send_to(buf, addr) {
             Ok(usize) => Ok(usize),

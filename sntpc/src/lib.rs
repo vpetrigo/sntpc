@@ -54,8 +54,7 @@
 //! # Example
 //!
 //! ```rust
-//! # #[cfg(not(feature = "std"))]
-//! # use no_std_net::{SocketAddr, ToSocketAddrs, IpAddr, Ipv4Addr};
+//! # use core::net::{SocketAddr, IpAddr, Ipv4Addr};
 //! # #[cfg(feature = "std")]
 //! use std::net::UdpSocket;
 //! use std::time::Duration;
@@ -68,7 +67,7 @@
 //! #     fn bind(addr: &str) -> sntpc::Result<Self> {
 //! #         Ok(UdpSocket)
 //! #     }
-//! #     fn send_to<T: ToSocketAddrs>(&self, buf: &[u8], dest: T) -> sntpc::Result<usize> {
+//! #     fn send_to(&self, buf: &[u8], dest: SocketAddr) -> sntpc::Result<usize> {
 //! #         Ok(0usize)
 //! #     }
 //! #     fn recv_from(&self, buf: &mut [u8]) -> sntpc::Result<(usize, SocketAddr)> {
@@ -121,7 +120,7 @@ use core::str;
 
 pub mod net {
     #[cfg(not(feature = "std"))]
-    mod detail {
+    mod to_socket_addrs {
         pub use core::net::{
             IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6,
         };
@@ -138,6 +137,10 @@ pub mod net {
             ///
             /// Note that this function may block the current thread while resolution is
             /// performed.
+            ///
+            /// # Errors
+            ///
+            /// Will return `Err` if the address cannot be resolved.
             fn to_socket_addrs(&self) -> Result<Self::Iter, ToSocketAddrError>;
         }
 
@@ -211,10 +214,10 @@ pub mod net {
         }
 
         impl<'a> ToSocketAddrs for &'a [SocketAddr] {
-            type Iter = core::iter::Cloned<core::slice::Iter<'a, SocketAddr>>;
+            type Iter = core::iter::Copied<core::slice::Iter<'a, SocketAddr>>;
 
             fn to_socket_addrs(&self) -> Result<Self::Iter, ToSocketAddrError> {
-                Ok(self.iter().cloned())
+                Ok(self.iter().copied())
             }
         }
 
@@ -231,7 +234,7 @@ pub mod net {
     };
 
     #[cfg(not(feature = "std"))]
-    pub use detail::ToSocketAddrs;
+    pub use to_socket_addrs::ToSocketAddrs;
 
     #[cfg(feature = "std")]
     pub use std::net::{ToSocketAddrs, UdpSocket};
@@ -257,10 +260,9 @@ use log::debug;
 /// ```rust
 /// use sntpc::{self, NtpContext, NtpTimestampGenerator, Result};
 /// use std::time::Duration;
-/// # #[cfg(not(feature = "std"))]
-/// # use no_std_net::{SocketAddr, ToSocketAddrs, IpAddr, Ipv4Addr};
+/// # use core::net::{SocketAddr, IpAddr, Ipv4Addr};
 /// # #[cfg(feature = "std")]
-/// # use std::net::{SocketAddr, ToSocketAddrs, UdpSocket, IpAddr, Ipv4Addr};
+/// # use std::net::UdpSocket;
 /// # #[cfg(not(feature = "std"))]
 /// # #[derive(Debug)]
 /// # struct UdpSocket;
@@ -269,7 +271,7 @@ use log::debug;
 /// #     fn bind(addr: &str) -> Result<Self> {
 /// #         Ok(UdpSocket)
 /// #     }
-/// #     fn send_to<T: ToSocketAddrs>(&self, buf: &[u8], dest: T) -> Result<usize> {
+/// #     fn send_to(&self, buf: &[u8], dest: SocketAddr) -> Result<usize> {
 /// #        Ok(0usize)
 /// #     }
 /// #     fn recv_from(&self, buf: &mut [u8]) -> Result<(usize, SocketAddr)> {
@@ -281,10 +283,10 @@ use log::debug;
 /// # struct UdpSocketWrapper(UdpSocket);
 /// #
 /// # impl sntpc::NtpUdpSocket for UdpSocketWrapper {
-/// #     fn send_to<T: ToSocketAddrs>(
+/// #     fn send_to(
 /// #         &self,
 /// #         buf: &[u8],
-/// #         addr: T,
+/// #         addr: SocketAddr,
 /// #     ) -> Result<usize> {
 /// #         match self.0.send_to(buf, addr) {
 /// #             Ok(usize) => Ok(usize),
@@ -381,10 +383,9 @@ where
 /// use sntpc::{self, NtpContext, NtpTimestampGenerator, Result};
 /// # use std::time::Duration;
 /// # use std::str::FromStr;
-/// # #[cfg(not(feature = "std"))]
-/// # use no_std_net::{SocketAddr, ToSocketAddrs, IpAddr, Ipv4Addr};
+/// # use core::net::{SocketAddr, IpAddr, Ipv4Addr};
 /// # #[cfg(feature = "std")]
-/// # use std::net::{SocketAddr, ToSocketAddrs, UdpSocket, IpAddr, Ipv4Addr};
+/// # use std::net::UdpSocket;
 /// # #[cfg(not(feature = "std"))]
 /// # #[derive(Debug)]
 /// # struct UdpSocket(u8);
@@ -393,7 +394,7 @@ where
 /// #     fn bind(addr: &str) -> Result<Self> {
 /// #         Ok(UdpSocket(0))
 /// #     }
-/// #     fn send_to<T: ToSocketAddrs>(&self, buf: &[u8], dest: T) -> Result<usize> {
+/// #     fn send_to(&self, buf: &[u8], dest: SocketAddr) -> Result<usize> {
 /// #        Ok(0usize)
 /// #     }
 /// #     fn recv_from(&self, buf: &mut [u8]) -> Result<(usize, SocketAddr)> {
@@ -405,10 +406,10 @@ where
 /// # struct UdpSocketWrapper(UdpSocket);
 ///
 /// # impl sntpc::NtpUdpSocket for UdpSocketWrapper {
-/// #     fn send_to<T: ToSocketAddrs>(
+/// #     fn send_to(
 /// #         &self,
 /// #         buf: &[u8],
-/// #         addr: T,
+/// #         addr: SocketAddr,
 /// #     ) -> Result<usize> {
 /// #         match self.0.send_to(buf, addr) {
 /// #             Ok(usize) => Ok(usize),
@@ -489,10 +490,9 @@ where
 /// use sntpc::{self, NtpContext, NtpTimestampGenerator, Result};
 /// # use std::time::Duration;
 /// # use std::str::FromStr;
-/// # #[cfg(not(feature = "std"))]
-/// # use no_std_net::{SocketAddr, ToSocketAddrs, IpAddr, Ipv4Addr};
+/// # use core::net::{SocketAddr, IpAddr, Ipv4Addr};
 /// # #[cfg(feature = "std")]
-/// # use std::net::{SocketAddr, ToSocketAddrs, UdpSocket, IpAddr, Ipv4Addr};
+/// # use std::net::{ToSocketAddrs, UdpSocket};
 /// # #[cfg(not(feature = "std"))]
 /// # #[derive(Debug, Clone)]
 /// # struct UdpSocket(u8);
@@ -501,7 +501,7 @@ where
 /// #     fn bind(addr: &str) -> Result<Self> {
 /// #         Ok(UdpSocket(0))
 /// #     }
-/// #     fn send_to<T: ToSocketAddrs>(&self, buf: &[u8], dest: T) -> Result<usize> {
+/// #     fn send_to(&self, buf: &[u8], dest: SocketAddr) -> Result<usize> {
 /// #        Ok(0usize)
 /// #     }
 /// #     fn recv_from(&self, buf: &mut [u8]) -> Result<(usize, SocketAddr)> {
@@ -513,10 +513,10 @@ where
 /// # struct UdpSocketWrapper(UdpSocket);
 /// #
 /// # impl sntpc::NtpUdpSocket for UdpSocketWrapper {
-/// #     fn send_to<T: ToSocketAddrs>(
+/// #     fn send_to(
 /// #         &self,
 /// #         buf: &[u8],
-/// #         addr: T,
+/// #         addr: SocketAddr,
 /// #     ) -> Result<usize> {
 /// #         match self.0.send_to(buf, addr) {
 /// #             Ok(usize) => Ok(usize),
@@ -615,16 +615,19 @@ fn send_request<A: net::ToSocketAddrs, U: NtpUdpSocket>(
 ) -> core::result::Result<(), Error> {
     let buf = RawNtpPacket::from(req);
 
-    match socket.send_to(&buf.0, dest) {
-        Ok(size) => {
+    let socket_addrs =
+        dest.to_socket_addrs().map_err(|_| Error::AddressResolve)?;
+
+    // Try each available address.
+    for addr in socket_addrs {
+        if let Ok(size) = socket.send_to(&buf.0, addr) {
             if size == buf.0.len() {
-                Ok(())
-            } else {
-                Err(Error::Network)
+                return Ok(());
             }
         }
-        Err(_) => Err(Error::Network),
     }
+
+    Err(Error::Network)
 }
 
 #[allow(
@@ -1054,9 +1057,10 @@ mod sntpc_tests {
             .set_read_timeout(Some(std::time::Duration::from_secs(2)))
             .expect("Unable to set up socket timeout");
 
-        let result = get_time(pool, &socket, context);
+        let result: Result<crate::NtpResult, Error> =
+            get_time(pool, &socket, context);
         assert!(result.is_err(), "{pool} is ok");
-        assert_eq!(result.unwrap_err(), Error::Network);
+        assert_eq!(result.unwrap_err(), Error::AddressResolve);
     }
 
     #[test]

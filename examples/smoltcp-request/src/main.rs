@@ -103,7 +103,7 @@ pub mod internal {
         smoltcp::wire::{IpAddress, IpEndpoint},
         sntpc::{Error, NtpTimestampGenerator, NtpUdpSocket},
         std::fmt::Formatter,
-        std::net::{IpAddr, SocketAddr, ToSocketAddrs},
+        std::net::{IpAddr, SocketAddr},
     };
     pub struct Buffers {
         pub rx_meta: [PacketMetadata<IpEndpoint>; 16],
@@ -177,24 +177,18 @@ pub mod internal {
     }
 
     impl<'a, 'b> NtpUdpSocket for SmoltcpUdpSocketWrapper<'a, 'b> {
-        fn send_to<T: ToSocketAddrs>(
+        fn send_to(
             &self,
             buf: &[u8],
-            addr: T,
+            addr: SocketAddr,
         ) -> Result<usize, Error> {
-            if let Ok(mut iter) = addr.to_socket_addrs() {
-                let Some(addr) = iter.next() else {
-                    return Err(Error::Network);
-                };
+            let endpoint = match addr {
+                SocketAddr::V4(v4) => IpEndpoint::from(v4),
+                SocketAddr::V6(_) => return Err(Error::Network),
+            };
 
-                let endpoint = match addr {
-                    SocketAddr::V4(v4) => IpEndpoint::from(v4),
-                    SocketAddr::V6(_) => return Err(Error::Network),
-                };
-
-                if self.socket.borrow_mut().send_slice(buf, endpoint).is_ok() {
-                    return Ok(buf.len());
-                }
+            if self.socket.borrow_mut().send_slice(buf, endpoint).is_ok() {
+                return Ok(buf.len());
             }
 
             Err(Error::Network)

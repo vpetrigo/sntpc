@@ -31,21 +31,17 @@ where
 #[cfg(feature = "tokio")]
 #[async_trait::async_trait]
 pub trait NtpUdpSocket {
-    async fn send_to<T: ToSocketAddrs + Send>(
-        &self,
-        buf: &[u8],
-        addr: T,
-    ) -> Result<usize>;
+    async fn send_to(&self, buf: &[u8], addr: SocketAddr) -> Result<usize>;
 
     async fn recv_from(&self, buf: &mut [u8]) -> Result<(usize, SocketAddr)>;
 }
 
 #[cfg(not(feature = "std"))]
 pub trait NtpUdpSocket {
-    fn send_to<T: ToSocketAddrs + Send>(
+    fn send_to(
         &self,
         buf: &[u8],
-        addr: T,
+        addr: SocketAddr,
     ) -> impl core::future::Future<Output = Result<usize>>;
 
     fn recv_from(
@@ -82,16 +78,19 @@ async fn send_request<A: ToSocketAddrs + Send, U: NtpUdpSocket>(
 ) -> core::result::Result<(), Error> {
     let buf = RawNtpPacket::from(req);
 
-    match socket.send_to(&buf.0, dest).await {
-        Ok(size) => {
+    let socket_addrs =
+        lookup_host(dest).await.map_err(|_| Error::AddressResolve)?;
+
+    // Try each available address.
+    for addr in socket_addrs {
+        if let Ok(size) = socket.send_to(&buf.0, addr).await {
             if size == buf.0.len() {
-                Ok(())
-            } else {
-                Err(Error::Network)
+                return Ok(());
             }
         }
-        Err(_) => Err(Error::Network),
     }
+
+    Err(Error::Network)
 }
 
 /// # Errors
