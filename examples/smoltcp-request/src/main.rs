@@ -77,9 +77,12 @@
 //! $ 2021-11-08 23:53:29,950 INFO [smoltcp_request] Ok(NtpResult { seconds: 1636404809, seconds_fraction: 4004704152, roundtrip: 36149, offset: 927 })
 //! ```
 //!
+
+use std::net::ToSocketAddrs;
 #[cfg(unix)]
 use {
     core::cell::RefCell,
+    core::net::{IpAddr, SocketAddr},
     core::str::FromStr,
     smoltcp::iface::{Config, Interface, SocketSet},
     smoltcp::phy::TunTapInterface,
@@ -88,7 +91,6 @@ use {
     smoltcp::time::Instant,
     smoltcp::wire::{EthernetAddress, IpCidr, Ipv4Address},
     sntpc::NtpContext,
-    std::net::{IpAddr, SocketAddr},
     std::os::unix::prelude::AsRawFd,
 };
 
@@ -303,7 +305,11 @@ fn main() {
     let server_port = u16::from_str(app.value_of("port").unwrap())
         .expect("Unable to parse server port");
     let server_sock_addr =
-        SocketAddr::new(IpAddr::from_str(server_ip).unwrap(), server_port);
+        SocketAddr::new(IpAddr::from_str(server_ip).unwrap(), server_port)
+            .to_socket_addrs()
+            .expect("Cannot parse address")
+            .next()
+            .expect("Unable to resolve address");
     let eth_address = EthernetAddress::from_str(app.value_of("mac").unwrap())
         .expect("Cannot parse MAC address of the interface");
     let ip_addr = IpCidr::from_str(app.value_of("ip").unwrap())

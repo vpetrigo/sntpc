@@ -52,10 +52,10 @@ pub trait NtpUdpSocket {
 
 #[cfg(feature = "embassy")]
 impl NtpUdpSocket for &embassy_net::udp::UdpSocket<'_> {
-    async fn send_to<T: ToSocketAddrs + Send>(
+    async fn send_to(
         &self,
         buf: &[u8],
-        addr: T,
+        addr: SocketAddr,
     ) -> Result<usize> {
         let saddr: SocketAddr = addr
             .to_socket_addrs()
@@ -115,13 +115,12 @@ impl NtpUdpSocket for &embassy_net::udp::UdpSocket<'_> {
 /// # Errors
 ///
 /// Will return `Err` if an SNTP request sending fails
-pub async fn sntp_send_request<A, U, T>(
-    dest: A,
+pub async fn sntp_send_request<U, T>(
+    dest: SocketAddr,
     socket: &U,
     context: NtpContext<T>,
 ) -> Result<SendRequestResult>
 where
-    A: ToSocketAddrs + Debug + Send,
     U: NtpUdpSocket,
     T: NtpTimestampGenerator + Copy,
 {
@@ -133,8 +132,8 @@ where
     Ok(SendRequestResult::from(request))
 }
 
-async fn send_request<A: ToSocketAddrs + Send, U: NtpUdpSocket>(
-    dest: A,
+async fn send_request< U: NtpUdpSocket>(
+    dest: SocketAddr,
     req: &NtpPacket,
     socket: &U,
 ) -> core::result::Result<(), Error> {
@@ -158,14 +157,13 @@ async fn send_request<A: ToSocketAddrs + Send, U: NtpUdpSocket>(
 /// # Errors
 ///
 /// Will return `Err` if an SNTP response processing fails
-pub async fn sntp_process_response<A, U, T>(
-    dest: A,
+pub async fn sntp_process_response<U, T>(
+    dest: SocketAddr,
     socket: &U,
     mut context: NtpContext<T>,
     send_req_result: SendRequestResult,
 ) -> Result<NtpResult>
 where
-    A: ToSocketAddrs + Debug,
     U: NtpUdpSocket,
     T: NtpTimestampGenerator + Copy,
 {
@@ -203,13 +201,12 @@ where
 /// # Errors
 ///
 /// Will return `Err` if an SNTP request cannot be sent or SNTP response fails
-pub async fn get_time<A, U, T>(
-    pool_addrs: A,
+pub async fn get_time< U, T>(
+    pool_addrs: SocketAddr,
     socket: U,
     context: NtpContext<T>,
 ) -> Result<NtpResult>
 where
-    A: ToSocketAddrs + Copy + Debug + Send,
     U: NtpUdpSocket,
     T: NtpTimestampGenerator + Copy,
 {
