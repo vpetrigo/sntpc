@@ -25,12 +25,14 @@ std = []
 utils = ["std", "chrono/clock"]
 async = []
 async_tokio = ["std", "async", "tokio", "async-trait"]
+defmt = ["dep:defmt"]
 
 [dependencies]
 log = { version = "~0.4", optional = true }
 chrono = { version = "~0.4", default-features = false, optional = true }
 async-trait = { version = "0.1", optional = true }
 tokio = { version = "1", features = ["full"], optional = true }
+defmt = { version = "0.3", optional = true }
 
 [badges]
 maintenance = { status = "actively-developed" }
