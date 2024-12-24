@@ -3,7 +3,7 @@ use sntpc::{
     Error, NtpContext, Result, StdTimestampGen,
 };
 use std::net::SocketAddr;
-use tokio::net::{ToSocketAddrs, UdpSocket};
+use tokio::net::UdpSocket;
 
 const POOL_NTP_ADDR: &str = "pool.ntp.org:123";
 
@@ -14,11 +14,7 @@ struct Socket {
 
 #[async_trait::async_trait]
 impl NtpUdpSocket for Socket {
-    async fn send_to<T: ToSocketAddrs + Send>(
-        &self,
-        buf: &[u8],
-        addr: T,
-    ) -> Result<usize> {
+    async fn send_to(&self, buf: &[u8], addr: SocketAddr) -> Result<usize> {
         self.sock
             .send_to(buf, addr)
             .await

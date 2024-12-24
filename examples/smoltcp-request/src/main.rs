@@ -77,9 +77,12 @@
 //! $ 2021-11-08 23:53:29,950 INFO [smoltcp_request] Ok(NtpResult { seconds: 1636404809, seconds_fraction: 4004704152, roundtrip: 36149, offset: 927 })
 //! ```
 //!
+
+use std::net::ToSocketAddrs;
 #[cfg(unix)]
 use {
     core::cell::RefCell,
+    core::net::{IpAddr, SocketAddr},
     core::str::FromStr,
     smoltcp::iface::{Config, Interface, SocketSet},
     smoltcp::phy::TunTapInterface,
@@ -88,7 +91,6 @@ use {
     smoltcp::time::Instant,
     smoltcp::wire::{EthernetAddress, IpCidr, Ipv4Address},
     sntpc::NtpContext,
-    std::net::{IpAddr, SocketAddr},
     std::os::unix::prelude::AsRawFd,
 };
 
@@ -103,7 +105,7 @@ pub mod internal {
         smoltcp::wire::{IpAddress, IpEndpoint},
         sntpc::{Error, NtpTimestampGenerator, NtpUdpSocket},
         std::fmt::Formatter,
-        std::net::{IpAddr, SocketAddr, ToSocketAddrs},
+        std::net::{IpAddr, SocketAddr},
     };
     pub struct Buffers {
         pub rx_meta: [PacketMetadata<IpEndpoint>; 16],
@@ -177,24 +179,18 @@ pub mod internal {
     }
 
     impl<'a, 'b> NtpUdpSocket for SmoltcpUdpSocketWrapper<'a, 'b> {
-        fn send_to<T: ToSocketAddrs>(
+        fn send_to(
             &self,
             buf: &[u8],
-            addr: T,
+            addr: SocketAddr,
         ) -> Result<usize, Error> {
-            if let Ok(mut iter) = addr.to_socket_addrs() {
-                let Some(addr) = iter.next() else {
-                    return Err(Error::Network);
-                };
+            let endpoint = match addr {
+                SocketAddr::V4(v4) => IpEndpoint::from(v4),
+                SocketAddr::V6(_) => return Err(Error::Network),
+            };
 
-                let endpoint = match addr {
-                    SocketAddr::V4(v4) => IpEndpoint::from(v4),
-                    SocketAddr::V6(_) => return Err(Error::Network),
-                };
-
-                if self.socket.borrow_mut().send_slice(buf, endpoint).is_ok() {
-                    return Ok(buf.len());
-                }
+            if self.socket.borrow_mut().send_slice(buf, endpoint).is_ok() {
+                return Ok(buf.len());
             }
 
             Err(Error::Network)
@@ -309,7 +305,11 @@ fn main() {
     let server_port = u16::from_str(app.value_of("port").unwrap())
         .expect("Unable to parse server port");
     let server_sock_addr =
-        SocketAddr::new(IpAddr::from_str(server_ip).unwrap(), server_port);
+        SocketAddr::new(IpAddr::from_str(server_ip).unwrap(), server_port)
+            .to_socket_addrs()
+            .expect("Cannot parse address")
+            .next()
+            .expect("Unable to resolve address");
     let eth_address = EthernetAddress::from_str(app.value_of("mac").unwrap())
         .expect("Cannot parse MAC address of the interface");
     let ip_addr = IpCidr::from_str(app.value_of("ip").unwrap())

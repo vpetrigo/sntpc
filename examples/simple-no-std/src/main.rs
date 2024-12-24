@@ -5,7 +5,7 @@ use core::cell::UnsafeCell;
 use core::future::Future;
 use core::ptr::null_mut;
 use core::sync::atomic::{AtomicUsize, Ordering::Relaxed};
-use sntpc::net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs};
+use sntpc::net::{IpAddr, Ipv4Addr, SocketAddr};
 use sntpc::{
     async_impl::{get_time, NtpUdpSocket},
     NtpContext, NtpTimestampGenerator, Result,
@@ -96,10 +96,10 @@ impl NtpTimestampGenerator for TimestampGen {
 struct SimpleUdp;
 
 impl NtpUdpSocket for SimpleUdp {
-    fn send_to<T: ToSocketAddrs + Send>(
+    fn send_to(
         &self,
         _buf: &[u8],
-        _addr: T,
+        _addr: SocketAddr,
     ) -> impl Future<Output = Result<usize>> {
         core::future::ready(Ok(48))
     }
