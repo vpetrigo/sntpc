@@ -5,6 +5,5 @@ edition = "2021"
 publish = false
 
 [dependencies]
-sntpc = { path = "../../sntpc", default-features = false, features = ["async_tokio"] }
-tokio = { version = "1", features = ["full"] }
-async-trait = { version = "0.1" }
+sntpc = { path = "../../sntpc" }
+tokio = { version = "1", features = ["rt", "net", "macros"] }

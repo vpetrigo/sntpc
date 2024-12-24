@@ -1,18 +1,17 @@
 use sntpc::{
-    async_impl::{get_time, NtpUdpSocket},
-    Error, NtpContext, Result, StdTimestampGen,
+    get_time, Error, NtpContext, NtpUdpSocket, Result, StdTimestampGen,
 };
-use std::net::SocketAddr;
-use tokio::net::UdpSocket;
+use tokio::net::{lookup_host, UdpSocket};
 
-const POOL_NTP_ADDR: &str = "pool.ntp.org:123";
+use core::net::SocketAddr;
+
+const POOL_NTP_ADDR: (&str, u16) = ("pool.ntp.org", 123);
 
 #[derive(Debug)]
 struct Socket {
     sock: UdpSocket,
 }
 
-#[async_trait::async_trait]
 impl NtpUdpSocket for Socket {
     async fn send_to(&self, buf: &[u8], addr: SocketAddr) -> Result<usize> {
         self.sock
@@ -26,7 +25,7 @@ impl NtpUdpSocket for Socket {
     }
 }
 
-#[tokio::main]
+#[tokio::main(flavor = "current_thread")]
 async fn main() {
     let sock = UdpSocket::bind("0.0.0.0:0".parse::<SocketAddr>().unwrap())
         .await
@@ -34,9 +33,14 @@ async fn main() {
     let socket = Socket { sock };
     let ntp_context = NtpContext::new(StdTimestampGen::default());
 
-    let res = get_time(POOL_NTP_ADDR, socket, ntp_context)
+    for addr in lookup_host(POOL_NTP_ADDR)
         .await
-        .expect("get_time error");
+        .expect("Unable to resolve address")
+    {
+        let res = get_time(addr, &socket, ntp_context)
+            .await
+            .expect("get_time error");
 
-    println!("RESULT: {res:?}");
+        println!("RESULT: {res:?}");
+    }
 }
