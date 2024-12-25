@@ -245,25 +245,6 @@ pub mod net {
                 .into_iter())
             }
         }
-
-        #[cfg(feature = "embassy")]
-        impl ToSocketAddrs for (embassy_net::IpAddress, u16) {
-            type Iter = core::option::IntoIter<SocketAddr>;
-            fn to_socket_addrs(
-                &self,
-            ) -> Result<core::option::IntoIter<SocketAddr>, ToSocketAddrError>
-            {
-                let (ip, port) = *self;
-                match ip {
-                    embassy_net::IpAddress::Ipv4(a) => {
-                        (a, port).to_socket_addrs()
-                    }
-                    embassy_net::IpAddress::Ipv6(a) => {
-                        (a, port).to_socket_addrs()
-                    }
-                }
-            }
-        }
     }
 
     pub use core::net::{
