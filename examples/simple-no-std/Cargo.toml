@@ -6,4 +6,4 @@ publish = false
 
 [dependencies]
 sntpc = { path = "../../sntpc", default-features = false }
-yash-executor = { version = "1.0.0", default-features = false }
+miniloop = { version = "0.3.0" }
