@@ -3,9 +3,9 @@
 //!
 //! Unfortunately, some `std` requirements still imposed due to TAP interface creation is dependent
 //! on UNIX OS specific calls in the standard library. This example should provide all details on
-//! how to setup networking interface to use with the `sntpc` library though.
+//! how to set up networking interface to use with the `sntpc` library though.
 //!
-//! ## How to setup the environment (IPv4 only considered for now):
+//! ## How to set up the environment (IPv4 only considered for now):
 //!
 //! - create TAP interface (`sudo` may require):
 //! ```sh
@@ -55,7 +55,7 @@
 //! ## How to run the example app:
 //!
 //! This example uses [`clap`](https://crates.io/crates/clap) to process command line arguments.
-//! Currently the following options available:
+//! Currently, the following options are available:
 //! ```sh
 //! OPTIONS:
 //!         --gw <gw>                  Device default gateway
@@ -88,7 +88,10 @@ use {
     smoltcp::socket::udp,
     smoltcp::time::Instant,
     smoltcp::wire::{EthernetAddress, IpCidr, Ipv4Address},
-    sntpc::NtpContext,
+    sntpc::{
+        sync::{sntp_process_response, sntp_send_request},
+        NtpContext,
+    },
     std::os::unix::prelude::AsRawFd,
 };
 
@@ -177,7 +180,7 @@ pub mod internal {
     }
 
     impl<'a, 'b> NtpUdpSocket for SmoltcpUdpSocketWrapper<'a, 'b> {
-        fn send_to(
+        async fn send_to(
             &self,
             buf: &[u8],
             addr: SocketAddr,
@@ -194,7 +197,7 @@ pub mod internal {
             Err(Error::Network)
         }
 
-        fn recv_from(
+        async fn recv_from(
             &self,
             buf: &mut [u8],
         ) -> Result<(usize, SocketAddr), Error> {
@@ -303,11 +306,7 @@ fn main() {
     let server_port = u16::from_str(app.value_of("port").unwrap())
         .expect("Unable to parse server port");
     let server_sock_addr =
-        SocketAddr::new(IpAddr::from_str(server_ip).unwrap(), server_port)
-            .to_socket_addrs()
-            .expect("Cannot parse address")
-            .next()
-            .expect("Unable to resolve address");
+        SocketAddr::new(IpAddr::from_str(server_ip).unwrap(), server_port);
     let eth_address = EthernetAddress::from_str(app.value_of("mac").unwrap())
         .expect("Cannot parse MAC address of the interface");
     let ip_addr = IpCidr::from_str(app.value_of("ip").unwrap())
@@ -357,11 +356,8 @@ fn main() {
                 ),
             };
             let context = NtpContext::new(StdTimestampGen::default());
-            let result = sntpc::sntp_send_request(
-                server_sock_addr,
-                &sock_wrapper,
-                context,
-            );
+            let result =
+                sntp_send_request(server_sock_addr, &sock_wrapper, context);
 
             match result {
                 Ok(result) => {
@@ -390,7 +386,7 @@ fn main() {
                             sockets.get_mut::<udp::Socket>(udp_handle),
                         ),
                     };
-                    let result = sntpc::sntp_process_response(
+                    let result = sntp_process_response(
                         server_sock_addr,
                         &sock_wrapper,
                         context,
