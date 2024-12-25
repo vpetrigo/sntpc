@@ -122,9 +122,67 @@ pub mod net {
 #[cfg(feature = "log")]
 use log::debug;
 
+/// Retrieves the current time from an NTP server using the provided context and socket.
+///
+/// This asynchronous function sends an SNTP request to a specified NTP server and processes the response
+/// to retrieve the server's time. It uses the provided UDP socket and timestamp generator to facilitate
+/// communication and time calculations.
+///
+/// # Arguments
+///
+/// * `addr` - The address of the NTP server to send the request to.
+/// * `socket` - The UDP socket used for sending and receiving the SNTP request and response.
+///   The socket must implement the [`NtpUdpSocket`] trait.
+/// * `context` - The context containing the timestamp generator for creating and processing timestamps,
+///   which must implement the [`NtpTimestampGenerator`] trait.
+///
+/// # Returns
+///
+/// Returns a [`Result`] containing an [`NtpResult`] struct on success, or an [`Error`] indicating what went wrong.
 ///
 /// # Errors
 ///
+/// This function will return an error if:
+/// - The request to the server cannot be sent.
+/// - There is an issue with receiving or processing the response.
+/// - The network or socket configurations produce unexpected issues.
+///
+/// # Example
+///
+/// ```rust
+/// use sntpc::{get_time, NtpContext, NtpTimestampGenerator};
+/// use std::net::{SocketAddr, UdpSocket};
+/// use std::time::Duration;
+///
+/// // Create a UDP socket
+/// let socket = UdpSocket::bind("0.0.0.0:0").expect("Could not bind UDP socket");
+/// socket
+///     .set_read_timeout(Some(Duration::from_secs(2)))
+///     .expect("Failed to set socket timeout");
+///
+/// // Define the NTP context and server address
+/// let server_addr: SocketAddr = "216.239.35.0:123".parse().unwrap();
+/// let context = NtpContext {
+///     timestamp_gen: MyTimestampGenerator,
+/// };
+///
+/// // Call the function to get time
+/// match get_time(server_addr, &socket, context).await {
+///     Ok(result) => {
+///         println!("NTP Time: {}.{}", result.sec(), result.sec_fraction());
+///     }
+///     Err(err) => {
+///         eprintln!("Failed to get time: {:?}", err);
+///     }
+/// }
+/// ```
+///
+/// Make sure to implement the required traits ([`NtpTimestampGenerator`] and [`NtpUdpSocket`])
+/// on your socket and timestamp generator objects as needed.
+///
+/// [`Result`]: std::result::Result
+/// [`NtpResult`]: crate::types::NtpResult
+/// [`Error`]: crate::types::Error
 pub async fn get_time<U, T>(
     addr: net::SocketAddr,
     socket: &U,
