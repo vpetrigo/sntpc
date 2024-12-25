@@ -77,8 +77,6 @@
 //! $ 2021-11-08 23:53:29,950 INFO [smoltcp_request] Ok(NtpResult { seconds: 1636404809, seconds_fraction: 4004704152, roundtrip: 36149, offset: 927 })
 //! ```
 //!
-
-use std::net::ToSocketAddrs;
 #[cfg(unix)]
 use {
     core::cell::RefCell,
