@@ -10,6 +10,7 @@ This crate provides a method for sending requests to NTP servers and process res
 extracting received timestamp.
 
 Supported SNTP protocol versions:
+
 - [SNTPv4](https://datatracker.ietf.org/doc/html/rfc4330)
 
 ### Documentation
@@ -21,7 +22,9 @@ More information about this crate can be found in the [crate documentation](http
 ### Usage example
 
 ```rust
-use std::net::UdpSocket;
+use sntpc::{sync::get_time, NtpContext, StdTimestampGen};
+
+use std::net::{ToSocketAddrs, UdpSocket};
 use std::thread;
 use std::time::Duration;
 
@@ -31,27 +34,37 @@ const POOL_NTP_ADDR: &str = "pool.ntp.org:123";
 const GOOGLE_NTP_ADDR: &str = "time.google.com:123";
 
 fn main() {
-    for _ in 0..5 {
-        let socket =
-            UdpSocket::bind("0.0.0.0:0").expect("Unable to crate UDP socket");
-        socket
-            .set_read_timeout(Some(Duration::from_secs(2)))
-            .expect("Unable to set UDP socket read timeout");
+    #[cfg(feature = "log")]
+    if cfg!(debug_assertions) {
+        simple_logger::init_with_level(log::Level::Trace).unwrap();
+    } else {
+        simple_logger::init_with_level(log::Level::Info).unwrap();
+    }
 
-        let result = sntpc::simple_get_time(POOL_NTP_ADDR, &socket);
+    let socket =
+        UdpSocket::bind("0.0.0.0:0").expect("Unable to crate UDP socket");
+    socket
+        .set_read_timeout(Some(Duration::from_secs(2)))
+        .expect("Unable to set UDP socket read timeout");
+
+    for addr in POOL_NTP_ADDR.to_socket_addrs().unwrap() {
+        let ntp_context = NtpContext::new(StdTimestampGen::default());
+        let result = get_time(addr, &socket, ntp_context);
 
         match result {
             Ok(time) => {
                 assert_ne!(time.sec(), 0);
                 let seconds = time.sec();
-                let microseconds =
-                    u64::from(time.sec_fraction()) * 1_000_000 / u64::from(u32::MAX);
-                println!("Got time: {seconds}.{microseconds}");
+                let microseconds = u64::from(time.sec_fraction()) * 1_000_000
+                    / u64::from(u32::MAX);
+                println!("Got time from [{POOL_NTP_ADDR}] {addr}: {seconds}.{microseconds}");
+
+                break;
             }
             Err(err) => println!("Err: {err:?}"),
         }
 
-        thread::sleep(Duration::new(15, 0));
+        thread::sleep(Duration::new(2, 0));
     }
 }
 ```
@@ -63,19 +76,57 @@ You can find this [example](examples/simple-request) as well as other example pr
 
 -------------------
 
-Currently, there are basic `no_std` support available, thanks to [`no-std-net`](https://crates.io/crates/no-std-net)
-crate. There is an example available on how to use [`smoltcp`][smoltcp] stack and that should provide
+There is an example available on how to use [`smoltcp`](examples/smoltcp-request) stack and that should provide
 general idea on how to bootstrap `no_std` networking and timestamping tools for `sntpc` library usage
 
 ## `async` support
 
 -------------------
 
-Feature `async_tokio` allows to use crate together with [tokio](https://docs.rs/tokio/latest/tokio/).
-There is an example: [`examples/tokio.rs`](examples/tokio.rs).
+Starting version `0.5` the default interface is `async`. If you want to use synchronous interface, read about `sync`
+feature below.
+
+`tokio` example: [`examples/tokio`](examples/tokio)
 
 There is also `no_std` support with feature `async`, but it requires Rust >= `1.75-nightly` version.
 The example can be found in [separate repository](https://github.com/vpikulik/sntpc_embassy).
+
+## `sync` support
+
+-------------------
+
+`sntpc` crate is `async` by default, since most of the frameworks (I have seen) for embedded systems utilize
+asynchronous approach, e.g.:
+
+- [RTIC](https://github.com/rtic-rs/rtic)
+- [embassy](https://github.com/embassy-rs/embassy)
+
+If you need fully synchronous interface it is available in the `sntpc::sync` submodule and respective `sync`-feature
+enabled. In the case someone needs a synchronous socket support the currently async `NtpUdpSocket` trait can be
+implemented in a fully synchronous manner. This is an example for the `std::net::UdpSocket` that is available in the
+crate:
+
+```rust
+#[cfg(feature = "std")]
+impl NtpUdpSocket for UdpSocket {
+    async fn send_to(&self, buf: &[u8], addr: SocketAddr) -> Result<usize> {
+        match self.send_to(buf, addr) {
+            Ok(usize) => Ok(usize),
+            Err(_) => Err(Error::Network),
+        }
+    }
+
+    async fn recv_from(&self, buf: &mut [u8]) -> Result<(usize, SocketAddr)> {
+        match self.recv_from(buf) {
+            Ok((size, addr)) => Ok((size, addr)),
+            Err(_) => Err(Error::Network),
+        }
+    }
+}
+```
+
+As you can see, you may implement everything as synchronous, `sntpc` synchronous interface handles `async`-like stuff
+internally.
 
 # Contribution
 
@@ -87,10 +138,12 @@ effort is wasted. If there's already an open issue for it, knock yourself out. S
 
 ## Thanks
 
-1. [Frank A. Stevenson](https://github.com/snakehand): for implementing stricter adherence to RFC4330 verification scheme
+1. [Frank A. Stevenson](https://github.com/snakehand): for implementing stricter adherence to RFC4330 verification
+   scheme
 2. [Timothy Mertz](https://github.com/mertzt89): for fixing possible overflow in offset calculation
 3. [HannesH](https://github.com/HannesGitH): for fixing a typo in the README.md
-4. [Richard Penney](https://github.com/rwpenney): for adding two indicators of the NTP server's accuracy into the `NtpResult` structure 
+4. [Richard Penney](https://github.com/rwpenney): for adding two indicators of the NTP server's accuracy into the
+   `NtpResult` structure
 5. [Vitali Pikulik](https://github.com/vpikulik): for adding `async` support
 6. [tsingwong](https://github.com/tsingwong): for fixing invalid link in the `README.md`
 7. [Robert Bastian](https://github.com/robertbastian): for fixing the overflow issue in the `calculate_offset`
