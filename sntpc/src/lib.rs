@@ -106,7 +106,9 @@
 #[cfg(feature = "utils")]
 pub mod utils;
 
+mod socket;
 mod types;
+
 pub use crate::types::*;
 
 #[cfg(feature = "log")]
@@ -1047,7 +1049,7 @@ mod sntpc_ntp_result_tests {
     }
 }
 
-#[cfg(all(test, feature = "std", feature = "sync"))]
+#[cfg(all(test, feature = "std", feature = "std-socket", feature = "sync"))]
 mod sntpc_tests {
     use crate::sync::get_time;
     use crate::{offset_calculate, Error, NtpContext, StdTimestampGen, Units};
