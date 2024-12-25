@@ -221,7 +221,7 @@ pub mod net {
             }
         }
 
-        impl<'a, T: ToSocketAddrs + ?Sized> ToSocketAddrs for &'a T {
+        impl<T: ToSocketAddrs + ?Sized> ToSocketAddrs for &T {
             type Iter = T::Iter;
             fn to_socket_addrs(&self) -> Result<T::Iter, ToSocketAddrError> {
                 (**self).to_socket_addrs()

@@ -170,7 +170,7 @@ pub mod internal {
         pub socket: RefCell<&'b mut udp::Socket<'a>>,
     }
 
-    impl<'a, 'b> Debug for SmoltcpUdpSocketWrapper<'a, 'b> {
+    impl Debug for SmoltcpUdpSocketWrapper<'_, '_> {
         fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
             f.debug_struct("SmoltcpUdpSocketWrapper")
                 .field("socket", &self.socket.borrow().endpoint())
@@ -178,7 +178,7 @@ pub mod internal {
         }
     }
 
-    impl<'a, 'b> NtpUdpSocket for SmoltcpUdpSocketWrapper<'a, 'b> {
+    impl NtpUdpSocket for SmoltcpUdpSocketWrapper<'_, '_> {
         fn send_to(
             &self,
             buf: &[u8],
