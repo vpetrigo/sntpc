@@ -2,7 +2,9 @@
 //!
 //! Example provides a basic implementation of [`NtpTimestampGenerator`] and [`NtpUdpSocket`]
 //! required for the `sntpc` library
-use std::net::UdpSocket;
+use sntpc::{sync::get_time, NtpContext, StdTimestampGen};
+
+use std::net::{ToSocketAddrs, UdpSocket};
 use std::thread;
 use std::time::Duration;
 
@@ -26,19 +28,25 @@ fn main() {
             .set_read_timeout(Some(Duration::from_secs(2)))
             .expect("Unable to set UDP socket read timeout");
 
-        let result = sntpc::simple_get_time(POOL_NTP_ADDR, &socket);
+        for addr in POOL_NTP_ADDR.to_socket_addrs().unwrap() {
+            let ntp_context = NtpContext::new(StdTimestampGen::default());
+            let result = get_time(addr, &socket, ntp_context);
 
-        match result {
-            Ok(time) => {
-                assert_ne!(time.sec(), 0);
-                let seconds = time.sec();
-                let microseconds = u64::from(time.sec_fraction()) * 1_000_000
-                    / u64::from(u32::MAX);
-                println!("Got time: {seconds}.{microseconds}");
+            match result {
+                Ok(time) => {
+                    assert_ne!(time.sec(), 0);
+                    let seconds = time.sec();
+                    let microseconds = u64::from(time.sec_fraction())
+                        * 1_000_000
+                        / u64::from(u32::MAX);
+                    println!("Got time: {seconds}.{microseconds}");
+
+                    break;
+                }
+                Err(err) => println!("Err: {err:?}"),
             }
-            Err(err) => println!("Err: {err:?}"),
-        }
 
-        thread::sleep(Duration::new(15, 0));
+            thread::sleep(Duration::new(2, 0));
+        }
     }
 }
