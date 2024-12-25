@@ -20,16 +20,21 @@ exclude = [
 ]
 
 [features]
-default = ["std"]
+default = ["std", "std-socket"]
 std = []
 sync = ["dep:miniloop"]
 utils = ["std", "dep:chrono", "chrono/clock"]
 log = ["dep:log"]
+std-socket = []
+embassy-socket = ["dep:embassy-net"]
+tokio-socket = ["dep:tokio"]
 
 [dependencies]
 log = { version = "~0.4", optional = true }
 chrono = { version = "~0.4", default-features = false, optional = true }
 miniloop = { version = "~0.3", optional = true }
+embassy-net = { version = "0.5.0", features = ["udp", "proto-ipv4", "proto-ipv6", "medium-ip"], optional = true }
+tokio = { version = "1", features = ["net"], optional = true }
 
 [badges]
 maintenance = { status = "actively-developed" }
