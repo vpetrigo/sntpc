@@ -14,9 +14,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Run clippy with all features
-        run: cargo clippy --workspace --exclude example-simple-no-std --all-features -- -D clippy::all -D clippy::pedantic
-      - name: Run clippy with no_std
-        run: cargo clippy -p example-simple-no-std --no-default-features --profile no-std -- -D clippy::all -D clippy::pedantic
+        run: cargo clippy --workspace --exclude example-simple-no-std --exclude example-smoltcp-request --exclude example-embassy-net --all-features -- -D clippy::all -D clippy::pedantic
+      - name: Run clippy on examples
+        run: |
+          cargo clippy -p example-simple-no-std --no-default-features --profile no-std -- -D clippy::all -D clippy::pedantic
+          cargo clippy -p example-smoltcp-request --all-features -- -D clippy::all -D clippy::pedantic
+          cargo clippy -p example-embassy-net --all-features -- -D clippy::all -D clippy::pedantic
   clippy_async_no_std:
     runs-on: ubuntu-latest
     container:
@@ -40,11 +43,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build with std
-        run: cargo build --workspace --exclude example-simple-no-std --all-features
+        run: cargo build --workspace --exclude example-simple-no-std --exclude example-smoltcp-request --exclude example-embassy-net --all-features
       - name: Build with no_std
+        run: cargo build -p sntpc --no-default-features
+      - name: Build examples
         run: |
-          cargo build -p sntpc --no-default-features
           cargo build -p example-simple-no-std --profile no-std
+          cargo build -p example-smoltcp-request --all-features
+          cargo build -p example-embassy-net --all-features
       - name: Run tests with std
         run: cargo test
       - name: Run tests with no_std

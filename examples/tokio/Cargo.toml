@@ -7,4 +7,3 @@ publish = false
 [dependencies]
 sntpc = { path = "../../sntpc", default-features = false, features = ["async_tokio"] }
 tokio = { version = "1", features = ["full"] }
-async-trait = { version = "0.1" }

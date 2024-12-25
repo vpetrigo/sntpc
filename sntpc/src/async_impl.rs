@@ -1,24 +1,23 @@
+use crate::net::SocketAddr;
+#[cfg(not(feature = "tokio"))]
+use crate::net::ToSocketAddrs;
 use crate::types::{
     Error, NtpContext, NtpPacket, NtpResult, NtpTimestampGenerator,
     RawNtpPacket, Result, SendRequestResult,
 };
 use crate::{get_ntp_timestamp, process_response};
 use core::fmt::Debug;
-#[cfg(feature = "log")]
-use log::debug;
-
-use crate::net::SocketAddr;
-#[cfg(not(feature = "std"))]
-use crate::net::ToSocketAddrs;
-
 #[cfg(feature = "tokio")]
 use tokio::net::{lookup_host, ToSocketAddrs};
 
-#[cfg(not(feature = "std"))]
+#[cfg(feature = "log")]
+use log::debug;
+
+#[cfg(not(feature = "tokio"))]
 #[allow(clippy::unused_async)]
 async fn lookup_host<T>(host: T) -> Result<impl Iterator<Item = SocketAddr>>
 where
-    T: ToSocketAddrs,
+    T: ToSocketAddrs + Debug,
 {
     #[allow(unused_variables)]
     host.to_socket_addrs().map_err(|e| {
@@ -28,15 +27,6 @@ where
     })
 }
 
-#[cfg(feature = "tokio")]
-#[async_trait::async_trait]
-pub trait NtpUdpSocket {
-    async fn send_to(&self, buf: &[u8], addr: SocketAddr) -> Result<usize>;
-
-    async fn recv_from(&self, buf: &mut [u8]) -> Result<(usize, SocketAddr)>;
-}
-
-#[cfg(not(feature = "std"))]
 pub trait NtpUdpSocket {
     fn send_to(
         &self,
@@ -50,22 +40,23 @@ pub trait NtpUdpSocket {
     ) -> impl core::future::Future<Output = Result<(usize, SocketAddr)>>;
 }
 
+#[cfg(feature = "tokio")]
+impl NtpUdpSocket for tokio::net::UdpSocket {
+    async fn send_to(&self, buf: &[u8], addr: SocketAddr) -> Result<usize> {
+        self.send_to(buf, addr).await.map_err(|_| Error::Network)
+    }
+
+    async fn recv_from(&self, buf: &mut [u8]) -> Result<(usize, SocketAddr)> {
+        self.recv_from(buf).await.map_err(|_| Error::Network)
+    }
+}
+
 #[cfg(feature = "embassy")]
 impl NtpUdpSocket for &embassy_net::udp::UdpSocket<'_> {
-    async fn send_to(
-        &self,
-        buf: &[u8],
-        addr: SocketAddr,
-    ) -> Result<usize> {
-        let saddr: SocketAddr = addr
-            .to_socket_addrs()
-            .map_err(|_| Error::AddressResolve)?
-            .next()
-            .ok_or(Error::AddressResolve)?;
-
+    async fn send_to(&self, buf: &[u8], addr: SocketAddr) -> Result<usize> {
         // Currently smoltcp still has its own address enum
         let endpoint = embassy_net::IpEndpoint::new(
-            match saddr.ip() {
+            match addr.ip() {
                 crate::net::IpAddr::V4(addr) => {
                     embassy_net::IpAddress::Ipv4(addr)
                 }
@@ -73,11 +64,11 @@ impl NtpUdpSocket for &embassy_net::udp::UdpSocket<'_> {
                     embassy_net::IpAddress::Ipv6(addr)
                 }
             },
-            saddr.port(),
+            addr.port(),
         );
 
         match embassy_net::udp::UdpSocket::send_to(self, buf, endpoint).await {
-            Ok(_) => Ok(buf.len()),
+            Ok(()) => Ok(buf.len()),
             Err(e) => {
                 #[cfg(feature = "log")]
                 log::error!("Error while sending to {}: {:?}", endpoint, e);
@@ -115,12 +106,13 @@ impl NtpUdpSocket for &embassy_net::udp::UdpSocket<'_> {
 /// # Errors
 ///
 /// Will return `Err` if an SNTP request sending fails
-pub async fn sntp_send_request<U, T>(
-    dest: SocketAddr,
+pub async fn sntp_send_request<A, U, T>(
+    dest: A,
     socket: &U,
     context: NtpContext<T>,
 ) -> Result<SendRequestResult>
 where
+    A: ToSocketAddrs + Debug,
     U: NtpUdpSocket,
     T: NtpTimestampGenerator + Copy,
 {
@@ -132,8 +124,8 @@ where
     Ok(SendRequestResult::from(request))
 }
 
-async fn send_request< U: NtpUdpSocket>(
-    dest: SocketAddr,
+async fn send_request<A: ToSocketAddrs + Debug, U: NtpUdpSocket>(
+    dest: A,
     req: &NtpPacket,
     socket: &U,
 ) -> core::result::Result<(), Error> {
@@ -157,13 +149,14 @@ async fn send_request< U: NtpUdpSocket>(
 /// # Errors
 ///
 /// Will return `Err` if an SNTP response processing fails
-pub async fn sntp_process_response<U, T>(
-    dest: SocketAddr,
+pub async fn sntp_process_response<A, U, T>(
+    dest: A,
     socket: &U,
     mut context: NtpContext<T>,
     send_req_result: SendRequestResult,
 ) -> Result<NtpResult>
 where
+    A: ToSocketAddrs + Debug,
     U: NtpUdpSocket,
     T: NtpTimestampGenerator + Copy,
 {
@@ -201,12 +194,13 @@ where
 /// # Errors
 ///
 /// Will return `Err` if an SNTP request cannot be sent or SNTP response fails
-pub async fn get_time< U, T>(
-    pool_addrs: SocketAddr,
+pub async fn get_time<A, U, T>(
+    pool_addrs: A,
     socket: U,
     context: NtpContext<T>,
 ) -> Result<NtpResult>
 where
+    A: ToSocketAddrs + Copy + Debug,
     U: NtpUdpSocket,
     T: NtpTimestampGenerator + Copy,
 {

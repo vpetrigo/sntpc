@@ -290,6 +290,7 @@ use internal::{
 };
 
 #[cfg(unix)]
+#[allow(clippy::too_many_lines)]
 fn main() {
     #[cfg(feature = "log")]
     if cfg!(feature = "log") {

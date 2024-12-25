@@ -321,7 +321,7 @@ pub trait NtpUdpSocket {
 }
 
 #[cfg(feature = "std")]
-impl NtpUdpSocket for net::UdpSocket {
+impl NtpUdpSocket for std::net::UdpSocket {
     fn send_to(
         &self,
         buf: &[u8],

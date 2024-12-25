@@ -227,6 +227,43 @@ pub mod net {
                 (**self).to_socket_addrs()
             }
         }
+
+        #[cfg(feature = "embassy")]
+        impl ToSocketAddrs for embassy_net::IpEndpoint {
+            type Iter = core::option::IntoIter<SocketAddr>;
+            fn to_socket_addrs(
+                &self,
+            ) -> Result<core::option::IntoIter<SocketAddr>, ToSocketAddrError>
+            {
+                Ok(Some(SocketAddr::new(
+                    match self.addr {
+                        embassy_net::IpAddress::Ipv4(val) => IpAddr::V4(val),
+                        embassy_net::IpAddress::Ipv6(val) => IpAddr::V6(val),
+                    },
+                    self.port,
+                ))
+                .into_iter())
+            }
+        }
+
+        #[cfg(feature = "embassy")]
+        impl ToSocketAddrs for (embassy_net::IpAddress, u16) {
+            type Iter = core::option::IntoIter<SocketAddr>;
+            fn to_socket_addrs(
+                &self,
+            ) -> Result<core::option::IntoIter<SocketAddr>, ToSocketAddrError>
+            {
+                let (ip, port) = *self;
+                match ip {
+                    embassy_net::IpAddress::Ipv4(a) => {
+                        (a, port).to_socket_addrs()
+                    }
+                    embassy_net::IpAddress::Ipv6(a) => {
+                        (a, port).to_socket_addrs()
+                    }
+                }
+            }
+        }
     }
 
     pub use core::net::{
@@ -342,7 +379,7 @@ pub fn get_time<A, U, T>(
 ) -> Result<NtpResult>
 where
     A: net::ToSocketAddrs + Copy + Debug,
-    U: NtpUdpSocket + Debug,
+    U: NtpUdpSocket,
     T: NtpTimestampGenerator + Copy,
 {
     let result = sntp_send_request(pool_addrs, socket, context)?;
@@ -464,11 +501,11 @@ pub fn sntp_send_request<A, U, T>(
 ) -> Result<SendRequestResult>
 where
     A: net::ToSocketAddrs + Debug,
-    U: NtpUdpSocket + Debug,
+    U: NtpUdpSocket,
     T: NtpTimestampGenerator + Copy,
 {
     #[cfg(feature = "log")]
-    debug!("Address: {:?}, Socket: {:?}", dest, *socket);
+    debug!("Address: {:?}", dest);
     let request = NtpPacket::new(context.timestamp_gen);
 
     send_request(dest, &request, socket)?;
@@ -574,7 +611,7 @@ pub fn sntp_process_response<A, U, T>(
 ) -> Result<NtpResult>
 where
     A: net::ToSocketAddrs + Debug,
-    U: NtpUdpSocket + Debug,
+    U: NtpUdpSocket,
     T: NtpTimestampGenerator + Copy,
 {
     let mut response_buf = RawNtpPacket::default();

@@ -119,7 +119,8 @@ async fn body() -> Result<i32> {
     let timestamp_gen = TimestampGen::default();
     let context = NtpContext::new(timestamp_gen);
     let socket = SimpleUdp;
-    let address = (IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 123u16);
+    let address =
+        SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 123u16);
 
     match get_time(address, socket, context).await {
         Ok(time) => {
