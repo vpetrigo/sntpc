@@ -165,15 +165,8 @@ fn main() -> ! {
 
     let result = executor.spawn(&mut task, &mut handler);
 
-    if result.is_err() {
-        panic!("Failed to spawn task");
-    }
-
+    assert!(result.is_ok(), "Failed to spawn task");
     executor.run();
-
-    if let Err(_) = handler.value.unwrap() {
-        loop {}
-    }
-
-    loop {}
+    assert!(handler.value.is_some(), "Task has not completed");
+    panic!("Done");
 }
