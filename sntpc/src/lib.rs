@@ -1130,7 +1130,7 @@ mod sntpc_tests {
                 .expect("Unable to set up socket timeout");
 
             for address in pool.to_socket_addrs().unwrap() {
-                let result = crate::sync::get_time(address, &socket, context);
+                let result = get_time(address, &socket, context);
                 assert!(result.is_err(), "{pool} is ok");
                 assert_eq!(
                     result.unwrap_err(),
