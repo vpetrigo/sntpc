@@ -128,6 +128,13 @@ impl NtpUdpSocket for UdpSocket {
 As you can see, you may implement everything as synchronous, `sntpc` synchronous interface handles `async`-like stuff
 internally.
 
+That approach also allows to avoid issues with [`maybe_async`](https://docs.rs/maybe-async/latest/maybe_async/) when the
+sync/async feature violates Cargo requirements:
+> That is, enabling a feature should not disable functionality, and it should usually be safe to enable any combination
+> of features.
+
+Small overhead introduced by creating an executor should be negligible.
+
 # Contribution
 
 --------------
