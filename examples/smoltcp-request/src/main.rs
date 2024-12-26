@@ -82,6 +82,7 @@ use {
     core::cell::RefCell,
     core::net::{IpAddr, SocketAddr},
     core::str::FromStr,
+    smoltcp::iface::PollResult,
     smoltcp::iface::{Config, Interface, SocketSet},
     smoltcp::phy::TunTapInterface,
     smoltcp::phy::{wait, Medium},
@@ -102,6 +103,7 @@ pub mod internal {
         core::cell::RefCell,
         core::fmt::Debug,
         smoltcp::socket::udp,
+        smoltcp::socket::udp::UdpMetadata,
         smoltcp::storage::PacketMetadata,
         smoltcp::wire::{IpAddress, IpEndpoint},
         sntpc::{Error, NtpTimestampGenerator, NtpUdpSocket},
@@ -109,8 +111,8 @@ pub mod internal {
         std::net::{IpAddr, SocketAddr},
     };
     pub struct Buffers {
-        pub rx_meta: [PacketMetadata<IpEndpoint>; 16],
-        pub tx_meta: [PacketMetadata<IpEndpoint>; 16],
+        pub rx_meta: [PacketMetadata<UdpMetadata>; 16],
+        pub tx_meta: [PacketMetadata<UdpMetadata>; 16],
         pub rx_buffer: [u8; 256],
         pub tx_buffer: [u8; 256],
     }
@@ -118,8 +120,8 @@ pub mod internal {
     impl Default for Buffers {
         fn default() -> Self {
             Buffers {
-                rx_meta: [PacketMetadata::<IpEndpoint>::EMPTY; 16],
-                tx_meta: [PacketMetadata::<IpEndpoint>::EMPTY; 16],
+                rx_meta: [PacketMetadata::EMPTY; 16],
+                tx_meta: [PacketMetadata::EMPTY; 16],
                 rx_buffer: [0u8; 256],
                 tx_buffer: [0u8; 256],
             }
@@ -204,13 +206,10 @@ pub mod internal {
             let result = self.socket.borrow_mut().recv_slice(&mut buf[..]);
 
             if let Ok((size, address)) = result {
-                let sockaddr = match address.addr {
-                    IpAddress::Ipv4(v4) => SocketAddr::new(
-                        IpAddr::V4(std::net::Ipv4Addr::new(
-                            v4.0[0], v4.0[1], v4.0[2], v4.0[3],
-                        )),
-                        address.port,
-                    ),
+                let sockaddr = match address.endpoint.addr {
+                    IpAddress::Ipv4(v4) => {
+                        SocketAddr::new(IpAddr::V4(v4), address.endpoint.port)
+                    }
                 };
 
                 return Ok((size, sockaddr));
@@ -321,12 +320,12 @@ fn main() {
 
     let mut socket = udp::Socket::new(udp_buffer.rx, udp_buffer.tx);
     socket.bind(sock_port).unwrap();
-    let mut config = Config::new();
+    let mut config = Config::new(eth_address.into());
 
     config.random_seed = 0;
-    config.hardware_addr = Some(eth_address.into());
 
-    let mut iface = Interface::new(config, &mut tuntap);
+    let mut iface =
+        Interface::new(config, &mut tuntap, std::time::Instant::now().into());
     iface.update_ip_addrs(|ip_addrs| ip_addrs.push(ip_addr).unwrap());
     iface
         .routes_mut()
@@ -343,7 +342,10 @@ fn main() {
     while once_rx {
         let timestamp = Instant::now();
 
-        if iface.poll(timestamp, &mut tuntap, &mut sockets) {
+        if matches!(
+            iface.poll(timestamp, &mut tuntap, &mut sockets),
+            PollResult::SocketStateChanged
+        ) {
             #[cfg(feature = "log")]
             log::trace!("Poll ok!");
         }
