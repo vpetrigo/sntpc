@@ -28,7 +28,7 @@ jobs:
       - name: Install clippy
         run: rustup component add clippy --toolchain nightly
       - name: Run clippy for async feature
-        run: cargo +nightly clippy --no-default-features --features="async" -- -D clippy::all -D clippy::pedantic
+        run: cargo +nightly clippy --all-features -- -D clippy::all -D clippy::pedantic
   check_format:
     runs-on: ubuntu-latest
     steps:
