@@ -65,7 +65,7 @@ cfg_unix! {
 
     use core::net::{IpAddr, SocketAddr};
     use std::time::SystemTime;
-    
+
     const NTP_SERVER: &str = "pool.ntp.org";
 
     #[derive(Copy, Clone, Default)]
