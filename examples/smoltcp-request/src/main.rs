@@ -224,7 +224,7 @@ pub mod internal {
     }
 
     #[must_use]
-    pub fn create_app_cli<'a>() -> ArgMatches<'a> {
+    pub fn create_app_cli() -> ArgMatches<'static> {
         const GOOGLE_NTP_ADDR: &str = "pool.ntp.org";
         const APP_PORT: &str = "6666";
 
