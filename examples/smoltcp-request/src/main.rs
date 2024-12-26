@@ -181,7 +181,7 @@ pub mod internal {
         }
     }
 
-    impl<'a, 'b> NtpUdpSocket for SmoltcpUdpSocketWrapper<'a, 'b> {
+    impl NtpUdpSocket for SmoltcpUdpSocketWrapper<'_, '_> {
         async fn send_to(
             &self,
             buf: &[u8],

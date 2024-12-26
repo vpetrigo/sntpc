@@ -29,13 +29,13 @@ jobs:
         run: rustup component add clippy --toolchain nightly
       - name: Run clippy for async feature
         run: cargo +nightly clippy --workspace --exclude example-simple-no-std --all-features -- -D clippy::all -D clippy::pedantic
-  check_format:
+  check-format:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Check formatting
         run: cargo fmt --check
-  build_test:
+  build-test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
