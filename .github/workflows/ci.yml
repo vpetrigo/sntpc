@@ -49,3 +49,16 @@ jobs:
         run: cargo test --all-features
       - name: Run tests with no_std
         run: cargo test --no-default-features
+  benchmark:
+    name: python
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+      - name: Run benchmarking
+        run: |
+          uvx --from git+https://github.com/vpetrigo/ntpserver@master ntpserver &
+          cargo bench --features sync
+          pkill ntpserver
