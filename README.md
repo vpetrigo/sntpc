@@ -21,6 +21,15 @@ More information about this crate can be found in the [crate documentation](http
 
 ### Usage example
 
+- dependency for the app
+
+```toml
+[dependencies]
+sntpc = { version = "0.5", features = ["sync"] }
+```
+
+- application code
+
 ```rust
 use sntpc::{sync::get_time, NtpContext, StdTimestampGen};
 
