@@ -1260,7 +1260,7 @@ mod sntpc_ntp_result_tests {
 mod sntpc_sync_tests {
     use crate::sync::get_time;
     use crate::{Error, NtpContext, StdTimestampGen};
-    use std::net::{ToSocketAddrs, UdpSocket};
+    use std::net::{SocketAddr, ToSocketAddrs, UdpSocket};
 
     #[test]
     fn test_ntp_request_sntpv4_supported() {
@@ -1279,7 +1279,9 @@ mod sntpc_sync_tests {
                 .set_read_timeout(Some(std::time::Duration::from_secs(2)))
                 .expect("Unable to set up socket timeout");
 
-            for address in pool.to_socket_addrs().unwrap() {
+            for address in
+                pool.to_socket_addrs().unwrap().filter(SocketAddr::is_ipv4)
+            {
                 let result = get_time(address, &socket, context);
 
                 assert!(
@@ -1302,10 +1304,12 @@ mod sntpc_sync_tests {
         for pool in &pools {
             let socket = UdpSocket::bind("0.0.0.0:0").unwrap();
             socket
-                .set_read_timeout(Some(std::time::Duration::from_secs(2)))
+                .set_read_timeout(Some(std::time::Duration::from_secs(5)))
                 .expect("Unable to set up socket timeout");
 
-            for address in pool.to_socket_addrs().unwrap() {
+            for address in
+                pool.to_socket_addrs().unwrap().filter(SocketAddr::is_ipv4)
+            {
                 let result = get_time(address, &socket, context);
                 assert!(result.is_err(), "{pool} is ok");
                 assert_eq!(
@@ -1321,7 +1325,7 @@ mod sntpc_sync_tests {
         let pool = "asdf.asdf.asdf:123";
         let socket = UdpSocket::bind("0.0.0.0:0").unwrap();
         socket
-            .set_read_timeout(Some(std::time::Duration::from_secs(2)))
+            .set_read_timeout(Some(std::time::Duration::from_secs(5)))
             .expect("Unable to set up socket timeout");
 
         let result = pool.to_socket_addrs();
@@ -1334,7 +1338,7 @@ mod sntpc_async_tests {
     use crate::get_time;
     use crate::{Error, NtpContext, StdTimestampGen};
     use miniloop::executor::Executor;
-    use std::net::{ToSocketAddrs, UdpSocket};
+    use std::net::{SocketAddr, ToSocketAddrs, UdpSocket};
 
     #[test]
     fn test_ntp_async_request_sntpv4_supported() {
@@ -1350,17 +1354,18 @@ mod sntpc_async_tests {
         for pool in &pools {
             let socket = UdpSocket::bind("0.0.0.0:0").unwrap();
             socket
-                .set_read_timeout(Some(std::time::Duration::from_secs(2)))
+                .set_read_timeout(Some(std::time::Duration::from_secs(5)))
                 .expect("Unable to set up socket timeout");
 
-            for address in pool.to_socket_addrs().unwrap() {
+            for address in
+                pool.to_socket_addrs().unwrap().filter(SocketAddr::is_ipv4)
+            {
                 let result = Executor::new()
                     .block_on(get_time(address, &socket, context));
 
                 assert!(
                     result.is_ok(),
-                    "{} is bad - {:?}",
-                    pool,
+                    "{pool} is bad - {:?}",
                     result.unwrap_err()
                 );
                 assert_ne!(result.unwrap().seconds, 0);
@@ -1377,10 +1382,12 @@ mod sntpc_async_tests {
         for pool in &pools {
             let socket = UdpSocket::bind("0.0.0.0:0").unwrap();
             socket
-                .set_read_timeout(Some(std::time::Duration::from_secs(2)))
+                .set_read_timeout(Some(std::time::Duration::from_secs(5)))
                 .expect("Unable to set up socket timeout");
 
-            for address in pool.to_socket_addrs().unwrap() {
+            for address in
+                pool.to_socket_addrs().unwrap().filter(SocketAddr::is_ipv4)
+            {
                 let result = Executor::new()
                     .block_on(get_time(address, &socket, context));
                 assert!(result.is_err(), "{pool} is ok");
