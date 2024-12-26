@@ -54,8 +54,7 @@
 //! # Example
 //!
 //! ```rust
-//! # #[cfg(not(feature = "std"))]
-//! # use no_std_net::{SocketAddr, ToSocketAddrs, IpAddr, Ipv4Addr};
+//! # use core::net::{IpAddr, Ipv4Addr, SocketAddr};
 //! # #[cfg(feature = "std")]
 //! use std::net::UdpSocket;
 //! use std::time::Duration;
@@ -68,7 +67,7 @@
 //! #     fn bind(addr: &str) -> sntpc::Result<Self> {
 //! #         Ok(UdpSocket)
 //! #     }
-//! #     fn send_to<T: ToSocketAddrs>(&self, buf: &[u8], dest: T) -> sntpc::Result<usize> {
+//! #     fn send_to(&self, buf: &[u8], dest: SocketAddr) -> sntpc::Result<usize> {
 //! #         Ok(0usize)
 //! #     }
 //! #     fn recv_from(&self, buf: &mut [u8]) -> sntpc::Result<(usize, SocketAddr)> {
@@ -85,9 +84,9 @@
 //!     socket
 //!        .set_read_timeout(Some(Duration::from_secs(2)))
 //!        .expect("Unable to set UDP socket read timeout");
-//!     # #[cfg(all(feature = "std"))]
+//!     # #[cfg(feature = "std")]
 //!     let result = sntpc::simple_get_time("time.google.com:123", &socket);
-//!     # #[cfg(all(feature = "std"))]
+//!     # #[cfg(feature = "std")]
 //!     match result {
 //!        Ok(time) => {
 //!            println!("Got time: {}.{}", time.sec(), sntpc::fraction_to_milliseconds(time.sec_fraction()));
@@ -97,7 +96,7 @@
 //!  }
 //! ```
 //!
-//! For more complex example with custom timestamp generator and UDP socket implementation, see
+//! For more complex example with ф custom timestamp generator and UDP socket implementation, see
 //! `examples/smoltcp_request.rs`.
 //!
 //! For usage SNTP-client in an asynchronous environment, see `examples/tokio.rs`
