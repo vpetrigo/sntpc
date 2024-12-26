@@ -1,6 +1,6 @@
 //! Helper utils to synchronize time of a system
 //!
-//! Currently Unix and Windows based systems are supported
+//! Currently, Unix and Windows based systems are supported
 #[cfg(feature = "log")]
 use chrono::Timelike;
 use chrono::{Local, TimeZone, Utc};
