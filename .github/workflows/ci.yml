@@ -17,7 +17,7 @@ jobs:
         run: cargo clippy --workspace --exclude example-simple-no-std --all-features -- -D clippy::all -D clippy::pedantic
       - name: Run clippy with no_std
         run: cargo clippy -p example-simple-no-std --no-default-features --profile no-std -- -D clippy::all -D clippy::pedantic
-  clippy_async_no_std:
+  clippy-nightly:
     runs-on: ubuntu-latest
     container:
       image: rust:latest
@@ -28,7 +28,7 @@ jobs:
       - name: Install clippy
         run: rustup component add clippy --toolchain nightly
       - name: Run clippy for async feature
-        run: cargo +nightly clippy --all-features -- -D clippy::all -D clippy::pedantic
+        run: cargo +nightly clippy --workspace --exclude example-simple-no-std --all-features -- -D clippy::all -D clippy::pedantic
   check_format:
     runs-on: ubuntu-latest
     steps:
