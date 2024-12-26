@@ -173,7 +173,7 @@ pub mod internal {
         pub socket: RefCell<&'b mut udp::Socket<'a>>,
     }
 
-    impl<'a, 'b> Debug for SmoltcpUdpSocketWrapper<'a, 'b> {
+    impl Debug for SmoltcpUdpSocketWrapper<'_, '_> {
         fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
             f.debug_struct("SmoltcpUdpSocketWrapper")
                 .field("socket", &self.socket.borrow().endpoint())
@@ -206,11 +206,15 @@ pub mod internal {
             let result = self.socket.borrow_mut().recv_slice(&mut buf[..]);
 
             if let Ok((size, address)) = result {
-                let sockaddr = match address.endpoint.addr {
-                    IpAddress::Ipv4(v4) => {
-                        SocketAddr::new(IpAddr::V4(v4), address.endpoint.port)
-                    }
+                // make compiler and clippy happy as without the else branch clippy complains
+                // that not all variants covered for some reason
+                #[allow(irrefutable_let_patterns)]
+                let IpAddress::Ipv4(v4) = address.endpoint.addr
+                else {
+                    todo!()
                 };
+                let sockaddr =
+                    SocketAddr::new(IpAddr::V4(v4), address.endpoint.port);
 
                 return Ok((size, sockaddr));
             }
