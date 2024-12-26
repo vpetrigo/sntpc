@@ -1072,10 +1072,43 @@ pub fn fraction_to_picoseconds(sec_fraction: u32) -> u64 {
 
 #[cfg(test)]
 mod sntpc_ntp_result_tests {
+    use crate::types::Units;
     use crate::{
         fraction_to_microseconds, fraction_to_milliseconds,
-        fraction_to_nanoseconds, fraction_to_picoseconds, NtpResult,
+        fraction_to_nanoseconds, fraction_to_picoseconds, offset_calculate,
+        NtpResult,
     };
+
+    struct Timestamps(u64, u64, u64, u64);
+    struct OffsetCalcTestCase {
+        timestamp: Timestamps,
+        expected: i64,
+    }
+
+    impl OffsetCalcTestCase {
+        fn new(t1: u64, t2: u64, t3: u64, t4: u64, expected: i64) -> Self {
+            OffsetCalcTestCase {
+                timestamp: Timestamps(t1, t2, t3, t4),
+                expected,
+            }
+        }
+
+        fn t1(&self) -> u64 {
+            self.timestamp.0
+        }
+
+        fn t2(&self) -> u64 {
+            self.timestamp.1
+        }
+
+        fn t3(&self) -> u64 {
+            self.timestamp.2
+        }
+
+        fn t4(&self) -> u64 {
+            self.timestamp.3
+        }
+    }
 
     #[test]
     fn test_ntp_result() {
@@ -1169,116 +1202,6 @@ mod sntpc_ntp_result_tests {
         let picoseconds = fraction_to_picoseconds(result.seconds_fraction);
         assert_eq!(0u64, picoseconds);
     }
-}
-
-#[cfg(all(test, feature = "std", feature = "std-socket", feature = "sync"))]
-mod sntpc_tests {
-    use crate::sync::get_time;
-    use crate::{offset_calculate, Error, NtpContext, StdTimestampGen, Units};
-    use std::net::{ToSocketAddrs, UdpSocket};
-
-    struct Timestamps(u64, u64, u64, u64);
-    struct OffsetCalcTestCase {
-        timestamp: Timestamps,
-        expected: i64,
-    }
-
-    impl OffsetCalcTestCase {
-        fn new(t1: u64, t2: u64, t3: u64, t4: u64, expected: i64) -> Self {
-            OffsetCalcTestCase {
-                timestamp: Timestamps(t1, t2, t3, t4),
-                expected,
-            }
-        }
-
-        fn t1(&self) -> u64 {
-            self.timestamp.0
-        }
-
-        fn t2(&self) -> u64 {
-            self.timestamp.1
-        }
-
-        fn t3(&self) -> u64 {
-            self.timestamp.2
-        }
-
-        fn t4(&self) -> u64 {
-            self.timestamp.3
-        }
-    }
-
-    #[test]
-    fn test_ntp_request_sntpv4_supported() {
-        let context = NtpContext::new(StdTimestampGen::default());
-        let pools = [
-            "pool.ntp.org:123",
-            "time.google.com:123",
-            "time.apple.com:123",
-            "time.cloudflare.com:123",
-            "time.facebook.com:123",
-        ];
-
-        for pool in &pools {
-            let socket = UdpSocket::bind("0.0.0.0:0").unwrap();
-            socket
-                .set_read_timeout(Some(std::time::Duration::from_secs(2)))
-                .expect("Unable to set up socket timeout");
-
-            for address in pool.to_socket_addrs().unwrap() {
-                let result = get_time(address, &socket, context);
-
-                assert!(
-                    result.is_ok(),
-                    "{} is bad - {:?}",
-                    pool,
-                    result.unwrap_err()
-                );
-                assert_ne!(result.unwrap().seconds, 0);
-            }
-        }
-    }
-
-    #[test]
-    fn test_ntp_request_sntpv3_not_supported() {
-        let context = NtpContext::new(StdTimestampGen::default());
-
-        let pools = ["time.nist.gov:123", "time.windows.com:123"];
-
-        for pool in &pools {
-            let socket = UdpSocket::bind("0.0.0.0:0").unwrap();
-            socket
-                .set_read_timeout(Some(std::time::Duration::from_secs(2)))
-                .expect("Unable to set up socket timeout");
-
-            for address in pool.to_socket_addrs().unwrap() {
-                let result = get_time(address, &socket, context);
-                assert!(result.is_err(), "{pool} is ok");
-                assert_eq!(
-                    result.unwrap_err(),
-                    Error::IncorrectResponseVersion
-                );
-            }
-        }
-    }
-
-    #[test]
-    fn test_invalid_addrs_ntp_request() {
-        let pool = "asdf.asdf.asdf:123";
-        let socket = UdpSocket::bind("0.0.0.0:0").unwrap();
-        socket
-            .set_read_timeout(Some(std::time::Duration::from_secs(2)))
-            .expect("Unable to set up socket timeout");
-
-        let result = pool.to_socket_addrs();
-        assert!(result.is_err(), "{pool} is ok");
-    }
-
-    #[test]
-    fn test_units_str_representation() {
-        assert_eq!(format!("{}", Units::Milliseconds), "ms");
-        assert_eq!(format!("{}", Units::Microseconds), "us");
-    }
 
     #[test]
     fn test_offset_calculate() {
@@ -1323,6 +1246,161 @@ mod sntpc_tests {
             );
             let expected = t.expected;
             assert_eq!(offset, expected);
+        }
+    }
+}
+
+#[cfg(all(test, feature = "std"))]
+mod sntpc_std_tests {
+    use crate::types::Units;
+
+    #[test]
+    fn test_units_str_representation() {
+        assert_eq!(format!("{}", Units::Milliseconds), "ms");
+        assert_eq!(format!("{}", Units::Microseconds), "us");
+    }
+}
+
+#[cfg(all(test, feature = "std", feature = "std-socket", feature = "sync"))]
+mod sntpc_sync_tests {
+    use crate::sync::get_time;
+    use crate::{Error, NtpContext, StdTimestampGen};
+    use std::net::{SocketAddr, ToSocketAddrs, UdpSocket};
+
+    #[test]
+    fn test_ntp_request_sntpv4_supported() {
+        let context = NtpContext::new(StdTimestampGen::default());
+        let pools = [
+            "pool.ntp.org:123",
+            "time.google.com:123",
+            "time.apple.com:123",
+            "time.cloudflare.com:123",
+            "time.facebook.com:123",
+        ];
+
+        for pool in &pools {
+            let socket = UdpSocket::bind("0.0.0.0:0").unwrap();
+            socket
+                .set_read_timeout(Some(std::time::Duration::from_secs(2)))
+                .expect("Unable to set up socket timeout");
+
+            for address in
+                pool.to_socket_addrs().unwrap().filter(SocketAddr::is_ipv4)
+            {
+                let result = get_time(address, &socket, context);
+
+                assert!(
+                    result.is_ok(),
+                    "{} is bad - {:?}",
+                    pool,
+                    result.unwrap_err()
+                );
+                assert_ne!(result.unwrap().seconds, 0);
+            }
+        }
+    }
+
+    #[test]
+    fn test_ntp_request_sntpv3_not_supported() {
+        let context = NtpContext::new(StdTimestampGen::default());
+
+        let pools = ["time.nist.gov:123", "time.windows.com:123"];
+
+        for pool in &pools {
+            let socket = UdpSocket::bind("0.0.0.0:0").unwrap();
+            socket
+                .set_read_timeout(Some(std::time::Duration::from_secs(5)))
+                .expect("Unable to set up socket timeout");
+
+            for address in
+                pool.to_socket_addrs().unwrap().filter(SocketAddr::is_ipv4)
+            {
+                let result = get_time(address, &socket, context);
+                assert!(result.is_err(), "{pool} is ok");
+                assert_eq!(
+                    result.unwrap_err(),
+                    Error::IncorrectResponseVersion
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_invalid_addrs_ntp_request() {
+        let pool = "asdf.asdf.asdf:123";
+        let socket = UdpSocket::bind("0.0.0.0:0").unwrap();
+        socket
+            .set_read_timeout(Some(std::time::Duration::from_secs(5)))
+            .expect("Unable to set up socket timeout");
+
+        let result = pool.to_socket_addrs();
+        assert!(result.is_err(), "{pool} is ok");
+    }
+}
+
+#[cfg(all(test, feature = "std", feature = "std-socket"))]
+mod sntpc_async_tests {
+    use crate::get_time;
+    use crate::{Error, NtpContext, StdTimestampGen};
+    use miniloop::executor::Executor;
+    use std::net::{SocketAddr, ToSocketAddrs, UdpSocket};
+
+    #[test]
+    fn test_ntp_async_request_sntpv4_supported() {
+        let context = NtpContext::new(StdTimestampGen::default());
+        let pools = [
+            "pool.ntp.org:123",
+            "time.google.com:123",
+            "time.apple.com:123",
+            "time.cloudflare.com:123",
+            "time.facebook.com:123",
+        ];
+
+        for pool in &pools {
+            let socket = UdpSocket::bind("0.0.0.0:0").unwrap();
+            socket
+                .set_read_timeout(Some(std::time::Duration::from_secs(5)))
+                .expect("Unable to set up socket timeout");
+
+            for address in
+                pool.to_socket_addrs().unwrap().filter(SocketAddr::is_ipv4)
+            {
+                let result = Executor::new()
+                    .block_on(get_time(address, &socket, context));
+
+                assert!(
+                    result.is_ok(),
+                    "{pool} is bad - {:?}",
+                    result.unwrap_err()
+                );
+                assert_ne!(result.unwrap().seconds, 0);
+            }
+        }
+    }
+
+    #[test]
+    fn test_ntp_async_request_sntpv3_not_supported() {
+        let context = NtpContext::new(StdTimestampGen::default());
+
+        let pools = ["time.nist.gov:123", "time.windows.com:123"];
+
+        for pool in &pools {
+            let socket = UdpSocket::bind("0.0.0.0:0").unwrap();
+            socket
+                .set_read_timeout(Some(std::time::Duration::from_secs(5)))
+                .expect("Unable to set up socket timeout");
+
+            for address in
+                pool.to_socket_addrs().unwrap().filter(SocketAddr::is_ipv4)
+            {
+                let result = Executor::new()
+                    .block_on(get_time(address, &socket, context));
+                assert!(result.is_err(), "{pool} is ok");
+                assert_eq!(
+                    result.unwrap_err(),
+                    Error::IncorrectResponseVersion
+                );
+            }
         }
     }
 }

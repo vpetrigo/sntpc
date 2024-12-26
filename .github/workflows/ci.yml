@@ -46,6 +46,6 @@ jobs:
           cargo build -p sntpc --no-default-features
           cargo build -p example-simple-no-std --profile no-std
       - name: Run tests with std
-        run: cargo test
+        run: cargo test --all-features
       - name: Run tests with no_std
         run: cargo test --no-default-features
