@@ -1248,6 +1248,11 @@ mod sntpc_ntp_result_tests {
             assert_eq!(offset, expected);
         }
     }
+}
+
+#[cfg(all(test, feature = "std"))]
+mod sntpc_std_tests {
+    use crate::types::Units;
 
     #[test]
     fn test_units_str_representation() {
