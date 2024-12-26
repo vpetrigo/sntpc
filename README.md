@@ -129,7 +129,7 @@ As you can see, you may implement everything as synchronous, `sntpc` synchronous
 internally.
 
 That approach also allows to avoid issues with [`maybe_async`](https://docs.rs/maybe-async/latest/maybe_async/) when the
-sync/async feature violates Cargo requirements:
+sync/async feature [violates Cargo requirements](https://doc.rust-lang.org/cargo/reference/features.html):
 > That is, enabling a feature should not disable functionality, and it should usually be safe to enable any combination
 > of features.
 
