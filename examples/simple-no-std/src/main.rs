@@ -3,12 +3,13 @@
 use core::alloc::{GlobalAlloc, Layout};
 use core::cell::UnsafeCell;
 use core::future::Future;
+use core::net::{IpAddr, Ipv4Addr};
 use core::ptr::null_mut;
 use core::sync::atomic::{AtomicUsize, Ordering::Relaxed};
-use sntpc::net::{IpAddr, Ipv4Addr, SocketAddr};
+use miniloop::{executor::Executor, task::Task};
+use sntpc::net::SocketAddr;
 use sntpc::{
-    async_impl::{get_time, NtpUdpSocket},
-    NtpContext, NtpTimestampGenerator, Result,
+    get_time, NtpContext, NtpTimestampGenerator, NtpUdpSocket, Result,
 };
 
 const ARENA_SIZE: usize = 128 * 1024;
@@ -119,9 +120,9 @@ async fn body() -> Result<i32> {
     let timestamp_gen = TimestampGen::default();
     let context = NtpContext::new(timestamp_gen);
     let socket = SimpleUdp;
-    let address = (IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 123u16);
+    let address = (IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 123u16).into();
 
-    match get_time(address, socket, context).await {
+    match get_time(address, &socket, context).await {
         Ok(time) => {
             assert_ne!(time.sec(), 0);
             let _seconds = time.sec();
@@ -158,18 +159,14 @@ pub extern "C" fn WinMain() {
 }
 
 fn main() -> ! {
-    let executor = yash_executor::Executor::new();
+    let mut executor = Executor::new();
+    let mut task = Task::new("sntp", body());
+    let mut handler = task.create_handle();
 
-    unsafe {
-        #[allow(never_type_fallback_flowing_into_unsafe)]
-        executor.spawn(async {
-            loop {
-                let _ = body().await;
-            }
-        });
-    }
+    let result = executor.spawn(&mut task, &mut handler);
 
-    loop {
-        let _ = executor.run_until_stalled();
-    }
+    assert!(result.is_ok(), "Failed to spawn task");
+    executor.run();
+    assert!(handler.value.is_some(), "Task has not completed");
+    panic!("Done");
 }

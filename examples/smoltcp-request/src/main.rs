@@ -3,9 +3,9 @@
 //!
 //! Unfortunately, some `std` requirements still imposed due to TAP interface creation is dependent
 //! on UNIX OS specific calls in the standard library. This example should provide all details on
-//! how to setup networking interface to use with the `sntpc` library though.
+//! how to set up networking interface to use with the `sntpc` library though.
 //!
-//! ## How to setup the environment (IPv4 only considered for now):
+//! ## How to set up the environment (IPv4 only considered for now):
 //!
 //! - create TAP interface (`sudo` may require):
 //! ```sh
@@ -55,7 +55,7 @@
 //! ## How to run the example app:
 //!
 //! This example uses [`clap`](https://crates.io/crates/clap) to process command line arguments.
-//! Currently the following options available:
+//! Currently, the following options are available:
 //! ```sh
 //! OPTIONS:
 //!         --gw <gw>                  Device default gateway
@@ -77,20 +77,22 @@
 //! $ 2021-11-08 23:53:29,950 INFO [smoltcp_request] Ok(NtpResult { seconds: 1636404809, seconds_fraction: 4004704152, roundtrip: 36149, offset: 927 })
 //! ```
 //!
-
-use std::net::ToSocketAddrs;
 #[cfg(unix)]
 use {
     core::cell::RefCell,
     core::net::{IpAddr, SocketAddr},
     core::str::FromStr,
+    smoltcp::iface::PollResult,
     smoltcp::iface::{Config, Interface, SocketSet},
     smoltcp::phy::TunTapInterface,
     smoltcp::phy::{wait, Medium},
     smoltcp::socket::udp,
     smoltcp::time::Instant,
     smoltcp::wire::{EthernetAddress, IpCidr, Ipv4Address},
-    sntpc::NtpContext,
+    sntpc::{
+        sync::{sntp_process_response, sntp_send_request},
+        NtpContext,
+    },
     std::os::unix::prelude::AsRawFd,
 };
 
@@ -101,6 +103,7 @@ pub mod internal {
         core::cell::RefCell,
         core::fmt::Debug,
         smoltcp::socket::udp,
+        smoltcp::socket::udp::UdpMetadata,
         smoltcp::storage::PacketMetadata,
         smoltcp::wire::{IpAddress, IpEndpoint},
         sntpc::{Error, NtpTimestampGenerator, NtpUdpSocket},
@@ -108,8 +111,8 @@ pub mod internal {
         std::net::{IpAddr, SocketAddr},
     };
     pub struct Buffers {
-        pub rx_meta: [PacketMetadata<IpEndpoint>; 16],
-        pub tx_meta: [PacketMetadata<IpEndpoint>; 16],
+        pub rx_meta: [PacketMetadata<UdpMetadata>; 16],
+        pub tx_meta: [PacketMetadata<UdpMetadata>; 16],
         pub rx_buffer: [u8; 256],
         pub tx_buffer: [u8; 256],
     }
@@ -117,8 +120,8 @@ pub mod internal {
     impl Default for Buffers {
         fn default() -> Self {
             Buffers {
-                rx_meta: [PacketMetadata::<IpEndpoint>::EMPTY; 16],
-                tx_meta: [PacketMetadata::<IpEndpoint>::EMPTY; 16],
+                rx_meta: [PacketMetadata::EMPTY; 16],
+                tx_meta: [PacketMetadata::EMPTY; 16],
                 rx_buffer: [0u8; 256],
                 tx_buffer: [0u8; 256],
             }
@@ -170,7 +173,7 @@ pub mod internal {
         pub socket: RefCell<&'b mut udp::Socket<'a>>,
     }
 
-    impl<'a, 'b> Debug for SmoltcpUdpSocketWrapper<'a, 'b> {
+    impl Debug for SmoltcpUdpSocketWrapper<'_, '_> {
         fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
             f.debug_struct("SmoltcpUdpSocketWrapper")
                 .field("socket", &self.socket.borrow().endpoint())
@@ -178,8 +181,8 @@ pub mod internal {
         }
     }
 
-    impl<'a, 'b> NtpUdpSocket for SmoltcpUdpSocketWrapper<'a, 'b> {
-        fn send_to(
+    impl NtpUdpSocket for SmoltcpUdpSocketWrapper<'_, '_> {
+        async fn send_to(
             &self,
             buf: &[u8],
             addr: SocketAddr,
@@ -196,21 +199,22 @@ pub mod internal {
             Err(Error::Network)
         }
 
-        fn recv_from(
+        async fn recv_from(
             &self,
             buf: &mut [u8],
         ) -> Result<(usize, SocketAddr), Error> {
             let result = self.socket.borrow_mut().recv_slice(&mut buf[..]);
 
             if let Ok((size, address)) = result {
-                let sockaddr = match address.addr {
-                    IpAddress::Ipv4(v4) => SocketAddr::new(
-                        IpAddr::V4(std::net::Ipv4Addr::new(
-                            v4.0[0], v4.0[1], v4.0[2], v4.0[3],
-                        )),
-                        address.port,
-                    ),
+                // make compiler and clippy happy as without the else branch clippy complains
+                // that not all variants covered for some reason
+                #[allow(irrefutable_let_patterns)]
+                let IpAddress::Ipv4(v4) = address.endpoint.addr
+                else {
+                    todo!()
                 };
+                let sockaddr =
+                    SocketAddr::new(IpAddr::V4(v4), address.endpoint.port);
 
                 return Ok((size, sockaddr));
             }
@@ -220,7 +224,7 @@ pub mod internal {
     }
 
     #[must_use]
-    pub fn create_app_cli<'a>() -> ArgMatches<'a> {
+    pub fn create_app_cli() -> ArgMatches<'static> {
         const GOOGLE_NTP_ADDR: &str = "pool.ntp.org";
         const APP_PORT: &str = "6666";
 
@@ -305,11 +309,7 @@ fn main() {
     let server_port = u16::from_str(app.value_of("port").unwrap())
         .expect("Unable to parse server port");
     let server_sock_addr =
-        SocketAddr::new(IpAddr::from_str(server_ip).unwrap(), server_port)
-            .to_socket_addrs()
-            .expect("Cannot parse address")
-            .next()
-            .expect("Unable to resolve address");
+        SocketAddr::new(IpAddr::from_str(server_ip).unwrap(), server_port);
     let eth_address = EthernetAddress::from_str(app.value_of("mac").unwrap())
         .expect("Cannot parse MAC address of the interface");
     let ip_addr = IpCidr::from_str(app.value_of("ip").unwrap())
@@ -324,12 +324,12 @@ fn main() {
 
     let mut socket = udp::Socket::new(udp_buffer.rx, udp_buffer.tx);
     socket.bind(sock_port).unwrap();
-    let mut config = Config::new();
+    let mut config = Config::new(eth_address.into());
 
     config.random_seed = 0;
-    config.hardware_addr = Some(eth_address.into());
 
-    let mut iface = Interface::new(config, &mut tuntap);
+    let mut iface =
+        Interface::new(config, &mut tuntap, std::time::Instant::now().into());
     iface.update_ip_addrs(|ip_addrs| ip_addrs.push(ip_addr).unwrap());
     iface
         .routes_mut()
@@ -346,7 +346,10 @@ fn main() {
     while once_rx {
         let timestamp = Instant::now();
 
-        if iface.poll(timestamp, &mut tuntap, &mut sockets) {
+        if matches!(
+            iface.poll(timestamp, &mut tuntap, &mut sockets),
+            PollResult::SocketStateChanged
+        ) {
             #[cfg(feature = "log")]
             log::trace!("Poll ok!");
         }
@@ -359,11 +362,8 @@ fn main() {
                 ),
             };
             let context = NtpContext::new(StdTimestampGen::default());
-            let result = sntpc::sntp_send_request(
-                server_sock_addr,
-                &sock_wrapper,
-                context,
-            );
+            let result =
+                sntp_send_request(server_sock_addr, &sock_wrapper, context);
 
             match result {
                 Ok(result) => {
@@ -392,7 +392,7 @@ fn main() {
                             sockets.get_mut::<udp::Socket>(udp_handle),
                         ),
                     };
-                    let result = sntpc::sntp_process_response(
+                    let result = sntp_process_response(
                         server_sock_addr,
                         &sock_wrapper,
                         context,

@@ -19,7 +19,9 @@
 //!
 //! Example provides a basic implementation of [`NtpTimestampGenerator`] and [`NtpUdpSocket`]
 //! required for the [`sntpc`] library
-use std::net::UdpSocket;
+use sntpc::{sync::get_time, NtpContext, StdTimestampGen};
+
+use std::net::{ToSocketAddrs, UdpSocket};
 use std::str::FromStr;
 use std::time::Duration;
 
@@ -73,8 +75,15 @@ fn main() {
     socket
         .set_read_timeout(Some(Duration::from_secs(2)))
         .expect("Unable to set UDP socket read timeout");
-    let time = sntpc::simple_get_time(ntp_addr.as_str(), &socket)
-        .unwrap_or_else(|_| panic!("Unable to receive time from: {ntp_addr}"));
 
-    sntpc::utils::update_system_time(time.sec(), time.sec_fraction());
+    for addr in ntp_addr.to_socket_addrs().unwrap() {
+        let ntp_context = NtpContext::new(StdTimestampGen::default());
+        let result =
+            get_time(addr, &socket, ntp_context).unwrap_or_else(|_| {
+                panic!("Unable to receive time from: {ntp_addr}")
+            });
+
+        println!("Received time: {result:?}");
+        sntpc::utils::update_system_time(result.sec(), result.sec_fraction());
+    }
 }

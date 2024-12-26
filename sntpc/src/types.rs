@@ -2,11 +2,12 @@ use core::fmt::Formatter;
 use core::fmt::{Debug, Display};
 use core::mem;
 
+use core::future::Future;
 #[cfg(feature = "log")]
 use log::debug;
 
 use crate::get_ntp_timestamp;
-use crate::net;
+use crate::net::SocketAddr;
 
 /// SNTP mode value bit mask
 pub(crate) const MODE_MASK: u8 = 0b0000_0111;
@@ -73,9 +74,9 @@ impl From<u64> for NtpTimestamp {
 }
 
 /// Helper enum for specification delay units
-#[allow(dead_code)]
 #[derive(Copy, Clone, Debug)]
 pub(crate) enum Units {
+    #[allow(dead_code)]
     Milliseconds,
     Microseconds,
 }
@@ -119,7 +120,7 @@ pub enum Error {
 }
 
 /// SNTP request result representation
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct NtpResult {
     /// NTP server seconds value
     pub seconds: u32,
@@ -268,7 +269,7 @@ pub trait NtpTimestampGenerator {
 /// Supplementary module to implement some `sntpc` boilerplate that environments with
 /// `std` enable have to re-implement.
 mod sup {
-    use std::time::{self, Duration};
+    use std::time::{Duration, SystemTime};
 
     use crate::NtpTimestampGenerator;
 
@@ -281,8 +282,8 @@ mod sup {
 
     impl NtpTimestampGenerator for StdTimestampGen {
         fn init(&mut self) {
-            self.duration = time::SystemTime::now()
-                .duration_since(time::SystemTime::UNIX_EPOCH)
+            self.duration = SystemTime::now()
+                .duration_since(SystemTime::UNIX_EPOCH)
                 .unwrap();
         }
 
@@ -304,10 +305,17 @@ pub trait NtpUdpSocket {
     /// Send the given buffer to an address provided. On success, returns the number
     /// of bytes written.
     ///
+    /// Since multiple `SocketAddr` objects can hide behind the type (domain name can be
+    /// resolved to multiple addresses), the method should send data to a single address
+    /// available in `addr`
     /// # Errors
     ///
     /// Will return `Err` if an underlying UDP send fails
-    fn send_to(&self, buf: &[u8], addr: net::SocketAddr) -> Result<usize>;
+    fn send_to(
+        &self,
+        buf: &[u8],
+        addr: SocketAddr,
+    ) -> impl Future<Output = Result<usize>>;
 
     /// Receives a single datagram message on the socket. On success, returns the number
     /// of bytes read and the origin.
@@ -317,33 +325,11 @@ pub trait NtpUdpSocket {
     /// # Errors
     ///
     /// Will return `Err` if an underlying UDP receive fails
-    fn recv_from(&self, buf: &mut [u8]) -> Result<(usize, net::SocketAddr)>;
-}
-
-#[cfg(feature = "std")]
-impl NtpUdpSocket for net::UdpSocket {
-    fn send_to(
-        &self,
-        buf: &[u8],
-        addr: net::SocketAddr,
-    ) -> core::result::Result<usize, Error> {
-        match self.send_to(buf, addr) {
-            Ok(usize) => Ok(usize),
-            Err(_) => Err(Error::Network),
-        }
-    }
-
     fn recv_from(
         &self,
         buf: &mut [u8],
-    ) -> core::result::Result<(usize, net::SocketAddr), Error> {
-        match self.recv_from(buf) {
-            Ok((size, addr)) => Ok((size, addr)),
-            Err(_) => Err(Error::Network),
-        }
-    }
+    ) -> impl Future<Output = Result<(usize, SocketAddr)>>;
 }
-
 /// SNTP client context that contains of objects that may be required for client's
 /// operation
 #[derive(Copy, Clone)]
@@ -375,15 +361,6 @@ impl From<NtpPacket> for SendRequestResult {
     }
 }
 
-impl From<&NtpPacket> for SendRequestResult {
-    fn from(ntp_packet: &NtpPacket) -> Self {
-        SendRequestResult {
-            originate_timestamp: ntp_packet.tx_timestamp,
-            version: ntp_packet.li_vn_mode,
-        }
-    }
-}
-
 pub(crate) trait NtpNum {
     type Type;
 
@@ -406,11 +383,12 @@ impl NtpNum for u64 {
     }
 }
 
-pub(crate) struct RawNtpPacket(pub(crate) [u8; mem::size_of::<NtpPacket>()]);
+#[derive(Copy, Clone)]
+pub(crate) struct RawNtpPacket(pub(crate) [u8; size_of::<NtpPacket>()]);
 
 impl Default for RawNtpPacket {
     fn default() -> Self {
-        RawNtpPacket([0u8; mem::size_of::<NtpPacket>()])
+        RawNtpPacket([0u8; size_of::<NtpPacket>()])
     }
 }
 
