@@ -12,22 +12,24 @@
 //! Put this in your `Cargo.toml`:
 //! ```cargo
 //! [dependencies]
-//! sntpc = "0.4.0"
+//! sntpc = "0.5"
 //! ```
 //!
 //! ## Features
 //!
-//! Sntpc supports several features:
+//! `sntpc` supports several features:
 //! - `std`: includes functionality that depends on the standard library
+//! - `sync`: enables synchronous interface
 //! - `utils`: includes functionality that mostly OS specific and allows system time sync
 //! - `log`: enables library debug output during execution
-//! - `async`: enables asynchronous feature support
-//! - `async_tokio`: enable asynchronous support with `tokio` runtime
+//! - `std-socket`: add `NtpUdpSocket` trait implementation for `std::net::UdpSocket`
+//! - `embassy-socket`: add `NtpUdpSocket` trait implementation for `embassy_net::udp::UdpSocket`
+//! - `tokio-socket`: add `NtpUdpSocket` trait implementation for `tokio::net::UdpSocket`
 //!
-//! <div class="example-wrap" style="display:inline-block"><pre class="compile_fail" style="white-space:normal;font:inherit;">
+//! <div class="warning">
 //!
 //! **Warning**: `utils` feature is not stable and may change in the future.
-//! </pre></div>
+//! </div>
 //!
 //! # Details
 //!
@@ -54,52 +56,95 @@
 //! # Example
 //!
 //! ```rust
-//! # use core::net::{IpAddr, Ipv4Addr, SocketAddr};
-//! # #[cfg(feature = "std")]
+//! use sntpc::{get_time, NtpContext, NtpUdpSocket, NtpTimestampGenerator, Result};
+//! # use miniloop::executor::Executor;
+//! use std::net::{SocketAddr, ToSocketAddrs};
+//! use core::net::{IpAddr, Ipv4Addr};
+//! # #[cfg(feature="std")]
 //! use std::net::UdpSocket;
-//! use std::time::Duration;
 //!
-//! # #[cfg(not(feature = "std"))]
-//! # #[derive(Debug)]
+//! #[derive(Copy, Clone)]
+//! struct Timestamp;
+//! # #[cfg(not(feature="std"))]
+//! # #[derive(Debug, Clone)]
 //! # struct UdpSocket;
+//!
+//! impl NtpTimestampGenerator for Timestamp {
+//!     fn init(&mut self) {
+//!         // ...
+//!     }
+//!     fn timestamp_sec(&self) -> u64 {
+//!         0u64
+//!     }
+//!     fn timestamp_subsec_micros(&self) -> u32 {
+//!         0u32
+//!     }
+//! }
+//!
+//! impl Default for Timestamp {
+//!     fn default() -> Self {
+//!         Self {}
+//!     }
+//! }
 //! # #[cfg(not(feature = "std"))]
 //! # impl UdpSocket {
-//! #     fn bind(addr: &str) -> sntpc::Result<Self> {
-//! #         Ok(UdpSocket)
+//! #     fn bind(addr: &str) -> Result<Self> {
+//! #         Ok(UdpSocket{})
 //! #     }
-//! #     fn send_to(&self, buf: &[u8], dest: SocketAddr) -> sntpc::Result<usize> {
-//! #         Ok(0usize)
+//! #     fn send_to<T: ToSocketAddrs>(&self, buf: &[u8], dest: T) -> Result<usize> {
+//! #        Ok(0usize)
 //! #     }
-//! #     fn recv_from(&self, buf: &mut [u8]) -> sntpc::Result<(usize, SocketAddr)> {
-//! #         Ok((0usize, SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 0)))
+//! #     fn recv_from(&self, buf: &mut [u8]) -> Result<(usize, SocketAddr)> {
+//! #        Ok((0usize, SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 0)))
 //! #     }
-//! #     fn set_read_timeout<T>(&self, _arg: T) -> sntpc::Result<()> {
-//! #         Ok(())
+//! # }
+//! # #[cfg(not(feature="std"))]
+//! # impl NtpUdpSocket for UdpSocket {
+//! #     async fn send_to(
+//! #         &self,
+//! #         buf: &[u8],
+//! #         addr: SocketAddr,
+//! #     ) -> Result<usize> {
+//! #         match self.send_to(buf, addr) {
+//! #             Ok(usize) => Ok(usize),
+//! #             Err(_) => Err(sntpc::Error::Network),
+//! #         }
+//! #     }
+//! #
+//! #     async fn recv_from(&self, buf: &mut [u8]) -> Result<(usize, SocketAddr)> {
+//! #         match self.recv_from(buf) {
+//! #             Ok((size, addr)) => Ok((size, addr)),
+//! #             Err(_) => Err(sntpc::Error::Network),
+//! #         }
 //! #     }
 //! # }
 //!
 //! fn main() {
 //!     let socket =
 //!         UdpSocket::bind("0.0.0.0:0").expect("Unable to crate UDP socket");
-//!     socket
-//!        .set_read_timeout(Some(Duration::from_secs(2)))
-//!        .expect("Unable to set UDP socket read timeout");
-//!     # #[cfg(feature = "std")]
-//!     let result = sntpc::simple_get_time("time.google.com:123", &socket);
-//!     # #[cfg(feature = "std")]
-//!     match result {
-//!        Ok(time) => {
-//!            println!("Got time: {}.{}", time.sec(), sntpc::fraction_to_milliseconds(time.sec_fraction()));
-//!        }
-//!        Err(err) => println!("Err: {err:?}"),
+//!     let context = NtpContext::new(Timestamp::default());
+//!     # let mut executor = Executor::new();
+//!     let server_addr: SocketAddr = "time.google.com:123"
+//!         .to_socket_addrs()
+//!         .expect("Unable to resolve host")
+//!         .next()
+//!         .unwrap();
+//!
+//!     match executor
+//!         .block_on(async { get_time(server_addr, &socket, context).await })
+//!     {
+//!         Ok(response_result) => {
+//!             println!("Response processed: {response_result:?}")
+//!         }
+//!         Err(err) => eprintln!("Error: {err:?}"),
 //!     }
-//!  }
+//! }
 //! ```
 //!
-//! For more complex example with ф custom timestamp generator and UDP socket implementation, see
-//! `examples/smoltcp_request.rs`.
+//! For more complex example with a custom timestamp generator and UDP socket implementation, see
+//! [`examples/smoltcp-request`](examples/smoltcp-request).
 //!
-//! For usage SNTP-client in an asynchronous environment, see `examples/tokio.rs`
+//! For usage SNTP-client in an asynchronous environment, see [`examples/tokio`](examples/tokio)
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(feature = "utils")]
@@ -113,6 +158,7 @@ pub use crate::types::*;
 #[cfg(feature = "log")]
 use core::str;
 
+/// Network types used by the `sntpc` crate
 pub mod net {
     pub use core::net::SocketAddr;
 
@@ -123,67 +169,121 @@ pub mod net {
 #[cfg(feature = "log")]
 use log::debug;
 
-/// Retrieves the current time from an NTP server using the provided context and socket.
+/// Retrieves the current time from an NTP server.
 ///
-/// This asynchronous function sends an SNTP request to a specified NTP server and processes the response
-/// to retrieve the server's time. It uses the provided UDP socket and timestamp generator to facilitate
-/// communication and time calculations.
+/// This asynchronous function performs the complete SNTP flow:
+/// sending a request to the specified NTP server and processing the server's response.
+/// It calculates the roundtrip delay, time offset, and other relevant information.
 ///
 /// # Arguments
 ///
-/// * `addr` - The address of the NTP server to send the request to.
-/// * `socket` - The UDP socket used for sending and receiving the SNTP request and response.
-///   The socket must implement the [`NtpUdpSocket`] trait.
-/// * `context` - The context containing the timestamp generator for creating and processing timestamps,
-///   which must implement the [`NtpTimestampGenerator`] trait.
+/// * `addr` - The socket address (`SocketAddr`) of the NTP server.
+/// * `socket` - A reference to an object implementing the [`NtpUdpSocket`] trait that allows
+///    sending/receiving UDP packets.
+/// * `context` - An SNTP context (`NtpContext<T>`) containing a timestamp generator that implements
+///    the [`NtpTimestampGenerator`] trait. This ensures precise timestamp creation for request and response processing.
 ///
 /// # Returns
 ///
-/// Returns a [`Result`] containing an [`NtpResult`] struct on success, or an [`Error`] indicating what went wrong.
+/// Returns a `Result<NtpResult>`:
+/// * `Ok(NtpResult)` - Successfully retrieved time from the server, including:
+///   - Roundtrip delay
+///   - Time offset
+///   - Stratum level
+///   - Precision
+/// * `Err(Error)` - Encountered an error, such as:
+///   - Network communication issues
+///   - Incorrect or invalid server response
 ///
-/// # Errors
-///
-/// This function will return an error if:
-/// - The request to the server cannot be sent.
-/// - There is an issue with receiving or processing the response.
-/// - The network or socket configurations produce unexpected issues.
-///
-/// # Example
+/// # Examples
 ///
 /// ```rust
-/// use sntpc::{get_time, NtpContext, NtpTimestampGenerator};
-/// use std::net::{SocketAddr, UdpSocket};
-/// use std::time::Duration;
+/// use sntpc::{get_time, NtpContext, NtpUdpSocket, NtpTimestampGenerator, Result};
+/// # use miniloop::executor::Executor;
+/// use std::net::{SocketAddr, ToSocketAddrs};
+/// use core::net::{IpAddr, Ipv4Addr};
+/// # #[cfg(feature="std")]
+/// use std::net::UdpSocket;
 ///
-/// // Create a UDP socket
-/// let socket = UdpSocket::bind("0.0.0.0:0").expect("Could not bind UDP socket");
-/// socket
-///     .set_read_timeout(Some(Duration::from_secs(2)))
-///     .expect("Failed to set socket timeout");
+/// #[derive(Copy, Clone)]
+/// struct Timestamp;
+/// # #[cfg(not(feature="std"))]
+/// #[derive(Debug, Clone)]
+/// struct UdpSocket;
 ///
-/// // Define the NTP context and server address
-/// let server_addr: SocketAddr = "216.239.35.0:123".parse().unwrap();
-/// let context = NtpContext {
-///     timestamp_gen: MyTimestampGenerator,
-/// };
-///
-/// // Call the function to get time
-/// match get_time(server_addr, &socket, context).await {
-///     Ok(result) => {
-///         println!("NTP Time: {}.{}", result.sec(), result.sec_fraction());
+/// impl NtpTimestampGenerator for Timestamp {
+///     fn init(&mut self) {
+///         // ...
 ///     }
-///     Err(err) => {
-///         eprintln!("Failed to get time: {:?}", err);
+///     fn timestamp_sec(&self) -> u64 {
+///         0u64
+///     }
+///     fn timestamp_subsec_micros(&self) -> u32 {
+///         0u32
+///     }
+/// }
+///
+/// impl Default for Timestamp {
+///     fn default() -> Self {
+///         Self {}
+///     }
+/// }
+///
+/// # #[cfg(not(feature = "std"))]
+/// # impl UdpSocket {
+/// #     fn bind(addr: &str) -> Result<Self> {
+/// #         Ok(UdpSocket{})
+/// #     }
+/// #     fn send_to<T: ToSocketAddrs>(&self, buf: &[u8], dest: T) -> Result<usize> {
+/// #        Ok(0usize)
+/// #     }
+/// #     fn recv_from(&self, buf: &mut [u8]) -> Result<(usize, SocketAddr)> {
+/// #        Ok((0usize, SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 0)))
+/// #     }
+/// # }
+/// # #[cfg(not(feature="std"))]
+/// # impl NtpUdpSocket for UdpSocket {
+/// #     async fn send_to(
+/// #         &self,
+/// #         buf: &[u8],
+/// #         addr: SocketAddr,
+/// #     ) -> Result<usize> {
+/// #         match self.send_to(buf, addr) {
+/// #             Ok(usize) => Ok(usize),
+/// #             Err(_) => Err(sntpc::Error::Network),
+/// #         }
+/// #     }
+/// #
+/// #     async fn recv_from(&self, buf: &mut [u8]) -> Result<(usize, SocketAddr)> {
+/// #         match self.recv_from(buf) {
+/// #             Ok((size, addr)) => Ok((size, addr)),
+/// #             Err(_) => Err(sntpc::Error::Network),
+/// #         }
+/// #     }
+/// # }
+///
+/// fn main() {
+///     let socket = UdpSocket::bind("0.0.0.0:0").expect("Unable to crate UDP socket");
+///     let context = NtpContext::new(Timestamp::default());
+///     let server_addr: SocketAddr = "time.google.com:123".to_socket_addrs().expect("Unable to resolve host").next().unwrap();
+///     # let mut executor = Executor::new();
+///
+///     match executor.block_on(async {
+///         get_time(server_addr, &socket, context).await
+///     })
+///     {
+///         Ok(response_result) => println!("Response processed: {response_result:?}"),
+///         Err(err) => eprintln!("Error: {err:?}"),
 ///     }
 /// }
 /// ```
 ///
-/// Make sure to implement the required traits ([`NtpTimestampGenerator`] and [`NtpUdpSocket`])
-/// on your socket and timestamp generator objects as needed.
+/// # Errors
 ///
-/// [`Result`]: std::result::Result
-/// [`NtpResult`]: crate::types::NtpResult
-/// [`Error`]: crate::types::Error
+/// This function returns an `Err` in any of the following cases:
+/// * The SNTP packet could not be sent to the server.
+/// * The response payload is invalid or indicates an error.
+/// * Mismatch between the expected and actual server addresses.
 pub async fn get_time<U, T>(
     addr: net::SocketAddr,
     socket: &U,
@@ -198,9 +298,110 @@ where
     sntp_process_response(addr, socket, context, result).await
 }
 
+/// Sends an SNTP request to an NTP server.
+///
+/// This function creates an SNTP packet using the given timestamp generator and
+/// sends it to the given NTP server via the provided UDP socket.
+///
+/// # Arguments
+///
+/// * `dest` - The socket address (`SocketAddr`) of the NTP server.
+/// * `socket` - A reference to an object implementing the [`NtpUdpSocket`] trait
+///    that is used to send/receive UDP packets.
+/// * `context` - An SNTP context (`NtpContext<T>`) containing a timestamp generator
+///    that implements the [`NtpTimestampGenerator`] trait to provide a custom mechanism for generating timestamps.
+///
+/// # Returns
+///
+/// Returns a `Result<SendRequestResult>`:
+/// * `Ok(SendRequestResult)` - If the packet was successfully sent, includes details
+///    about the request, such as the originate timestamp.
+/// * `Err(Error)` - If there was an error in sending the request, such as a network failure.
+///
+/// # Examples
+///
+/// ```rust
+/// use sntpc::{sntp_process_response, sntp_send_request, NtpContext, NtpTimestampGenerator, NtpUdpSocket, Result};
+/// # use miniloop::executor::Executor;
+/// use std::net::{SocketAddr, ToSocketAddrs};
+/// use core::net::{IpAddr, Ipv4Addr};
+/// # #[cfg(feature="std")]
+/// use std::net::UdpSocket;
+///
+/// #[derive(Copy, Clone)]
+/// struct Timestamp;
+/// # #[cfg(not(feature="std"))]
+/// #[derive(Debug, Clone)]
+/// struct UdpSocket;
+///
+/// impl NtpTimestampGenerator for Timestamp {
+///     fn init(&mut self) {
+///         // ...
+///     }
+///     fn timestamp_sec(&self) -> u64 {
+///         0u64
+///     }
+///     fn timestamp_subsec_micros(&self) -> u32 {
+///         0u32
+///     }
+/// }
+///
+/// impl Default for Timestamp {
+///     fn default() -> Self {
+///         Self {}
+///     }
+/// }
+///
+/// # #[cfg(not(feature = "std"))]
+/// # impl UdpSocket {
+/// #     fn bind(addr: &str) -> Result<Self> {
+/// #         Ok(UdpSocket{})
+/// #     }
+/// #     fn send_to<T: ToSocketAddrs>(&self, buf: &[u8], dest: T) -> Result<usize> {
+/// #        Ok(0usize)
+/// #     }
+/// #     fn recv_from(&self, buf: &mut [u8]) -> Result<(usize, SocketAddr)> {
+/// #        Ok((0usize, SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 0)))
+/// #     }
+/// # }
+/// # #[cfg(not(feature="std"))]
+/// # impl NtpUdpSocket for UdpSocket {
+/// #     async fn send_to(
+/// #         &self,
+/// #         buf: &[u8],
+/// #         addr: SocketAddr,
+/// #     ) -> Result<usize> {
+/// #         match self.send_to(buf, addr) {
+/// #             Ok(usize) => Ok(usize),
+/// #             Err(_) => Err(sntpc::Error::Network),
+/// #         }
+/// #     }
+/// #
+/// #     async fn recv_from(&self, buf: &mut [u8]) -> Result<(usize, SocketAddr)> {
+/// #         match self.recv_from(buf) {
+/// #             Ok((size, addr)) => Ok((size, addr)),
+/// #             Err(_) => Err(sntpc::Error::Network),
+/// #         }
+/// #     }
+/// # }
+///
+/// fn main() {
+///     let socket = UdpSocket::bind("0.0.0.0:0").expect("Unable to crate UDP socket");
+///     let context = NtpContext::new(Timestamp::default());
+///     let server_addr: SocketAddr = "time.google.com:123".to_socket_addrs().expect("Unable to resolve host").next().unwrap();
+///     # let mut executor = Executor::new();
+///
+///     let request_result = executor.block_on(async {
+///            sntp_send_request(server_addr, &socket, context).await
+///     });
+/// }
+/// ```
 ///
 /// # Errors
 ///
+/// Returns `Err` if:
+/// * The SNTP packet fails to send to the provided address due to network issues.
+/// * The socket behavior does not conform to the expectations of the [`NtpUdpSocket`] trait.
 pub async fn sntp_send_request<U, T>(
     dest: net::SocketAddr,
     socket: &U,
@@ -218,99 +419,128 @@ where
     Ok(SendRequestResult::from(request))
 }
 
-/// Process SNTP response from a server
+/// Processes the response from an NTP server.
 ///
-/// That function along with the [`sntp_send_request`] is required under an environment(s)
-/// where you need to call TCP/IP stack helpers (like `poll`, `wait`, etc.)
-/// *Args*:
-/// - `dest` - NTP server's address to send request to
-/// - `socket` - Socket reference to use for sending a NTP request
-/// - `context` - SNTP client context
-/// - `send_req_result` - send request result that obtained after [`sntp_send_request`] call
+/// This function validates the SNTP response, ensuring that it comes from the expected server and that
+/// the payload size and structure are correct. It then calculates and returns the offset and
+/// roundtrip delay based on the time information.
 ///
-/// # Example
-/// ```
-/// use sntpc::{self, NtpContext, NtpTimestampGenerator, Result};
-/// # use std::time::Duration;
-/// # use std::str::FromStr;
-/// # #[cfg(not(feature = "std"))]
-/// # use no_std_net::{SocketAddr, ToSocketAddrs, IpAddr, Ipv4Addr};
-/// # #[cfg(feature = "std")]
-/// # use std::net::{SocketAddr, ToSocketAddrs, UdpSocket, IpAddr, Ipv4Addr};
-/// # #[cfg(not(feature = "std"))]
-/// # #[derive(Debug, Clone)]
-/// # struct UdpSocket(u8);
+/// # Arguments
+///
+/// * `dest` - The expected socket address (`SocketAddr`) of the NTP server.
+/// * `socket` - A reference to an object implementing the [`NtpUdpSocket`] trait
+///    used for receiving the response.
+/// * `context` - An SNTP context (`NtpContext<T>`) containing a timestamp generator
+///    that manages internal time calculations.
+/// * `send_req_result` - The result of the previously sent request, containing the originate timestamp
+///    of the SNTP request.
+///
+/// # Returns
+///
+/// Returns a `Result<NtpResult>`:
+/// * `Ok(NtpResult)` - If the response is valid, includes:
+///   - Calculated clock offset
+///   - Roundtrip delay
+///   - Stratum level
+///   - Precision level
+/// * `Err(Error)` - On failure, for reasons such as:
+///   - Mismatched server response address
+///   - Invalid packet size or structure
+///   - Incorrect mode or incorrect originate timestamp in the response
+///
+/// # Examples
+///
+/// ```rust
+/// use sntpc::{sntp_process_response, sntp_send_request, NtpContext, NtpTimestampGenerator, NtpUdpSocket, Result};
+/// # use miniloop::executor::Executor;
+/// use std::net::{SocketAddr, ToSocketAddrs};
+/// use core::net::{IpAddr, Ipv4Addr};
+/// # #[cfg(feature="std")]
+/// use std::net::UdpSocket;
+///
+/// #[derive(Copy, Clone)]
+/// struct Timestamp;
+/// # #[cfg(not(feature="std"))]
+/// #[derive(Debug, Clone)]
+/// struct UdpSocket;
+///
+/// impl NtpTimestampGenerator for Timestamp {
+///     fn init(&mut self) {
+///         // ...
+///     }
+///     fn timestamp_sec(&self) -> u64 {
+///         0u64
+///     }
+///     fn timestamp_subsec_micros(&self) -> u32 {
+///         0u32
+///     }
+/// }
+///
+/// impl Default for Timestamp {
+///     fn default() -> Self {
+///         Self {}
+///     }
+/// }
+///
 /// # #[cfg(not(feature = "std"))]
 /// # impl UdpSocket {
 /// #     fn bind(addr: &str) -> Result<Self> {
-/// #         Ok(UdpSocket(0))
+/// #         Ok(UdpSocket{})
 /// #     }
 /// #     fn send_to<T: ToSocketAddrs>(&self, buf: &[u8], dest: T) -> Result<usize> {
-/// #        Ok(0usize)
+/// #        Ok(buf.len())
 /// #     }
 /// #     fn recv_from(&self, buf: &mut [u8]) -> Result<(usize, SocketAddr)> {
 /// #        Ok((0usize, SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 0)))
 /// #     }
 /// # }
-/// // implement required trait on network objects
-/// # #[derive(Debug)]
-/// # struct UdpSocketWrapper(UdpSocket);
-/// #
-/// # impl sntpc::NtpUdpSocket for UdpSocketWrapper {
-/// #     fn send_to(
+/// # #[cfg(not(feature="std"))]
+/// # impl NtpUdpSocket for UdpSocket {
+/// #     async fn send_to(
 /// #         &self,
 /// #         buf: &[u8],
 /// #         addr: SocketAddr,
 /// #     ) -> Result<usize> {
-/// #         match self.0.send_to(buf, addr) {
+/// #         match self.send_to(buf, addr) {
 /// #             Ok(usize) => Ok(usize),
 /// #             Err(_) => Err(sntpc::Error::Network),
 /// #         }
 /// #     }
 /// #
-/// #     fn recv_from(&self, buf: &mut [u8]) -> Result<(usize, SocketAddr)> {
-/// #         match self.0.recv_from(buf) {
+/// #     async fn recv_from(&self, buf: &mut [u8]) -> Result<(usize, SocketAddr)> {
+/// #         match self.recv_from(buf) {
 /// #             Ok((size, addr)) => Ok((size, addr)),
 /// #             Err(_) => Err(sntpc::Error::Network),
 /// #         }
 /// #     }
 /// # }
-/// // implement required trait on the timestamp generator object
-/// # #[derive(Copy, Clone, Default)]
-/// # struct StdTimestampGen {
-/// #     duration: Duration,
-/// # }
-/// #
-/// # impl NtpTimestampGenerator for StdTimestampGen {
-/// #     fn init(&mut self) {
-/// #         self.duration = std::time::SystemTime::now()
-/// #             .duration_since(std::time::SystemTime::UNIX_EPOCH)
-/// #             .unwrap();
-/// #     }
-/// #
-/// #     fn timestamp_sec(&self) -> u64 {
-/// #         self.duration.as_secs()
-/// #     }
-/// #
-/// #     fn timestamp_subsec_micros(&self) -> u32 {
-/// #         self.duration.subsec_micros()
-/// #     }
-/// # }
-/// #
-/// # let ntp_context = NtpContext::new(StdTimestampGen::default());
-/// # let socket = UdpSocketWrapper(UdpSocket::bind("0.0.0.0:0").expect("something"));
-/// // "time.google.com:123" string here used for the sake of simplicity. In the real app
-/// // you would want to fix destination address, since string hostname may resolve to
-/// // different IP addresses
-/// let address = "time.google.com:123".to_socket_addrs().unwrap().next().unwrap();
-/// # #[cfg(feature = "std")]
-/// if let Ok(result) = sntpc::sntp_send_request(address, &socket, ntp_context) {
-///     let time = sntpc::sntp_process_response(address, &socket, ntp_context, result);
+///
+/// fn main() {
+///     let socket = UdpSocket::bind("0.0.0.0:0").expect("Unable to crate UDP socket");
+///     let context = NtpContext::new(Timestamp::default());
+///     let server_addr: SocketAddr = "time.google.com:123".to_socket_addrs().expect("Unable to resolve host").next().unwrap();
+///     # let mut executor = Executor::new();
+///
+///     let request_result = executor.block_on(async {
+///            sntp_send_request(server_addr, &socket, context).await.expect("Unable to send request")
+///     });
+///
+///     match executor.block_on(async {
+///         sntp_process_response(server_addr, &socket, context, request_result).await
+///     })
+///     {
+///         Ok(response_result) => println!("Response processed: {response_result:?}"),
+///         Err(err) => eprintln!("Error: {err:?}"),
+///     }
 /// }
 /// ```
+///
 /// # Errors
 ///
-/// Will return `Err` if an SNTP response processing fails
+/// This function returns an `Err` in any of the following situations:
+/// * The source address of the response does not match the server address used for the request.
+/// * The size of the response is incorrect or does not match the expected format.
+/// * The mode or version in the response is invalid.
 pub async fn sntp_process_response<U, T>(
     dest: net::SocketAddr,
     socket: &U,
@@ -369,6 +599,7 @@ where
     }
 }
 
+/// Synchronous interface for the SNTP client
 #[cfg(feature = "sync")]
 pub mod sync {
     use crate::net;
@@ -396,86 +627,6 @@ pub mod sync {
     ///   communication
     /// - `context` - SNTP client context to provide timestamp generation feature
     ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use sntpc::{self, NtpContext, NtpTimestampGenerator, Result};
-    /// use std::time::Duration;
-    /// use core::net::SocketAddr;
-    /// # #[cfg(not(feature = "std"))]
-    /// # use no_std_net::{ToSocketAddrs, IpAddr, Ipv4Addr};
-    /// # #[cfg(feature = "std")]
-    /// # use std::net::{ToSocketAddrs, UdpSocket, IpAddr, Ipv4Addr};
-    ///
-    /// #[cfg(not(feature = "std"))]
-    /// # #[derive(Debug)]
-    /// # struct UdpSocket;
-    /// # #[cfg(not(feature = "std"))]
-    /// # impl UdpSocket {
-    /// #     fn bind(addr: &str) -> Result<Self> {
-    /// #         Ok(UdpSocket)
-    /// #     }
-    /// #     fn send_to<T: ToSocketAddrs>(&self, buf: &[u8], dest: T) -> Result<usize> {
-    /// #        Ok(0usize)
-    /// #     }
-    /// #     fn recv_from(&self, buf: &mut [u8]) -> Result<(usize, SocketAddr)> {
-    /// #        Ok((0usize, SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 0)))
-    /// #     }
-    /// # }
-    /// // implement required trait on network objects
-    /// # #[derive(Debug)]
-    /// # struct UdpSocketWrapper(UdpSocket);
-    /// #
-    /// # impl sntpc::NtpUdpSocket for UdpSocketWrapper {
-    /// #     fn send_to(
-    /// #         &self,
-    /// #         buf: &[u8],
-    /// #         addr: SocketAddr,
-    /// #     ) -> Result<usize> {
-    /// #         match self.0.send_to(buf, addr) {
-    /// #             Ok(usize) => Ok(usize),
-    /// #             Err(_) => Err(sntpc::Error::Network),
-    /// #         }
-    /// #     }
-    /// #
-    /// #     fn recv_from(&self, buf: &mut [u8]) -> Result<(usize, SocketAddr)> {
-    /// #         match self.0.recv_from(buf) {
-    /// #             Ok((size, addr)) => Ok((size, addr)),
-    /// #             Err(_) => Err(sntpc::Error::Network),
-    /// #         }
-    /// #     }
-    /// # }
-    /// // implement required trait on the timestamp generator object
-    /// #[derive(Copy, Clone, Default)]
-    /// struct StdTimestampGen {
-    ///     duration: Duration,
-    /// }
-    ///
-    /// impl NtpTimestampGenerator for StdTimestampGen {
-    ///     fn init(&mut self) {
-    ///         self.duration = std::time::SystemTime::now()
-    ///             .duration_since(std::time::SystemTime::UNIX_EPOCH)
-    ///             .unwrap();
-    ///     }
-    ///
-    ///     fn timestamp_sec(&self) -> u64 {
-    ///         self.duration.as_secs()
-    ///     }
-    ///
-    ///     fn timestamp_subsec_micros(&self) -> u32 {
-    ///         self.duration.subsec_micros()
-    ///     }
-    /// }
-    ///
-    /// let ntp_context = NtpContext::new(StdTimestampGen::default());
-    /// let socket = UdpSocketWrapper(UdpSocket::bind("0.0.0.0:0").expect("something"));
-    /// let address = "time.google.com:123".to_socket_addrs().unwrap().next().unwrap();
-    /// // OR
-    /// // let address = "83.168.200.199:123".to_socket_addrs().unwrap().next();
-    /// # #[cfg(feature = "std")]
-    /// let result = sntpc::get_time(address, &socket, ntp_context);
-    /// // ... process the result
-    /// ```
     /// # Errors
     ///
     /// Will return `Err` if an SNTP request cannot be sent or SNTP response fails
@@ -494,66 +645,50 @@ pub mod sync {
 
         sntp_process_response(addr, socket, context, result)
     }
-    /// Send SNTP request to a server
+
+    /// Send an SNTP request to the specified destination synchronously.
     ///
-    /// That function along with the [`sntp_process_response`] is required under an environment(s)
-    /// where you need to call TCP/IP stack helpers (like `poll`, `wait`, etc.)
+    /// This function is a synchronous wrapper for the asynchronous [`crate::sntp_send_request`].
+    /// It uses an executor to block the current thread while waiting for the underlying
+    /// asynchronous operation to complete.
     ///
     /// # Arguments
     ///
-    /// - `dest` - Initial NTP server's address to validate response against
-    /// - `socket` - Socket reference to use for receiving a NTP response
-    /// - `context` - SNTP client context
+    /// * `dest` - The destination NTP server's socket address to send the request to.
+    /// * `socket` - A reference to an object implementing the [`NtpUdpSocket`] trait to send/receive data.
+    /// * `context` - The SNTP client context (implementing [`NtpTimestampGenerator`]) that
+    ///    assists in generating timestamps for the request.
     ///
-    /// # Example
+    /// # Errors
+    ///
+    /// Returns an `Err` if the underlying async SNTP request fails for any reason,
+    /// such as network failure, invalid server response, or timeout.
+    ///
+    /// # Examples
     ///
     /// ```
     /// use sntpc::{self, NtpContext, NtpTimestampGenerator, Result};
+    /// # use core::future::Future;
     /// # use std::time::Duration;
     /// # use std::str::FromStr;
-    /// # #[cfg(not(feature = "std"))]
-    /// # use no_std_net::{SocketAddr, ToSocketAddrs, IpAddr, Ipv4Addr};
     /// # #[cfg(feature = "std")]
-    /// # use std::net::{SocketAddr, ToSocketAddrs, UdpSocket, IpAddr, Ipv4Addr};
-    /// # #[cfg(not(feature = "std"))]
-    /// # #[derive(Debug)]
-    /// # struct UdpSocket(u8);
-    /// # #[cfg(not(feature = "std"))]
-    /// # impl UdpSocket {
-    /// #     fn bind(addr: &str) -> Result<Self> {
-    /// #         Ok(UdpSocket(0))
-    /// #     }
-    /// #     fn send_to<T: ToSocketAddrs>(&self, buf: &[u8], dest: T) -> Result<usize> {
-    /// #        Ok(0usize)
-    /// #     }
-    /// #     fn recv_from(&self, buf: &mut [u8]) -> Result<(usize, SocketAddr)> {
-    /// #        Ok((0usize, SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 0)))
-    /// #     }
-    /// # }
-    /// // implement required trait on network objects
+    /// # use std::net::{SocketAddr, ToSocketAddrs, UdpSocket};
     /// # #[derive(Debug)]
     /// # struct UdpSocketWrapper(UdpSocket);
-    ///
+    /// #
     /// # impl sntpc::NtpUdpSocket for UdpSocketWrapper {
-    /// #     fn send_to(
+    /// #     async fn send_to(
     /// #         &self,
     /// #         buf: &[u8],
     /// #         addr: SocketAddr,
     /// #     ) -> Result<usize> {
-    /// #         match self.0.send_to(buf, addr) {
-    /// #             Ok(usize) => Ok(usize),
-    /// #             Err(_) => Err(sntpc::Error::Network),
-    /// #         }
+    /// #         self.0.send_to(buf, addr).map_err(|_| sntpc::Error::Network)
     /// #     }
     /// #
-    /// #     fn recv_from(&self, buf: &mut [u8]) -> Result<(usize, SocketAddr)> {
-    /// #         match self.0.recv_from(buf) {
-    /// #             Ok((size, addr)) => Ok((size, addr)),
-    /// #             Err(_) => Err(sntpc::Error::Network),
-    /// #         }
+    /// #     async fn recv_from(&self, buf: &mut [u8]) -> Result<(usize, SocketAddr)> {
+    /// #         self.0.recv_from(buf).map_err(|_| sntpc::Error::Network)
     /// #     }
     /// # }
-    /// // implement required trait on the timestamp generator object
     /// # #[derive(Copy, Clone, Default)]
     /// # struct StdTimestampGen {
     /// #     duration: Duration,
@@ -574,19 +709,19 @@ pub mod sync {
     /// #         self.duration.subsec_micros()
     /// #     }
     /// # }
-    /// #
-    /// # let ntp_context = NtpContext::new(StdTimestampGen::default());
-    /// # let socket = UdpSocketWrapper(UdpSocket::bind("0.0.0.0:0").expect("something"));
+    /// let socket = UdpSocketWrapper(UdpSocket::bind("0.0.0.0:0").unwrap());
+    /// let context = NtpContext::new(StdTimestampGen::default());
     /// // "time.google.com:123" string here used for the sake of simplicity. In the real app
     /// // you would want to fix destination address, since string hostname may resolve to
     /// // different IP addresses
-    /// let address = "time.google.com:123".to_socket_addrs().unwrap().next().unwrap();
-    /// # #[cfg(feature = "std")]
-    /// let result = sntpc::sntp_send_request(address, &socket, ntp_context);
-    /// ```
-    /// # Errors
+    /// let addr = "time.google.com:123".to_socket_addrs().unwrap().next().unwrap();
     ///
-    /// Will return `Err` if an SNTP request sending fails
+    /// let result = sntpc::sync::sntp_send_request(addr, &socket, context);
+    /// match result {
+    ///     Ok(response) => println!("Received response: {:?}", response),
+    ///     Err(e) => eprintln!("Failed to send request: {:?}", e),
+    /// }
+    /// ```
     pub fn sntp_send_request<U, T>(
         dest: net::SocketAddr,
         socket: &U,
@@ -600,66 +735,54 @@ pub mod sync {
             .block_on(crate::sntp_send_request(dest, socket, context))
     }
 
-    /// Process SNTP response from a server
+    /// Processes the response from an SNTP server and calculates the NTP offset and round-trip delay.
     ///
-    /// That function along with the [`sntp_send_request`] is required under an environment(s)
-    /// where you need to call TCP/IP stack helpers (like `poll`, `wait`, etc.)
+    /// This is a synchronous wrapper around the asynchronous SNTP response processing function.
+    /// It uses an executor to block the current thread while waiting for the underlying
+    /// asynchronous operation to complete.
     ///
     /// # Arguments
     ///
-    /// - `dest` - NTP server's address to send request to
-    /// - `socket` - Socket reference to use for sending a NTP request
-    /// - `context` - SNTP client context
-    /// - `send_req_result` - send request result that obtained after [`sntp_send_request`] call
+    /// - `dest` - The destination NTP server's socket address from which the response was received.
+    /// - `socket` - A reference to an object implementing the [`NtpUdpSocket`] trait used for network communication.
+    /// - `context` - The SNTP client context (implementing [`NtpTimestampGenerator`]) responsible for generating and validating timestamps.
+    /// - `send_req_result` - The result obtained from sending the SNTP request, including the originate timestamp.
     ///
-    /// # Example
+    /// # Errors
+    ///
+    /// Returns an `Err` if the underlying async SNTP response processing fails for any reason,
+    /// such as:
+    /// - Incorrect origin timestamp in the response,
+    /// - An invalid mode in the response (`SNTP_UNICAST` or `SNTP_BROADCAST`),
+    /// - A mismatch between the request and response versions,
+    /// - Errors in the response headers (e.g., incorrect stratum, leap indicator),
+    /// - Network errors during processing.
+    ///
+    /// # Examples
+    ///
     /// ```
-    /// use sntpc::{self, NtpContext, NtpTimestampGenerator, Result};
+    /// use sntpc::{self, NtpContext, NtpTimestampGenerator, Result, SendRequestResult};
+    /// # use core::future::Future;
     /// # use std::time::Duration;
     /// # use std::str::FromStr;
-    /// # #[cfg(not(feature = "std"))]
-    /// # use no_std_net::{SocketAddr, ToSocketAddrs, IpAddr, Ipv4Addr};
     /// # #[cfg(feature = "std")]
-    /// # use std::net::{SocketAddr, ToSocketAddrs, UdpSocket, IpAddr, Ipv4Addr};
-    /// # #[cfg(not(feature = "std"))]
-    /// # #[derive(Debug, Clone)]
-    /// # struct UdpSocket(u8);
-    /// # #[cfg(not(feature = "std"))]
-    /// # impl UdpSocket {
-    /// #     fn bind(addr: &str) -> Result<Self> {
-    /// #         Ok(UdpSocket(0))
-    /// #     }
-    /// #     fn send_to<T: ToSocketAddrs>(&self, buf: &[u8], dest: T) -> Result<usize> {
-    /// #        Ok(0usize)
-    /// #     }
-    /// #     fn recv_from(&self, buf: &mut [u8]) -> Result<(usize, SocketAddr)> {
-    /// #        Ok((0usize, SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 0)))
-    /// #     }
-    /// # }
-    /// // implement required trait on network objects
+    /// # use std::net::{SocketAddr, ToSocketAddrs, UdpSocket};
     /// # #[derive(Debug)]
     /// # struct UdpSocketWrapper(UdpSocket);
     /// #
     /// # impl sntpc::NtpUdpSocket for UdpSocketWrapper {
-    /// #     fn send_to(
+    /// #     async fn send_to(
     /// #         &self,
     /// #         buf: &[u8],
     /// #         addr: SocketAddr,
     /// #     ) -> Result<usize> {
-    /// #         match self.0.send_to(buf, addr) {
-    /// #             Ok(usize) => Ok(usize),
-    /// #             Err(_) => Err(sntpc::Error::Network),
-    /// #         }
+    /// #         self.0.send_to(buf, addr).map_err(|_| sntpc::Error::Network)
     /// #     }
     /// #
-    /// #     fn recv_from(&self, buf: &mut [u8]) -> Result<(usize, SocketAddr)> {
-    /// #         match self.0.recv_from(buf) {
-    /// #             Ok((size, addr)) => Ok((size, addr)),
-    /// #             Err(_) => Err(sntpc::Error::Network),
-    /// #         }
+    /// #     async fn recv_from(&self, buf: &mut [u8]) -> Result<(usize, SocketAddr)> {
+    /// #         self.0.recv_from(buf).map_err(|_| sntpc::Error::Network)
     /// #     }
     /// # }
-    /// // implement required trait on the timestamp generator object
     /// # #[derive(Copy, Clone, Default)]
     /// # struct StdTimestampGen {
     /// #     duration: Duration,
@@ -680,21 +803,21 @@ pub mod sync {
     /// #         self.duration.subsec_micros()
     /// #     }
     /// # }
-    /// #
-    /// # let ntp_context = NtpContext::new(StdTimestampGen::default());
-    /// # let socket = UdpSocketWrapper(UdpSocket::bind("0.0.0.0:0").expect("something"));
+    /// let socket = UdpSocketWrapper(UdpSocket::bind("0.0.0.0:0").unwrap());
+    /// let context = NtpContext::new(StdTimestampGen::default());
     /// // "time.google.com:123" string here used for the sake of simplicity. In the real app
     /// // you would want to fix destination address, since string hostname may resolve to
     /// // different IP addresses
-    /// let address = "time.google.com:123".to_socket_addrs().unwrap().next().unwrap();
-    /// # #[cfg(feature = "std")]
-    /// if let Ok(result) = sntpc::sntp_send_request(address, &socket, ntp_context) {
-    ///     let time = sntpc::sntp_process_response(address, &socket, ntp_context, result);
+    /// let addr = "time.google.com:123".to_socket_addrs().unwrap().next().unwrap();
+    ///
+    /// let send_request_result = sntpc::sync::sntp_send_request(addr, &socket, context).unwrap();
+    /// let result = sntpc::sync::sntp_process_response(addr, &socket, context, send_request_result);
+    ///
+    /// match result {
+    ///     Ok(ntp_result) => println!("NTP Result: {:?}", ntp_result),
+    ///     Err(e) => eprintln!("Failed to process response: {:?}", e),
     /// }
     /// ```
-    /// # Errors
-    ///
-    /// Will return `Err` if an SNTP response processing fails
     pub fn sntp_process_response<U, T>(
         dest: net::SocketAddr,
         socket: &U,
