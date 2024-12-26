@@ -38,7 +38,7 @@ tokio = { version = "1", features = ["net"], optional = true }
 
 [dev-dependencies]
 miniloop = "~0.3"
-criterion = { version = "0.5", features = ["html_reports"] }
+criterion = "0.5"
 
 [badges]
 maintenance = { status = "actively-developed" }

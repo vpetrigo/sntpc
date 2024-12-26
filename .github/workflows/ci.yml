@@ -60,4 +60,3 @@ jobs:
         run: |
           uvx --from git+https://github.com/vpetrigo/ntpserver@master ntpserver > /dev/null &
           cargo bench --features sync
-          pkill ntpserver
