@@ -59,7 +59,7 @@ jobs:
       - name: Start test NTP server
         run: uvx --from git+https://github.com/vpetrigo/ntpserver@master ntpserver > /dev/null &
       - name: Run benchmarking
-        run: cargo bench --features sync | tee output.txt
+        run: cargo bench --bench async --bench sync --features sync | tee output.txt
       - name: Kill NTP server
         run: pgrep -f ntpserver | xargs kill
       - name: Store benchmark result
