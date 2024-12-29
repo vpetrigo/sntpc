@@ -4,6 +4,8 @@
 #[cfg(feature = "log")]
 use chrono::Timelike;
 use chrono::{Local, TimeZone, Utc};
+#[cfg(all(feature = "defmt", not(feature = "log")))]
+use defmt::debug;
 #[cfg(feature = "log")]
 use log::debug;
 
@@ -26,14 +28,14 @@ pub fn update_system_time(sec: u32, nsec: u32) {
 
     if let Some(time) = time.single() {
         let local_time = time.with_timezone(&Local);
-        #[cfg(feature = "log")]
+        #[cfg(any(feature = "log", feature = "defmt"))]
         debug!(
             "UTC time: {:02}:{:02}:{:02}",
             time.hour(),
             time.minute(),
             time.second()
         );
-        #[cfg(feature = "log")]
+        #[cfg(any(feature = "log", feature = "defmt"))]
         debug!(
             "{} time: {:02}:{:02}:{:02}",
             local_time.offset(),

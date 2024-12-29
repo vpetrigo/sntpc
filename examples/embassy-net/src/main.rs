@@ -23,8 +23,19 @@
 //! ## Run the example
 //!
 //! ```sh
-//! cargo build --features "log"
+//! cargo build
 //! sudo ../../target/debug/example-embassy-net
+//! ```
+//!
+//! To view logs, run:
+//!
+//! ```sh
+//! defmt-print -e ../../target/debug/example-embassy-net tcp
+//! ```
+//! You will need the defmt-print tool installed. You can install it by running:
+//!
+//! ```sh
+//! cargo install defmt-print
 //! ```
 //!
 //! ## Cleanup
@@ -65,6 +76,7 @@ cfg_unix! {
 
     use core::net::{IpAddr, SocketAddr};
     use std::time::SystemTime;
+    use std::thread;
 
     const NTP_SERVER: &str = "pool.ntp.org";
 
@@ -89,8 +101,7 @@ cfg_unix! {
         }
     }
 
-    #[cfg(feature = "log")]
-    use log::{error, info};
+    use defmt::{error, info};
 
     #[embassy_executor::task]
     async fn net_task(
@@ -150,7 +161,6 @@ cfg_unix! {
             .await
             .expect("Failed to resolve DNS");
         if ntp_addrs.is_empty() {
-            #[cfg(feature = "log")]
             error!("Failed to resolve DNS");
             return;
         }
@@ -162,7 +172,6 @@ cfg_unix! {
                     .await
                     .unwrap();
 
-            #[cfg(feature = "log")]
             info!("Time: {:?}", result);
 
             Timer::after(Duration::from_secs(15)).await;
@@ -172,12 +181,7 @@ cfg_unix! {
     static EXECUTOR: StaticCell<Executor> = StaticCell::new();
 
     fn main() {
-        #[cfg(feature = "log")]
-        if cfg!(debug_assertions) {
-            simple_logger::init_with_level(log::Level::Trace).unwrap();
-        } else {
-            simple_logger::init_with_level(log::Level::Info).unwrap();
-        }
+        thread::spawn(defmt_logger_tcp::run);
 
         let executor = EXECUTOR.init(Executor::new());
         executor.run(|spawner| {

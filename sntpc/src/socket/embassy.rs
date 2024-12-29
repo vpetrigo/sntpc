@@ -3,6 +3,11 @@ use embassy_net::{udp::UdpSocket, IpAddress, IpEndpoint};
 
 use core::net::IpAddr;
 
+#[cfg(feature = "log")]
+use log::error;
+#[cfg(all(feature = "defmt", not(feature = "log")))]
+use defmt::error;
+
 impl NtpUdpSocket for UdpSocket<'_> {
     async fn send_to(&self, buf: &[u8], addr: SocketAddr) -> Result<usize> {
         // Currently smoltcp still has its own address enum
@@ -17,8 +22,8 @@ impl NtpUdpSocket for UdpSocket<'_> {
         match UdpSocket::send_to(self, buf, endpoint).await {
             Ok(()) => Ok(buf.len()),
             Err(e) => {
-                #[cfg(feature = "log")]
-                log::error!("Error while sending to {endpoint}: {e:?}");
+                #[cfg(any(feature = "log", feature = "defmt"))]
+                error!("Error while sending to {}: {:?}", endpoint, e);
                 Err(Error::Network)
             }
         }
@@ -38,8 +43,8 @@ impl NtpUdpSocket for UdpSocket<'_> {
         match UdpSocket::recv_from(self, buf).await {
             Ok((len, ep)) => Ok((len, to_addr(ep.endpoint))),
             Err(e) => {
-                #[cfg(feature = "log")]
-                log::error!("Error receiving {e:?}");
+                #[cfg(any(feature = "log", feature = "defmt"))]
+                error!("Error receiving {:?}", e);
                 Err(Error::Network)
             }
         }
