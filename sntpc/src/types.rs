@@ -98,6 +98,7 @@ impl Display for Units {
 /// The error type for SNTP client
 /// Errors originate on network layer or during processing response from a NTP server
 #[derive(Debug, PartialEq, Copy, Clone)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[non_exhaustive]
 pub enum Error {
     /// Origin timestamp value in a NTP response differs from the value

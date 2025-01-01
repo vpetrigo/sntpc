@@ -28,7 +28,7 @@ log = ["dep:log"]
 std-socket = []
 embassy-socket = ["dep:embassy-net"]
 tokio-socket = ["dep:tokio"]
-defmt = ["dep:defmt"]
+defmt = ["dep:defmt", "embassy-net/defmt"]
 
 [dependencies]
 log = { version = "~0.4", optional = true }

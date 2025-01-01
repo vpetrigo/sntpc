@@ -169,10 +169,16 @@ cfg_unix! {
             let addr: IpAddr = ntp_addrs[0].into();
             let result =
                 get_time(SocketAddr::from((addr, 123)), &socket, context)
-                    .await
-                    .unwrap();
+                    .await;
 
-            info!("Time: {:?}", result);
+            match result {
+                Ok(time) => {
+                    info!("Time: {:?}", time);
+                }
+                Err(e) => {
+                    error!("Error getting time: {:?}", e);
+                }
+            }
 
             Timer::after(Duration::from_secs(15)).await;
         }
