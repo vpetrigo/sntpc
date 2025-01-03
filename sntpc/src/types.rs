@@ -5,7 +5,7 @@ use core::mem;
 use core::future::Future;
 #[cfg(feature = "defmt")]
 use defmt::debug;
-#[cfg(feature = "log")]
+#[cfg(all(feature = "log", not(feature = "defmt")))]
 use log::debug;
 
 use crate::get_ntp_timestamp;

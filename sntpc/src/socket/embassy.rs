@@ -5,7 +5,7 @@ use core::net::IpAddr;
 
 #[cfg(feature = "defmt")]
 use defmt::error;
-#[cfg(feature = "log")]
+#[cfg(all(feature = "log", not(feature = "defmt")))]
 use log::error;
 
 impl NtpUdpSocket for UdpSocket<'_> {
