@@ -3,7 +3,7 @@ use core::fmt::{Debug, Display};
 use core::mem;
 
 use core::future::Future;
-#[cfg(all(feature = "defmt", not(feature = "log")))]
+#[cfg(feature = "defmt")]
 use defmt::debug;
 #[cfg(feature = "log")]
 use log::debug;

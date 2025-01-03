@@ -167,7 +167,12 @@ pub mod net {
     pub use std::net::UdpSocket;
 }
 
-#[cfg(all(feature = "defmt", not(feature = "log")))]
+#[cfg(all(feature = "log", feature = "defmt"))]
+compile_error!(
+    "Having both `defmt` and `log` features enabled is not supported"
+);
+
+#[cfg(feature = "defmt")]
 use defmt::debug;
 #[cfg(feature = "log")]
 use log::debug;

@@ -3,10 +3,10 @@ use embassy_net::{udp::UdpSocket, IpAddress, IpEndpoint};
 
 use core::net::IpAddr;
 
+#[cfg(feature = "defmt")]
+use defmt::error;
 #[cfg(feature = "log")]
 use log::error;
-#[cfg(all(feature = "defmt", not(feature = "log")))]
-use defmt::error;
 
 impl NtpUdpSocket for UdpSocket<'_> {
     async fn send_to(&self, buf: &[u8], addr: SocketAddr) -> Result<usize> {

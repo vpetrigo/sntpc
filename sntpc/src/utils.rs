@@ -4,7 +4,7 @@
 #[cfg(feature = "log")]
 use chrono::Timelike;
 use chrono::{Local, TimeZone, Utc};
-#[cfg(all(feature = "defmt", not(feature = "log")))]
+#[cfg(feature = "defmt")]
 use defmt::debug;
 #[cfg(feature = "log")]
 use log::debug;
