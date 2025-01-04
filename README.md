@@ -56,7 +56,7 @@ fn main() {
         .set_read_timeout(Some(Duration::from_secs(2)))
         .expect("Unable to set UDP socket read timeout");
 
-    for addr in POOL_NTP_ADDR.to_socket_addrs().filter(SocketAddr::is_ipv4).unwrap() {
+    for addr in POOL_NTP_ADDR.to_socket_addrs().unwrap() {
         let ntp_context = NtpContext::new(StdTimestampGen::default());
         let result = get_time(addr, &socket, ntp_context);
 
