@@ -1,12 +1,9 @@
+#[cfg(any(feature = "log", feature = "defmt"))]
+use crate::log::error;
 use crate::{net::SocketAddr, Error, NtpUdpSocket, Result};
 use embassy_net::{udp::UdpSocket, IpAddress, IpEndpoint};
 
 use core::net::IpAddr;
-
-#[cfg(feature = "defmt")]
-use defmt::error;
-#[cfg(all(feature = "log", not(feature = "defmt")))]
-use log::error;
 
 impl NtpUdpSocket for UdpSocket<'_> {
     async fn send_to(&self, buf: &[u8], addr: SocketAddr) -> Result<usize> {
