@@ -1,15 +1,14 @@
+use crate::get_ntp_timestamp;
+#[cfg(any(feature = "log", feature = "defmt"))]
+use crate::log::debug;
+use crate::net::SocketAddr;
+
+use cfg_if::cfg_if;
+
 use core::fmt::Formatter;
 use core::fmt::{Debug, Display};
-use core::mem;
-
 use core::future::Future;
-#[cfg(feature = "defmt")]
-use defmt::debug;
-#[cfg(all(feature = "log", not(feature = "defmt")))]
-use log::debug;
-
-use crate::get_ntp_timestamp;
-use crate::net::SocketAddr;
+use core::mem;
 
 /// SNTP mode value bit mask
 pub(crate) const MODE_MASK: u8 = 0b0000_0111;
@@ -39,7 +38,6 @@ pub(crate) const SECONDS_FRAC_MASK: u64 = 0xffff_ffff;
 /// SNTP library result type
 pub type Result<T> = core::result::Result<T, Error>;
 
-#[derive(Debug)]
 pub(crate) struct NtpPacket {
     pub(crate) li_vn_mode: u8,
     pub(crate) stratum: u8,
@@ -52,6 +50,68 @@ pub(crate) struct NtpPacket {
     pub(crate) origin_timestamp: u64,
     pub(crate) recv_timestamp: u64,
     pub(crate) tx_timestamp: u64,
+}
+
+cfg_if! {
+    if #[cfg(any(feature = "log", feature = "defmt"))] {
+        use crate::shifter;
+
+        use core::str;
+
+        pub(crate) struct DebugNtpPacket<'a> {
+            packet: &'a NtpPacket,
+            client_recv_timestamp: u64,
+        }
+
+        impl<'a> DebugNtpPacket<'a> {
+            pub(crate) fn new(
+                packet: &'a NtpPacket,
+                client_recv_timestamp: u64,
+            ) -> Self {
+                Self {
+                    packet,
+                    client_recv_timestamp,
+                }
+            }
+        }
+
+        impl Debug for DebugNtpPacket<'_> {
+            fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+                let mode = shifter(self.packet.li_vn_mode, MODE_MASK, MODE_SHIFT);
+                let version =
+                    shifter(self.packet.li_vn_mode, VERSION_MASK, VERSION_SHIFT);
+                let li = shifter(self.packet.li_vn_mode, LI_MASK, LI_SHIFT);
+                let id_slice = &self.packet.ref_id.to_be_bytes();
+                let reference_id = str::from_utf8(id_slice).unwrap_or("");
+
+                f.debug_struct("NtpPacket")
+                    .field("mode", &mode)
+                    .field("version", &version)
+                    .field("leap", &li)
+                    .field("stratum", &self.packet.stratum)
+                    .field("poll", &self.packet.poll)
+                    .field("precision", &self.packet.precision)
+                    .field("root delay", &self.packet.root_delay)
+                    .field("root dispersion", &self.packet.root_dispersion)
+                    .field("reference ID", &reference_id)
+                    .field(
+                        "origin timestamp (client)",
+                        &self.packet.origin_timestamp,
+                    )
+                    .field(
+                        "receive timestamp (server)",
+                        &self.packet.recv_timestamp,
+                    )
+                    .field(
+                        "transmit timestamp (server)",
+                        &self.packet.tx_timestamp,
+                    )
+                    .field("receive timestamp (client)", &self.client_recv_timestamp)
+                    .field("reference timestamp (server)", &self.packet.ref_timestamp)
+                    .finish()
+            }
+        }
+    }
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -214,12 +274,12 @@ impl NtpPacket {
     const SNTP_CLIENT_MODE: u8 = 3;
     const SNTP_VERSION: u8 = 4 << 3;
 
-    pub fn new<T: NtpTimestampGenerator>(mut timestamp_gen: T) -> NtpPacket {
+    pub fn new<T: NtpTimestampGenerator>(mut timestamp_gen: T) -> Self {
         timestamp_gen.init();
         let tx_timestamp = get_ntp_timestamp(&timestamp_gen);
 
         #[cfg(any(feature = "log", feature = "defmt"))]
-        debug!("NtpPacket::new({})", tx_timestamp);
+        debug!("NtpPacket::new(tx_timestamp: {})", tx_timestamp);
 
         NtpPacket {
             li_vn_mode: NtpPacket::SNTP_CLIENT_MODE | NtpPacket::SNTP_VERSION,
@@ -408,6 +468,7 @@ impl From<RawNtpPacket> for NtpPacket {
         //     temp_buf.copy_from_slice(x);
         //     temp_buf
         // }
+        // see: https://github.com/vpetrigo/sntpc/issues/34
         let to_array_u32 = |x: &[u8]| {
             let mut temp_buf = [0u8; mem::size_of::<u32>()];
             temp_buf.copy_from_slice(x);
@@ -440,7 +501,7 @@ impl From<RawNtpPacket> for NtpPacket {
 impl From<&NtpPacket> for RawNtpPacket {
     #[allow(clippy::cast_sign_loss)]
     fn from(val: &NtpPacket) -> Self {
-        let mut tmp_buf = [0u8; mem::size_of::<NtpPacket>()];
+        let mut tmp_buf = [0u8; size_of::<NtpPacket>()];
 
         tmp_buf[0] = val.li_vn_mode;
         tmp_buf[1] = val.stratum;
