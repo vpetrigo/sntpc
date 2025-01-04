@@ -163,6 +163,8 @@ effort is wasted. If there's already an open issue for it, knock yourself out. S
 5. [Vitali Pikulik](https://github.com/vpikulik): for adding `async` support
 6. [tsingwong](https://github.com/tsingwong): for fixing invalid link in the `README.md`
 7. [Robert Bastian](https://github.com/robertbastian): for fixing the overflow issue in the `calculate_offset`
+8. [oleid](https://github.com/oleid): for bringing `embassy` socket support
+9. [Damian Peckett](https://github.com/dpeckett): for adding `defmt` support and elaborating on `embassy` example
 
 Really appreciate all your efforts! Please [let me know](mailto:vladimir.petrigo@gmail.com) if I forgot someone.
 
