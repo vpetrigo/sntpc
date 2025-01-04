@@ -151,13 +151,14 @@
 #[cfg(feature = "utils")]
 pub mod utils;
 
+mod log;
 mod socket;
 mod types;
 
 pub use crate::types::*;
 
 #[cfg(any(feature = "log", feature = "defmt"))]
-use core::str;
+use crate::log::debug;
 
 /// Network types used by the `sntpc` crate
 pub mod net {
@@ -167,10 +168,7 @@ pub mod net {
     pub use std::net::UdpSocket;
 }
 
-#[cfg(feature = "defmt")]
-use defmt::debug;
-#[cfg(all(feature = "log", not(feature = "defmt")))]
-use log::debug;
+use cfg_if::cfg_if;
 
 /// Retrieves the current time from an NTP server.
 ///
@@ -605,6 +603,8 @@ where
 /// Synchronous interface for the SNTP client
 #[cfg(feature = "sync")]
 pub mod sync {
+    #[cfg(any(feature = "log", feature = "defmt"))]
+    use crate::log::debug;
     use crate::net;
     use crate::types::{
         NtpContext, NtpResult, NtpTimestampGenerator, NtpUdpSocket, Result,
@@ -612,12 +612,6 @@ pub mod sync {
     };
 
     use miniloop::executor::Executor;
-
-    #[cfg(feature = "defmt")]
-    use defmt::debug;
-    #[cfg(all(feature = "log", not(feature = "defmt")))]
-    use log::debug;
-
     /// Send request to a NTP server with the given address and process the response in a single call
     ///
     /// May be useful under an environment with `std` networking implementation, where all
@@ -814,7 +808,6 @@ pub mod sync {
     /// // you would want to fix destination address, since string hostname may resolve to
     /// // different IP addresses
     /// let addr = "time.google.com:123".to_socket_addrs().unwrap().filter(SocketAddr::is_ipv4).next().unwrap();
-    ///
     /// let send_request_result = sntpc::sync::sntp_send_request(addr, &socket, context).unwrap();
     /// let result = sntpc::sync::sntp_process_response(addr, &socket, context, send_request_result);
     ///
@@ -858,8 +851,13 @@ fn process_response(
     let mut packet = NtpPacket::from(resp);
 
     convert_from_network(&mut packet);
-    #[cfg(any(feature = "log", feature = "defmt"))]
-    debug_ntp_packet(&packet, recv_timestamp);
+
+    cfg_if!(
+        if #[cfg(any(feature = "log", feature = "defmt"))] {
+            let debug_packet = DebugNtpPacket::new(&packet, recv_timestamp);
+            debug!("{:#?}", debug_packet);
+        }
+    );
 
     if send_req_result.originate_timestamp != packet.origin_timestamp {
         return Err(Error::IncorrectOriginTimestamp);
@@ -992,72 +990,6 @@ fn offset_calculate(t1: u64, t2: u64, t3: u64, t4: u64, units: Units) -> i64 {
                 * theta.signum()
         }
     }
-}
-
-#[cfg(feature = "defmt")]
-fn debug_ntp_packet(packet: &NtpPacket, recv_timestamp: u64) {
-    let mode = shifter(packet.li_vn_mode, MODE_MASK, MODE_SHIFT);
-    let version = shifter(packet.li_vn_mode, VERSION_MASK, VERSION_SHIFT);
-    let li = shifter(packet.li_vn_mode, LI_MASK, LI_SHIFT);
-
-    debug!("NTP Packet:");
-    debug!("Mode: {}", mode);
-    debug!("Version: {}", version);
-    debug!("Leap: {}", li);
-    debug!("Stratum: {}", packet.stratum);
-    debug!("Poll: {}", packet.poll);
-    debug!("Precision: {}", packet.precision);
-    debug!("Root delay: {}", packet.root_delay);
-    debug!("Root dispersion: {}", packet.root_dispersion);
-    debug!(
-        "Reference ID: {}",
-        str::from_utf8(&packet.ref_id.to_be_bytes()).unwrap_or("")
-    );
-    debug!("Origin timestamp (client): {}", packet.origin_timestamp);
-    debug!("Receive timestamp (server): {}", packet.recv_timestamp);
-    debug!("Transmit timestamp (server): {}", packet.tx_timestamp);
-    debug!("Receive timestamp (client): {}", recv_timestamp);
-    debug!("Reference timestamp (server): {}", packet.ref_timestamp);
-}
-
-#[cfg(all(feature = "log", not(feature = "defmt")))]
-fn debug_ntp_packet(packet: &NtpPacket, recv_timestamp: u64) {
-    let mode = shifter(packet.li_vn_mode, MODE_MASK, MODE_SHIFT);
-    let version = shifter(packet.li_vn_mode, VERSION_MASK, VERSION_SHIFT);
-    let li = shifter(packet.li_vn_mode, LI_MASK, LI_SHIFT);
-    let delimiter_gen = || unsafe { str::from_utf8_unchecked(&[b'='; 64]) };
-
-    debug!("{}", delimiter_gen());
-    debug!("| Mode:\t\t{}", mode);
-    debug!("| Version:\t{}", version);
-    debug!("| Leap:\t\t{}", li);
-    debug!("| Stratum:\t{}", packet.stratum);
-    debug!("| Poll:\t\t{}", packet.poll);
-    debug!("| Precision:\t\t{}", packet.precision);
-    debug!("| Root delay:\t\t{}", packet.root_delay);
-    debug!("| Root dispersion:\t{}", packet.root_dispersion);
-    debug!(
-        "| Reference ID:\t\t{}",
-        str::from_utf8(&packet.ref_id.to_be_bytes()).unwrap_or("")
-    );
-    debug!(
-        "| Origin timestamp    (client):\t{:>16}",
-        packet.origin_timestamp
-    );
-    debug!(
-        "| Receive timestamp   (server):\t{:>16}",
-        packet.recv_timestamp
-    );
-    debug!(
-        "| Transmit timestamp  (server):\t{:>16}",
-        packet.tx_timestamp
-    );
-    debug!("| Receive timestamp   (client):\t{:>16}", recv_timestamp);
-    debug!(
-        "| Reference timestamp (server):\t{:>16}",
-        packet.ref_timestamp
-    );
-    debug!("{}", delimiter_gen());
 }
 
 fn get_ntp_timestamp<T: NtpTimestampGenerator>(timestamp_gen: &T) -> u64 {

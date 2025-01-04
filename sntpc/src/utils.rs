@@ -1,13 +1,11 @@
 //! Helper utils to synchronize time of a system
 //!
 //! Currently, Unix and Windows based systems are supported
-#[cfg(feature = "log")]
+#[cfg(any(feature = "log", feature = "defmt"))]
+use crate::log::debug;
+#[cfg(any(feature = "log", feature = "defmt"))]
 use chrono::Timelike;
 use chrono::{Local, TimeZone, Utc};
-#[cfg(feature = "defmt")]
-use defmt::debug;
-#[cfg(all(feature = "log", not(feature = "defmt")))]
-use log::debug;
 
 #[cfg(unix)]
 use unix::sync_time;
