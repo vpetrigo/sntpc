@@ -25,6 +25,7 @@
 //! - `std-socket`: add `NtpUdpSocket` trait implementation for `std::net::UdpSocket`
 //! - `embassy-socket`: add `NtpUdpSocket` trait implementation for `embassy_net::udp::UdpSocket`
 //! - `tokio-socket`: add `NtpUdpSocket` trait implementation for `tokio::net::UdpSocket`
+//! - `defmt`: enables library debug output using defmt
 //!
 //! <div class="warning">
 //!
@@ -50,8 +51,8 @@
 //!
 //! ## Logging support
 //!
-//! Library debug logs can be enabled in executables by enabling `log` feature. Server
-//! addresses, response payload will be printed.
+//! Library debug logs can be enabled in executables by enabling `log` or `defmt`
+//! feature. Server addresses, response payload will be printed.
 //!
 //! # Example
 //!
@@ -155,7 +156,7 @@ mod types;
 
 pub use crate::types::*;
 
-#[cfg(feature = "log")]
+#[cfg(any(feature = "log", feature = "defmt"))]
 use core::str;
 
 /// Network types used by the `sntpc` crate
@@ -166,7 +167,9 @@ pub mod net {
     pub use std::net::UdpSocket;
 }
 
-#[cfg(feature = "log")]
+#[cfg(feature = "defmt")]
+use defmt::debug;
+#[cfg(all(feature = "log", not(feature = "defmt")))]
 use log::debug;
 
 /// Retrieves the current time from an NTP server.
@@ -411,7 +414,7 @@ where
     U: NtpUdpSocket,
     T: NtpTimestampGenerator,
 {
-    #[cfg(feature = "log")]
+    #[cfg(any(feature = "log", feature = "defmt"))]
     debug!("send request - Address: {:?}", dest);
     let request = NtpPacket::new(context.timestamp_gen);
 
@@ -518,7 +521,7 @@ where
 /// fn main() {
 ///     let socket = UdpSocket::bind("0.0.0.0:0").expect("Unable to crate UDP socket");
 ///     let context = NtpContext::new(Timestamp::default());
-///     let server_addr: SocketAddr = "time.google.com:123".to_socket_addrs().expect("Unable to resolve host").next().unwrap();
+///     let server_addr: SocketAddr = "time.google.com:123".to_socket_addrs().expect("Unable to resolve host").filter(SocketAddr::is_ipv4).next().unwrap();
 ///     # let mut executor = Executor::new();
 ///
 ///     let request_result = executor.block_on(async {
@@ -555,7 +558,7 @@ where
     let (response, src) = socket.recv_from(response_buf.0.as_mut()).await?;
     context.timestamp_gen.init();
     let recv_timestamp = get_ntp_timestamp(&context.timestamp_gen);
-    #[cfg(feature = "log")]
+    #[cfg(any(feature = "log", feature = "defmt"))]
     debug!("Response: {}", response);
 
     if dest != src {
@@ -569,7 +572,7 @@ where
     let result =
         process_response(send_req_result, response_buf, recv_timestamp);
 
-    #[cfg(feature = "log")]
+    #[cfg(any(feature = "log", feature = "defmt"))]
     if let Ok(r) = &result {
         debug!("{:?}", r);
     }
@@ -610,7 +613,9 @@ pub mod sync {
 
     use miniloop::executor::Executor;
 
-    #[cfg(feature = "log")]
+    #[cfg(feature = "defmt")]
+    use defmt::debug;
+    #[cfg(all(feature = "log", not(feature = "defmt")))]
     use log::debug;
 
     /// Send request to a NTP server with the given address and process the response in a single call
@@ -640,7 +645,7 @@ pub mod sync {
         T: NtpTimestampGenerator + Copy,
     {
         let result = sntp_send_request(addr, socket, context)?;
-        #[cfg(feature = "log")]
+        #[cfg(any(feature = "log", feature = "defmt"))]
         debug!("{:?}", result);
 
         sntp_process_response(addr, socket, context, result)
@@ -808,7 +813,7 @@ pub mod sync {
     /// // "time.google.com:123" string here used for the sake of simplicity. In the real app
     /// // you would want to fix destination address, since string hostname may resolve to
     /// // different IP addresses
-    /// let addr = "time.google.com:123".to_socket_addrs().unwrap().next().unwrap();
+    /// let addr = "time.google.com:123".to_socket_addrs().unwrap().filter(SocketAddr::is_ipv4).next().unwrap();
     ///
     /// let send_request_result = sntpc::sync::sntp_send_request(addr, &socket, context).unwrap();
     /// let result = sntpc::sync::sntp_process_response(addr, &socket, context, send_request_result);
@@ -853,7 +858,7 @@ fn process_response(
     let mut packet = NtpPacket::from(resp);
 
     convert_from_network(&mut packet);
-    #[cfg(feature = "log")]
+    #[cfg(any(feature = "log", feature = "defmt"))]
     debug_ntp_packet(&packet, recv_timestamp);
 
     if send_req_result.originate_timestamp != packet.origin_timestamp {
@@ -899,7 +904,7 @@ fn process_response(
     let offset = offset_calculate(t1, t2, t3, t4, units);
     let timestamp = NtpTimestamp::from(packet.tx_timestamp);
 
-    #[cfg(feature = "log")]
+    #[cfg(any(feature = "log", feature = "defmt"))]
     debug!(
         "Roundtrip delay: {} {}. Offset: {} {}",
         roundtrip, units, offset, units
@@ -989,7 +994,33 @@ fn offset_calculate(t1: u64, t2: u64, t3: u64, t4: u64, units: Units) -> i64 {
     }
 }
 
-#[cfg(feature = "log")]
+#[cfg(feature = "defmt")]
+fn debug_ntp_packet(packet: &NtpPacket, recv_timestamp: u64) {
+    let mode = shifter(packet.li_vn_mode, MODE_MASK, MODE_SHIFT);
+    let version = shifter(packet.li_vn_mode, VERSION_MASK, VERSION_SHIFT);
+    let li = shifter(packet.li_vn_mode, LI_MASK, LI_SHIFT);
+
+    debug!("NTP Packet:");
+    debug!("Mode: {}", mode);
+    debug!("Version: {}", version);
+    debug!("Leap: {}", li);
+    debug!("Stratum: {}", packet.stratum);
+    debug!("Poll: {}", packet.poll);
+    debug!("Precision: {}", packet.precision);
+    debug!("Root delay: {}", packet.root_delay);
+    debug!("Root dispersion: {}", packet.root_dispersion);
+    debug!(
+        "Reference ID: {}",
+        str::from_utf8(&packet.ref_id.to_be_bytes()).unwrap_or("")
+    );
+    debug!("Origin timestamp (client): {}", packet.origin_timestamp);
+    debug!("Receive timestamp (server): {}", packet.recv_timestamp);
+    debug!("Transmit timestamp (server): {}", packet.tx_timestamp);
+    debug!("Receive timestamp (client): {}", recv_timestamp);
+    debug!("Reference timestamp (server): {}", packet.ref_timestamp);
+}
+
+#[cfg(all(feature = "log", not(feature = "defmt")))]
 fn debug_ntp_packet(packet: &NtpPacket, recv_timestamp: u64) {
     let mode = shifter(packet.li_vn_mode, MODE_MASK, MODE_SHIFT);
     let version = shifter(packet.li_vn_mode, VERSION_MASK, VERSION_SHIFT);

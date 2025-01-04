@@ -4,18 +4,15 @@ version = "0.1.0"
 edition = "2021"
 publish = false
 
-[features]
-log = ["dep:simple_logger", "dep:log", "sntpc/log", "embassy-executor/log", "embassy-time/log", "embassy-net/log"]
-
 [dependencies]
-sntpc = { path = "../../sntpc", default-features = false, features = ["embassy-socket"] }
-log = { version = "~0.4", optional = true }
-simple_logger = { version = "5", optional = true }
-embassy-executor = { version = "0.6.3", features = ["task-arena-size-32768", "arch-std", "executor-thread"] }
-embassy-time = { version = "0.3.2", features = ["std", "generic-queue"] }
-embassy-net = { version = "0.5.0", features = ["std", "medium-ethernet", "udp", "dns"] }
+sntpc = { path = "../../sntpc", default-features = false, features = ["defmt", "embassy-socket"] }
+embassy-executor = { version = "0.6.3", features = ["arch-std", "defmt", "task-arena-size-32768", "executor-thread"] }
+embassy-time = { version = "0.3.2", features = ["std", "defmt", "generic-queue"] }
+embassy-net = { version = "0.5.0", features = ["std", "defmt", "medium-ethernet", "udp", "dns"] }
 static_cell = "2"
 heapless = { version = "0.8", default-features = false }
+defmt = "0.3"
+defmt-logger-tcp = "0.2"
 
 [target.'cfg(unix)'.dependencies]
 embassy-net-tuntap = "0.1.0"
