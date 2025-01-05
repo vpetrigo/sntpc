@@ -22,10 +22,17 @@
 //! - `sync`: enables synchronous interface
 //! - `utils`: includes functionality that mostly OS specific and allows system time sync
 //! - `log`: enables library debug output during execution
+//! - `defmt`: enables library debug output using defmt
 //! - `std-socket`: add `NtpUdpSocket` trait implementation for `std::net::UdpSocket`
 //! - `embassy-socket`: add `NtpUdpSocket` trait implementation for `embassy_net::udp::UdpSocket`
 //! - `tokio-socket`: add `NtpUdpSocket` trait implementation for `tokio::net::UdpSocket`
-//! - `defmt`: enables library debug output using defmt
+//!
+//! <div class="warning">
+//!
+//! **Warning**: `log` and `defmt` are mutually exclusive features. If for some reason both are
+//! enabled `defmt` is considered to have higher priority feature, so all logging will use `defmt`
+//! API.
+//! </div>
 //!
 //! <div class="warning">
 //!
