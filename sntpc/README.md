@@ -17,74 +17,132 @@ Supported SNTP protocol versions:
 
 -----------------
 
-https://docs.rs/sntpc
+More information about this crate can be found in the [crate documentation](https://docs.rs/sntpc)
 
-### Installation
+### Usage example
 
-----------------
-
-This crate works with Cargo and is on
-[crates.io](https://crates.io/crates/sntpc). Add it to your `Cargo.toml`
-like so:
+- dependency for the app
 
 ```toml
 [dependencies]
-sntpc = "0.4.0"
+sntpc = { version = "0.5", features = ["sync"] }
 ```
 
-By calling the `get_time()` method and providing a proper NTP pool or server you
-should get a valid synchronization timestamp:
+- application code
 
 ```rust
-use std::net::UdpSocket;
+use sntpc::{sync::get_time, NtpContext, StdTimestampGen};
+
+use std::net::{SocketAddr, ToSocketAddrs, UdpSocket};
+use std::thread;
 use std::time::Duration;
 
+#[allow(dead_code)]
+const POOL_NTP_ADDR: &str = "pool.ntp.org:123";
+#[allow(dead_code)]
+const GOOGLE_NTP_ADDR: &str = "time.google.com:123";
+
 fn main() {
+    #[cfg(feature = "log")]
+    if cfg!(debug_assertions) {
+        simple_logger::init_with_level(log::Level::Trace).unwrap();
+    } else {
+        simple_logger::init_with_level(log::Level::Info).unwrap();
+    }
+
     let socket =
         UdpSocket::bind("0.0.0.0:0").expect("Unable to crate UDP socket");
     socket
         .set_read_timeout(Some(Duration::from_secs(2)))
         .expect("Unable to set UDP socket read timeout");
-    let result = sntpc::simple_get_time("time.google.com:123", &socket);
-    match result {
-        Ok(time) => {
-            println!("Got time: {}.{}", time.sec(), sntpc::fraction_to_milliseconds(time.sec_fraction()));
+
+    for addr in POOL_NTP_ADDR.to_socket_addrs().unwrap() {
+        let ntp_context = NtpContext::new(StdTimestampGen::default());
+        let result = get_time(addr, &socket, ntp_context);
+
+        match result {
+            Ok(time) => {
+                assert_ne!(time.sec(), 0);
+                let seconds = time.sec();
+                let microseconds = u64::from(time.sec_fraction()) * 1_000_000
+                    / u64::from(u32::MAX);
+                println!("Got time from [{POOL_NTP_ADDR}] {addr}: {seconds}.{microseconds}");
+
+                break;
+            }
+            Err(err) => println!("Err: {err:?}"),
         }
-        Err(err) => println!("Err: {:?}", err),
+
+        thread::sleep(Duration::new(2, 0));
     }
 }
 ```
+
+You can find this [example](examples/simple-request) as well as other example projects in the
+[example directory](examples).
 
 ## `no_std` support
 
 -------------------
 
-Currently, there are basic `no_std` support available, thanks to [`no-std-net`](https://crates.io/crates/no-std-net)
-crate. There is an example available on how to use [`smoltcp`][smoltcp] stack and that should provide
+There is an example available on how to use [`smoltcp`](examples/smoltcp-request) stack and that should provide
 general idea on how to bootstrap `no_std` networking and timestamping tools for `sntpc` library usage
 
 ## `async` support
 
 -------------------
 
-Feature `async_tokio` allows to use crate together with [tokio](https://docs.rs/tokio/latest/tokio/).
-Example available in the [repository](https://github.com/vpetrigo/sntpc).
+Starting version `0.5` the default interface is `async`. If you want to use synchronous interface, read about `sync`
+feature below.
+
+`tokio` example: [`examples/tokio`](examples/tokio)
 
 There is also `no_std` support with feature `async`, but it requires Rust >= `1.75-nightly` version.
 The example can be found in [separate repository](https://github.com/vpikulik/sntpc_embassy).
 
-# Examples
+## `sync` support
 
-----------
+-------------------
 
-You can find several examples that shows how to use the library in details under [examples/] folder.
-Currently, there are examples that show:
+`sntpc` crate is `async` by default, since most of the frameworks (I have seen) for embedded systems utilize
+asynchronous approach, e.g.:
 
-- usage of SNTP library in `std` environment
-- usage of SNTP library with [`smoltcp`][smoltcp] TCP/IP stack. Some `std` dependencies
-  required only due to smoltcp available interfaces
+- [RTIC](https://github.com/rtic-rs/rtic)
+- [embassy](https://github.com/embassy-rs/embassy)
 
-[smoltcp]: https://github.com/smoltcp-rs/smoltcp
+If you need fully synchronous interface it is available in the `sntpc::sync` submodule and respective `sync`-feature
+enabled. In the case someone needs a synchronous socket support the currently async `NtpUdpSocket` trait can be
+implemented in a fully synchronous manner. This is an example for the `std::net::UdpSocket` that is available in the
+crate:
+
+```rust
+#[cfg(feature = "std")]
+impl NtpUdpSocket for UdpSocket {
+    async fn send_to(&self, buf: &[u8], addr: SocketAddr) -> Result<usize> {
+        match self.send_to(buf, addr) {
+            Ok(usize) => Ok(usize),
+            Err(_) => Err(Error::Network),
+        }
+    }
+
+    async fn recv_from(&self, buf: &mut [u8]) -> Result<(usize, SocketAddr)> {
+        match self.recv_from(buf) {
+            Ok((size, addr)) => Ok((size, addr)),
+            Err(_) => Err(Error::Network),
+        }
+    }
+}
+```
+
+As you can see, you may implement everything as synchronous, `sntpc` synchronous interface handles `async`-like stuff
+internally.
+
+That approach also allows to avoid issues with [`maybe_async`](https://docs.rs/maybe-async/latest/maybe_async/) when the
+sync/async feature [violates Cargo requirements](https://doc.rust-lang.org/cargo/reference/features.html):
+> That is, enabling a feature should not disable functionality, and it should usually be safe to enable any combination
+> of features.
+
+Small overhead introduced by creating an executor should be negligible.
 
 # Contribution
 
@@ -92,7 +150,7 @@ Currently, there are examples that show:
 
 Contributions are always welcome! If you have an idea, it's best to float it by me before working on it to ensure no
 effort is wasted. If there's already an open issue for it, knock yourself out. See the
-[**contributing section**](https://github.com/vpetrigo/sntpc/blob/master/CONTRIBUTING.md) for additional details
+[**contributing section**](CONTRIBUTING.md) for additional details
 
 ## Thanks
 
@@ -105,6 +163,8 @@ effort is wasted. If there's already an open issue for it, knock yourself out. S
 5. [Vitali Pikulik](https://github.com/vpikulik): for adding `async` support
 6. [tsingwong](https://github.com/tsingwong): for fixing invalid link in the `README.md`
 7. [Robert Bastian](https://github.com/robertbastian): for fixing the overflow issue in the `calculate_offset`
+8. [oleid](https://github.com/oleid): for bringing `embassy` socket support
+9. [Damian Peckett](https://github.com/dpeckett): for adding `defmt` support and elaborating on `embassy` example
 
 Really appreciate all your efforts! Please [let me know](mailto:vladimir.petrigo@gmail.com) if I forgot someone.
 
