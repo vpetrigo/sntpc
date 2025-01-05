@@ -6,7 +6,7 @@ publish = false
 
 [dependencies]
 sntpc = { path = "../../sntpc", default-features = false, features = ["defmt", "embassy-socket"] }
-embassy-executor = { version = "0.6.3", features = ["arch-std", "defmt", "task-arena-size-32768", "executor-thread"] }
+embassy-executor = { version = "0.7.0", features = ["arch-std", "defmt", "task-arena-size-32768", "executor-thread"] }
 embassy-time = { version = "0.3.2", features = ["std", "defmt", "generic-queue"] }
 embassy-net = { version = "0.5.0", features = ["std", "defmt", "medium-ethernet", "udp", "dns"] }
 static_cell = "2"
