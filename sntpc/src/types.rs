@@ -38,6 +38,7 @@ pub(crate) const SECONDS_FRAC_MASK: u64 = 0xffff_ffff;
 /// SNTP library result type
 pub type Result<T> = core::result::Result<T, Error>;
 
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub(crate) struct NtpPacket {
     pub(crate) li_vn_mode: u8,
     pub(crate) stratum: u8,
@@ -58,6 +59,7 @@ cfg_if! {
 
         use core::str;
 
+        #[cfg_attr(feature = "defmt", derive(defmt::Format))]
         pub(crate) struct DebugNtpPacket<'a> {
             packet: &'a NtpPacket,
             client_recv_timestamp: u64,
