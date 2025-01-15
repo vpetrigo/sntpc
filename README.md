@@ -165,6 +165,8 @@ effort is wasted. If there's already an open issue for it, knock yourself out. S
 7. [Robert Bastian](https://github.com/robertbastian): for fixing the overflow issue in the `calculate_offset`
 8. [oleid](https://github.com/oleid): for bringing `embassy` socket support
 9. [Damian Peckett](https://github.com/dpeckett): for adding `defmt` support and elaborating on `embassy` example
+10. [icalder](https://github.com/icalder): for improving `embassy-net` support and adding missing `defmt` format support
+    for some `sntpc` types
 
 Really appreciate all your efforts! Please [let me know](mailto:vladimir.petrigo@gmail.com) if I forgot someone.
 
