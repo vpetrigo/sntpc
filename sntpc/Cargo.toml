@@ -26,15 +26,16 @@ sync = ["dep:miniloop"]
 utils = ["std", "dep:chrono", "chrono/clock"]
 log = ["dep:log"]
 std-socket = []
-embassy-socket = ["dep:embassy-net"]
 tokio-socket = ["dep:tokio"]
 defmt = ["dep:defmt", "embassy-net/defmt"]
+embassy-socket = ["dep:embassy-net"]
+embassy-socket-ipv6 = ["embassy-socket", "embassy-net?/proto-ipv6"]
 
 [dependencies]
 log = { version = "~0.4", optional = true }
 chrono = { version = "~0.4", default-features = false, optional = true }
 miniloop = { version = "~0.3", optional = true }
-embassy-net = { version = ">=0.5", features = ["udp", "proto-ipv4", "proto-ipv6", "medium-ip"], optional = true }
+embassy-net = { version = "0.6", features = ["udp", "proto-ipv4", "medium-ip"], optional = true }
 tokio = { version = "1", features = ["net"], optional = true }
 defmt = { version = "0.3", optional = true }
 cfg-if = "~1"
