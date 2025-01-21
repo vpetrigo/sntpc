@@ -11,7 +11,10 @@ impl NtpUdpSocket for UdpSocket<'_> {
         let endpoint = IpEndpoint::new(
             match addr.ip() {
                 IpAddr::V4(addr) => IpAddress::Ipv4(addr),
+                #[cfg(feature = "embassy-socket-ipv6")]
                 IpAddr::V6(addr) => IpAddress::Ipv6(addr),
+                #[allow(unreachable_patterns)]
+                _ => unreachable!(),
             },
             addr.port(),
         );
@@ -31,7 +34,10 @@ impl NtpUdpSocket for UdpSocket<'_> {
             SocketAddr::new(
                 match ep.addr {
                     IpAddress::Ipv4(val) => IpAddr::V4(val),
+                    #[cfg(feature = "embassy-socket-ipv6")]
                     IpAddress::Ipv6(val) => IpAddr::V6(val),
+                    #[allow(unreachable_patterns)]
+                    _ => unreachable!(),
                 },
                 ep.port,
             )
