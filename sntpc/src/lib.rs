@@ -187,9 +187,9 @@ use cfg_if::cfg_if;
 ///
 /// * `addr` - The socket address (`SocketAddr`) of the NTP server.
 /// * `socket` - A reference to an object implementing the [`NtpUdpSocket`] trait that allows
-///    sending/receiving UDP packets.
+///   sending/receiving UDP packets.
 /// * `context` - An SNTP context (`NtpContext<T>`) containing a timestamp generator that implements
-///    the [`NtpTimestampGenerator`] trait. This ensures precise timestamp creation for request and response processing.
+///   the [`NtpTimestampGenerator`] trait. This ensures precise timestamp creation for request and response processing.
 ///
 /// # Returns
 ///
@@ -315,15 +315,15 @@ where
 ///
 /// * `dest` - The socket address (`SocketAddr`) of the NTP server.
 /// * `socket` - A reference to an object implementing the [`NtpUdpSocket`] trait
-///    that is used to send/receive UDP packets.
+///   that is used to send/receive UDP packets.
 /// * `context` - An SNTP context (`NtpContext<T>`) containing a timestamp generator
-///    that implements the [`NtpTimestampGenerator`] trait to provide a custom mechanism for generating timestamps.
+///   that implements the [`NtpTimestampGenerator`] trait to provide a custom mechanism for generating timestamps.
 ///
 /// # Returns
 ///
 /// Returns a `Result<SendRequestResult>`:
 /// * `Ok(SendRequestResult)` - If the packet was successfully sent, includes details
-///    about the request, such as the originate timestamp.
+///   about the request, such as the originate timestamp.
 /// * `Err(Error)` - If there was an error in sending the request, such as a network failure.
 ///
 /// # Examples
@@ -437,11 +437,11 @@ where
 ///
 /// * `dest` - The expected socket address (`SocketAddr`) of the NTP server.
 /// * `socket` - A reference to an object implementing the [`NtpUdpSocket`] trait
-///    used for receiving the response.
+///   used for receiving the response.
 /// * `context` - An SNTP context (`NtpContext<T>`) containing a timestamp generator
-///    that manages internal time calculations.
+///   that manages internal time calculations.
 /// * `send_req_result` - The result of the previously sent request, containing the originate timestamp
-///    of the SNTP request.
+///   of the SNTP request.
 ///
 /// # Returns
 ///
@@ -663,7 +663,7 @@ pub mod sync {
     /// * `dest` - The destination NTP server's socket address to send the request to.
     /// * `socket` - A reference to an object implementing the [`NtpUdpSocket`] trait to send/receive data.
     /// * `context` - The SNTP client context (implementing [`NtpTimestampGenerator`]) that
-    ///    assists in generating timestamps for the request.
+    ///   assists in generating timestamps for the request.
     ///
     /// # Errors
     ///
