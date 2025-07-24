@@ -50,7 +50,7 @@ unsafe impl GlobalAlloc for SimpleAllocator {
             .is_err()
         {
             return null_mut();
-        };
+        }
         self.arena.get().cast::<u8>().add(allocated)
     }
 
