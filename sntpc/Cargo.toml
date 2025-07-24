@@ -1,6 +1,6 @@
 [package]
 name = "sntpc"
-version = "0.5.2"
+version = "0.6.0"
 description = "Library for making SNTP requests"
 homepage = "https://github.com/vpetrigo/sntpc"
 repository = "https://github.com/vpetrigo/sntpc"

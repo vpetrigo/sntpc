@@ -25,7 +25,7 @@ More information about this crate can be found in the [crate documentation](http
 
 ```toml
 [dependencies]
-sntpc = { version = "0.5", features = ["sync"] }
+sntpc = { version = "0.6", features = ["sync"] }
 ```
 
 - application code
@@ -167,6 +167,7 @@ effort is wasted. If there's already an open issue for it, knock yourself out. S
 9. [Damian Peckett](https://github.com/dpeckett): for adding `defmt` support and elaborating on `embassy` example
 10. [icalder](https://github.com/icalder): for improving `embassy-net` support and adding missing `defmt` format support
     for some `sntpc` types
+11. [Scott Mabin](https://github.com/MabezDev): for introducing `embassy-socket-ipv6` to opt-in IPv6 support
 
 Really appreciate all your efforts! Please [let me know](mailto:vladimir.petrigo@gmail.com) if I forgot someone.
 

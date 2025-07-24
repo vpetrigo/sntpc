@@ -25,7 +25,7 @@ More information about this crate can be found in the [crate documentation](http
 
 ```toml
 [dependencies]
-sntpc = { version = "0.5", features = ["sync"] }
+sntpc = { version = "0.6", features = ["sync"] }
 ```
 
 - application code
