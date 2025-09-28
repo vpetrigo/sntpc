@@ -178,8 +178,6 @@ pub mod net {
 
 use cfg_if::cfg_if;
 
-pub(crate) const SYNC_EXECUTOR_NUMBER_OF_TASKS: usize = 1;
-
 /// Retrieves the current time from an NTP server.
 ///
 /// This asynchronous function performs the complete SNTP flow:
@@ -624,7 +622,7 @@ pub mod sync {
         NtpContext, NtpResult, NtpTimestampGenerator, NtpUdpSocket, Result,
         SendRequestResult,
     };
-    use crate::SYNC_EXECUTOR_NUMBER_OF_TASKS;
+    pub(crate) const SYNC_EXECUTOR_NUMBER_OF_TASKS: usize = 1;
 
     use miniloop::executor::Executor;
     /// Send request to a NTP server with the given address and process the response in a single call
@@ -1321,7 +1319,7 @@ mod sntpc_sync_tests {
 #[cfg(all(test, feature = "std", feature = "std-socket"))]
 mod sntpc_async_tests {
     use crate::get_time;
-    use crate::SYNC_EXECUTOR_NUMBER_OF_TASKS;
+    use crate::sync::SYNC_EXECUTOR_NUMBER_OF_TASKS;
     use crate::{Error, NtpContext, StdTimestampGen};
     use miniloop::executor::Executor;
     use std::net::{SocketAddr, ToSocketAddrs, UdpSocket};

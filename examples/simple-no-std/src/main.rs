@@ -111,7 +111,7 @@ impl NtpUdpSocket for SimpleUdp {
     ) -> impl Future<Output = Result<(usize, SocketAddr)>> {
         core::future::ready(Ok((
             0usize,
-            SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 123u16),
+            SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 123u16),
         )))
     }
 }
@@ -120,7 +120,7 @@ async fn body() -> Result<i32> {
     let timestamp_gen = TimestampGen::default();
     let context = NtpContext::new(timestamp_gen);
     let socket = SimpleUdp;
-    let address = (IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), 123u16).into();
+    let address = (IpAddr::V4(Ipv4Addr::UNSPECIFIED), 123u16).into();
 
     match get_time(address, &socket, context).await {
         Ok(time) => {
