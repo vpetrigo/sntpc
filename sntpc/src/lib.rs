@@ -131,7 +131,8 @@
 //!     let socket =
 //!         UdpSocket::bind("0.0.0.0:0").expect("Unable to crate UDP socket");
 //!     let context = NtpContext::new(Timestamp::default());
-//!     # let mut executor = Executor::new();
+//!     # const NUM_OF_TASKS: usize = 1;
+//!     # let mut executor: Executor<NUM_OF_TASKS> = Executor::new();
 //!     let server_addr: SocketAddr = "time.google.com:123"
 //!         .to_socket_addrs()
 //!         .expect("Unable to resolve host")
@@ -274,7 +275,8 @@ use cfg_if::cfg_if;
 ///     let socket = UdpSocket::bind("0.0.0.0:0").expect("Unable to crate UDP socket");
 ///     let context = NtpContext::new(Timestamp::default());
 ///     let server_addr: SocketAddr = "time.google.com:123".to_socket_addrs().expect("Unable to resolve host").next().unwrap();
-///     # let mut executor = Executor::new();
+///     # const NUM_OF_TASKS: usize = 1;
+///     # let mut executor: Executor<NUM_OF_TASKS> = Executor::new();
 ///
 ///     match executor.block_on(async {
 ///         get_time(server_addr, &socket, context).await
@@ -392,12 +394,14 @@ where
 /// #         }
 /// #     }
 /// # }
+/// #
+/// # const NUM_OF_TASKS: usize = 1;
 ///
 /// fn main() {
 ///     let socket = UdpSocket::bind("0.0.0.0:0").expect("Unable to crate UDP socket");
 ///     let context = NtpContext::new(Timestamp::default());
 ///     let server_addr: SocketAddr = "time.google.com:123".to_socket_addrs().expect("Unable to resolve host").next().unwrap();
-///     # let mut executor = Executor::new();
+///     # let mut executor: Executor<NUM_OF_TASKS> = Executor::new();
 ///
 ///     let request_result = executor.block_on(async {
 ///            sntp_send_request(server_addr, &socket, context).await
@@ -527,7 +531,8 @@ where
 ///     let socket = UdpSocket::bind("0.0.0.0:0").expect("Unable to crate UDP socket");
 ///     let context = NtpContext::new(Timestamp::default());
 ///     let server_addr: SocketAddr = "time.google.com:123".to_socket_addrs().expect("Unable to resolve host").filter(SocketAddr::is_ipv4).next().unwrap();
-///     # let mut executor = Executor::new();
+///     # const NUM_OF_TASKS: usize = 1;
+///     # let mut executor: Executor<NUM_OF_TASKS> = Executor::new();
 ///
 ///     let request_result = executor.block_on(async {
 ///            sntp_send_request(server_addr, &socket, context).await.expect("Unable to send request")
@@ -617,6 +622,7 @@ pub mod sync {
         NtpContext, NtpResult, NtpTimestampGenerator, NtpUdpSocket, Result,
         SendRequestResult,
     };
+    pub(crate) const SYNC_EXECUTOR_NUMBER_OF_TASKS: usize = 1;
 
     use miniloop::executor::Executor;
     /// Send request to a NTP server with the given address and process the response in a single call
@@ -737,7 +743,7 @@ pub mod sync {
         U: NtpUdpSocket,
         T: NtpTimestampGenerator + Copy,
     {
-        Executor::new()
+        Executor::<1>::new()
             .block_on(crate::sntp_send_request(dest, socket, context))
     }
 
@@ -833,12 +839,14 @@ pub mod sync {
         U: NtpUdpSocket,
         T: NtpTimestampGenerator + Copy,
     {
-        Executor::new().block_on(crate::sntp_process_response(
-            dest,
-            socket,
-            context,
-            send_req_result,
-        ))
+        Executor::<SYNC_EXECUTOR_NUMBER_OF_TASKS>::new().block_on(
+            crate::sntp_process_response(
+                dest,
+                socket,
+                context,
+                send_req_result,
+            ),
+        )
     }
 }
 
@@ -1311,6 +1319,7 @@ mod sntpc_sync_tests {
 #[cfg(all(test, feature = "std", feature = "std-socket"))]
 mod sntpc_async_tests {
     use crate::get_time;
+    use crate::sync::SYNC_EXECUTOR_NUMBER_OF_TASKS;
     use crate::{Error, NtpContext, StdTimestampGen};
     use miniloop::executor::Executor;
     use std::net::{SocketAddr, ToSocketAddrs, UdpSocket};
@@ -1335,7 +1344,7 @@ mod sntpc_async_tests {
             for address in
                 pool.to_socket_addrs().unwrap().filter(SocketAddr::is_ipv4)
             {
-                let result = Executor::new()
+                let result = Executor::<SYNC_EXECUTOR_NUMBER_OF_TASKS>::new()
                     .block_on(get_time(address, &socket, context));
 
                 assert!(
@@ -1363,7 +1372,7 @@ mod sntpc_async_tests {
             for address in
                 pool.to_socket_addrs().unwrap().filter(SocketAddr::is_ipv4)
             {
-                let result = Executor::new()
+                let result = Executor::<SYNC_EXECUTOR_NUMBER_OF_TASKS>::new()
                     .block_on(get_time(address, &socket, context));
                 assert!(result.is_err(), "{pool} is ok");
                 assert_eq!(
