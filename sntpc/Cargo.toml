@@ -1,6 +1,6 @@
 [package]
 name = "sntpc"
-version = "0.6.0"
+version = "0.6.1"
 description = "Library for making SNTP requests"
 homepage = "https://github.com/vpetrigo/sntpc"
 repository = "https://github.com/vpetrigo/sntpc"
@@ -34,15 +34,15 @@ defmt = ["dep:defmt", "embassy-net/defmt"]
 [dependencies]
 log = { version = "~0.4", optional = true }
 chrono = { version = "~0.4", default-features = false, optional = true }
-miniloop = { version = "~0.3", optional = true }
+miniloop = { version = "~0.4", optional = true }
 embassy-net = { version = ">=0.5", features = ["udp", "proto-ipv4", "medium-ip"], optional = true }
 tokio = { version = "1", features = ["net"], optional = true }
 defmt = { version = "~1.0", optional = true }
 cfg-if = "~1"
 
 [dev-dependencies]
-miniloop = "~0.3"
-criterion = "0.5"
+miniloop = "~0.4"
+criterion = "~0.7"
 
 [badges]
 maintenance = { status = "actively-developed" }
