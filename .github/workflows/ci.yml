@@ -34,7 +34,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Check formatting
-        run: cargo fmt --check
+        run: cargo xtask format
 
   build-test:
     runs-on: ubuntu-latest
