@@ -3,6 +3,19 @@ use crate::{Context, Result};
 use std::path::Path;
 use std::process::Command;
 
+/// Runs Clippy linting with strict rules on all code in the project.
+///
+/// This function runs clippy on the main sntpc crate (with all features and
+/// without default features) and all examples with strict linting rules including
+/// `clippy::all` and `clippy::pedantic`.
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - Cargo clippy command execution fails
+/// - Clippy finds any linting violations
+/// - Failed to discover examples
+/// - Any clippy process returns a non-zero exit code
 pub fn run_clippy() -> Result<()> {
     utils::print_header("Running Clippy with strict linting on all code...");
 
@@ -84,7 +97,7 @@ fn clippy_run(example_name: &str, no_std: bool) -> Result<()> {
     }
 
     utils::run_cargo_clippy(&example_dir, &args)?;
-
     utils::print_step_success(&format!("{example_name}{feature_msg}"));
+
     Ok(())
 }

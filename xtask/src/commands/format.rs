@@ -2,6 +2,19 @@ use crate::Result;
 use crate::utils;
 use std::path::Path;
 
+/// Checks code formatting for the main crate and all examples.
+///
+/// This function runs `cargo fmt --check` on the main sntpc crate and all
+/// discovered examples to verify that the code is properly formatted without
+/// making any changes.
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - Failed to discover examples
+/// - Cargo fmt check command execution fails
+/// - Any formatting violations are found
+/// - The format check process returns a non-zero exit code
 pub fn check_formatting() -> Result<()> {
     utils::print_header("Checking code formatting for main crate and all examples...");
 
@@ -20,6 +33,17 @@ pub fn check_formatting() -> Result<()> {
     Ok(())
 }
 
+/// Fixes code formatting for the main crate and all examples.
+///
+/// This function runs `cargo fmt` on the main sntpc crate and all discovered
+/// examples to automatically fix formatting issues according to rustfmt rules.
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - Failed to discover examples
+/// - Cargo fmt command execution fails
+/// - The formatting process returns a non-zero exit code
 pub fn fix_formatting() -> Result<()> {
     utils::print_header("Fixing code formatting for the main crate and all examples...");
 
@@ -45,10 +69,9 @@ fn check_format_crate(path: &str, name: &str) -> Result<()> {
     }
 
     utils::print_step("Checking format", name);
-
     utils::run_cargo_fmt_check(path)?;
-
     utils::print_step_success(name);
+
     Ok(())
 }
 
@@ -59,9 +82,8 @@ fn fix_format_crate(path: &str, name: &str) -> Result<()> {
     }
 
     utils::print_step("Fixing format", name);
-
     utils::run_cargo_fmt_fix(path)?;
-
     utils::print_step_success(name);
+
     Ok(())
 }

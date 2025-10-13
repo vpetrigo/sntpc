@@ -1,53 +1,96 @@
-This directory contains the build automation tool (`xtask`) for the sntpc project. It provides commands to build different categories of examples independently, avoiding dependency conflicts that can occur in workspace setups.
-cargo xtask build-unix            # Build Unix-specific examples (all except simple-no-std)
-cargo xtask build-cross-platform  # Build cross-platform examples (simple-request, tokio, timesync)
+# Build Automation for `sntpc` crate
 
-# Build everything
-cargo xtask build-all             # Build all examples
-cargo xtask build-crate           # Build only the main sntpc crate
+A build automation tool for the `sntpc` (Simple Network Time Protocol Client) crate and its examples.
 
-# Testing and checking
-cargo xtask test                  # Run tests for main crate
-cargo xtask check                 # Check all code (main crate + examples)
+## Overview
 
-# Cleanup
-cargo xtask clean                 # Clean all build artifacts
+`xtask` is a Rust-based task runner that provides a unified interface for building, testing, checking, and formatting
+code across the entire SNTPC project. It follows the [xtask pattern](https://github.com/matklad/cargo-xtask) for project
+automation.
+
+## Installation
+
+From the project root directory:
+
+```bash
+cargo build --package xtask --release
 ```
 
-## Example Categories
+Or run directly with cargo:
 
-### No-std Examples
-- `simple-no-std` - Basic SNTP client for embedded environments
+```bash
+cargo run --package xtask -- <command>
+```
 
-These examples are built with the `thumbv7em-none-eabihf` target by default.
+## Usage
 
-### Unix-specific Examples  
-- `simple-request` - Basic synchronous SNTP request
-- `tokio` - Async SNTP client using tokio runtime
-- `embassy-net` - Embassy networking example
-- `embassy-net-timeout` - Embassy with timeout handling
-- `smoltcp-request` - Using smoltcp network stack
-- `timesync` - Time synchronization example
+```bash
+cargo xtask <COMMAND>
+```
 
-### Cross-platform Examples
-- `simple-request` - Works on any platform with std
-- `tokio` - Cross-platform async example
-- `timesync` - Platform-agnostic time sync
+### Available Commands
 
-## Benefits of xtask Approach
+#### Build Commands
 
-1. **Dependency Isolation**: Each example maintains its own dependencies without conflicts
-2. **Environment Detection**: Automatically handles platform-specific requirements
-3. **Selective Building**: Build only what's compatible with your environment
-4. **CI Integration**: Clean separation of build jobs for different environments
-5. **Developer Experience**: Simple, memorable commands
-xtask = "run --package xtask --"
+- **`build-nostd`** - Build no-std examples (simple-no-std)
+- **`build-unix`** - Build Unix-specific examples (all except simple-no-std)
+- **`build-cross-platform`** - Build cross-platform examples (simple-request, tokio, timesync)
+- **`build-all`** - Build all examples
+- **`build-crate`** - Build the main sntpc crate
+    - `--all-features` - Build with all features enabled
+    - `--no-default-features` - Build with no default features
 
-[build]
-# Default target for no-std examples
-# Can be overridden with --target flag
-rustflags = ["-C", "link-arg=-Tlink.x"]
+#### Quality Assurance Commands
 
-[target.thumbv7em-none-eabihf]
-# ARM Cortex-M4 target for no-std examples
-runner = "echo 'Build completed for thumbv7em-none-eabihf target'"
+- **`test`** - Run tests for the main crate
+- **`check`** - Check all code (main crate and examples)
+- **`clippy`** - Run clippy on all code with strict linting
+- **`format`** - Check code formatting for the main crate and all examples
+    - `--check` - Check formatting without making changes
+    - `--fix` - Fix formatting issues
+
+#### Maintenance Commands
+
+- **`clean`** - Clean all build artifacts
+
+### Examples
+
+```bash
+# Build all examples
+cargo xtask build-all
+
+# Run tests
+cargo xtask test
+
+# Check formatting
+cargo xtask format --check
+
+# Fix formatting issues
+cargo xtask format --fix
+
+# Run clippy with strict linting
+cargo xtask clippy
+
+# Build main crate with all features
+cargo xtask build-crate --all-features
+
+# Clean all build artifacts
+cargo xtask clean
+```
+
+## Project Structure
+
+The xtask crate is organized into several modules:
+
+- **`commands/`** - Implementation of all build automation commands
+    - `build.rs` - Building examples and main crate
+    - `check.rs` - Code checking functionality
+    - `clean.rs` - Cleanup operations
+    - `clippy.rs` - Linting with clippy
+    - `format.rs` - Code formatting operations
+    - `test.rs` - Test execution
+
+- **`utils/`** - Common utilities used across commands
+    - `cargo.rs` - Cargo command execution helpers
+    - `examples.rs` - Example project management
+    - `output.rs` - Output formatting and display

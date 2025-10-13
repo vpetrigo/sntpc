@@ -2,6 +2,17 @@ use crate::Result;
 use crate::utils;
 use std::path::Path;
 
+/// Cleans all build artifacts from the main crate and examples.
+///
+/// This function runs `cargo clean` on the main sntpc crate and all discovered
+/// examples to remove build artifacts and free up disk space.
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - Failed to discover examples
+/// - Cargo clean command execution fails for the main crate
+/// - Critical cleanup operations fail (example cleanup failures are ignored)
 pub fn clean_all() -> Result<()> {
     utils::print_header("Cleaning all build artifacts...");
 
