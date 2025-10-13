@@ -145,7 +145,7 @@ fn build_nostd_examples() -> Result<()> {
     }
 
     for example in examples {
-        build_example(&example, "no-std")?;
+        build_example(&example)?;
     }
 
     println!("{}", "✓ All no-std examples built successfully!".bright_green().bold());
@@ -171,7 +171,7 @@ fn build_unix_examples() -> Result<()> {
     }
 
     for example in examples {
-        build_example(&example, "unix")?;
+        build_example(&example)?;
     }
 
     println!(
@@ -192,7 +192,7 @@ fn build_cross_platform_examples() -> Result<()> {
     }
 
     for example in examples {
-        build_example(&example, "cross-platform")?;
+        build_example(&example)?;
     }
 
     println!(
@@ -474,7 +474,7 @@ fn clippy_run(example_name: &str, no_std: bool) -> Result<()> {
     Ok(())
 }
 
-fn build_example(example_name: &str, category: &str) -> Result<()> {
+fn build_example(example_name: &str) -> Result<()> {
     let example_dir = format!("examples/{example_name}");
 
     if !Path::new(&example_dir).exists() {
@@ -489,11 +489,6 @@ fn build_example(example_name: &str, category: &str) -> Result<()> {
 
     let mut cmd = Command::new("cargo");
     cmd.args(["build"]).current_dir(&example_dir);
-
-    // Add special flags for no-std examples
-    if category == "no-std" {
-        cmd.args(["--target", "thumbv7em-none-eabihf"]);
-    }
 
     let status = cmd
         .status()
