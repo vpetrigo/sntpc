@@ -8,12 +8,9 @@ fn main() {
 
         // The default linker script can be overriden by setting `LDSCRIPTDIR` and `LDSCRIPT`.
         // If not specified, the binutils default linker script for the target architecture is used.
-        let ldscript_dir = env::var("LDSCRIPTDIR").map_or_else(
-            |_| Path::new(&manifest_dir).join("ldscripts"),
-            PathBuf::from,
-        );
-        let ldscript = env::var("LDSCRIPT")
-            .unwrap_or_else(|_| format!("elf_{target_arch}.x"));
+        let ldscript_dir =
+            env::var("LDSCRIPTDIR").map_or_else(|_| Path::new(&manifest_dir).join("ldscripts"), PathBuf::from);
+        let ldscript = env::var("LDSCRIPT").unwrap_or_else(|_| format!("elf_{target_arch}.x"));
 
         // Add the linker script to the search path.
         println!("cargo:rustc-link-search={}", ldscript_dir.to_string_lossy());

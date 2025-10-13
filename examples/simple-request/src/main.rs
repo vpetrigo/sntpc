@@ -21,8 +21,7 @@ fn main() {
         simple_logger::init_with_level(log::Level::Info).unwrap();
     }
 
-    let socket =
-        UdpSocket::bind("0.0.0.0:0").expect("Unable to crate UDP socket");
+    let socket = UdpSocket::bind("0.0.0.0:0").expect("Unable to crate UDP socket");
     socket
         .set_read_timeout(Some(Duration::from_secs(2)))
         .expect("Unable to set UDP socket read timeout");
@@ -35,8 +34,7 @@ fn main() {
             Ok(time) => {
                 assert_ne!(time.sec(), 0);
                 let seconds = time.sec();
-                let microseconds = u64::from(time.sec_fraction()) * 1_000_000
-                    / u64::from(u32::MAX);
+                let microseconds = u64::from(time.sec_fraction()) * 1_000_000 / u64::from(u32::MAX);
                 println!("Got time from [{POOL_NTP_ADDR}] {addr}: {seconds}.{microseconds}");
 
                 break;

@@ -27,12 +27,7 @@ pub fn update_system_time(sec: u32, nsec: u32) {
     if let Some(time) = time.single() {
         let local_time = time.with_timezone(&Local);
         #[cfg(any(feature = "log", feature = "defmt"))]
-        debug!(
-            "UTC time: {:02}:{:02}:{:02}",
-            time.hour(),
-            time.minute(),
-            time.second()
-        );
+        debug!("UTC time: {:02}:{:02}:{:02}", time.hour(), time.minute(), time.second());
         #[cfg(any(feature = "log", feature = "defmt"))]
         debug!(
             "{} time: {:02}:{:02}:{:02}",

@@ -8,9 +8,7 @@ use core::ptr::null_mut;
 use core::sync::atomic::{AtomicUsize, Ordering::Relaxed};
 use miniloop::{executor::Executor, task::Task};
 use sntpc::net::SocketAddr;
-use sntpc::{
-    get_time, NtpContext, NtpTimestampGenerator, NtpUdpSocket, Result,
-};
+use sntpc::{get_time, NtpContext, NtpTimestampGenerator, NtpUdpSocket, Result};
 
 const ARENA_SIZE: usize = 128 * 1024;
 const MAX_SUPPORTED_ALIGN: usize = 4096;
@@ -58,12 +56,7 @@ unsafe impl GlobalAlloc for SimpleAllocator {
         todo!()
     }
 
-    unsafe fn realloc(
-        &self,
-        _ptr: *mut u8,
-        _layout: Layout,
-        _new_size: usize,
-    ) -> *mut u8 {
+    unsafe fn realloc(&self, _ptr: *mut u8, _layout: Layout, _new_size: usize) -> *mut u8 {
         todo!()
     }
 }
@@ -97,22 +90,12 @@ impl NtpTimestampGenerator for TimestampGen {
 struct SimpleUdp;
 
 impl NtpUdpSocket for SimpleUdp {
-    fn send_to(
-        &self,
-        _buf: &[u8],
-        _addr: SocketAddr,
-    ) -> impl Future<Output = Result<usize>> {
+    fn send_to(&self, _buf: &[u8], _addr: SocketAddr) -> impl Future<Output = Result<usize>> {
         core::future::ready(Ok(48))
     }
 
-    fn recv_from(
-        &self,
-        _buf: &mut [u8],
-    ) -> impl Future<Output = Result<(usize, SocketAddr)>> {
-        core::future::ready(Ok((
-            0usize,
-            SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 123u16),
-        )))
+    fn recv_from(&self, _buf: &mut [u8]) -> impl Future<Output = Result<(usize, SocketAddr)>> {
+        core::future::ready(Ok((0usize, SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 123u16))))
     }
 }
 
@@ -126,8 +109,7 @@ async fn body() -> Result<i32> {
         Ok(time) => {
             assert_ne!(time.sec(), 0);
             let _seconds = time.sec();
-            let _microseconds = u64::from(time.sec_fraction()) * 1_000_000
-                / u64::from(u32::MAX);
+            let _microseconds = u64::from(time.sec_fraction()) * 1_000_000 / u64::from(u32::MAX);
 
             Ok(0)
         }

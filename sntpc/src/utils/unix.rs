@@ -20,9 +20,6 @@ pub(super) fn sync_time(time: DateTime<Local>) {
         .expect("Unable to execute date command");
 
     if !sync_cmd_status.success() {
-        eprintln!(
-            "Date command exit status {}",
-            sync_cmd_status.code().unwrap()
-        );
+        eprintln!("Date command exit status {}", sync_cmd_status.code().unwrap());
     }
 }

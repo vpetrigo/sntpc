@@ -13,10 +13,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - name: Run clippy with all features
-        run: cargo clippy --workspace --exclude example-simple-no-std --all-features -- -D clippy::all -D clippy::pedantic
-      - name: Run clippy with no_std
-        run: cargo clippy -p example-simple-no-std --no-default-features --profile no-std -- -D clippy::all -D clippy::pedantic
+      - name: Run clippy on sntpc crate and all examples
+        run: cargo xtask clippy
+
   clippy-nightly:
     runs-on: ubuntu-latest
     container:
@@ -27,28 +26,35 @@ jobs:
         run: rustup toolchain add nightly
       - name: Install clippy
         run: rustup component add clippy --toolchain nightly
-      - name: Run clippy for async feature
-        run: cargo +nightly clippy --workspace --exclude example-simple-no-std --all-features -- -D clippy::all -D clippy::pedantic
+      - name: Run clippy for async feature with nightly
+        run: cargo +nightly xtask clippy
+
   check-format:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - name: Check formatting
-        run: cargo fmt --check
+        run: cargo xtask format
+
   build-test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - name: Build with std
-        run: cargo build --workspace --exclude example-simple-no-std --all-features
-      - name: Build with no_std
-        run: |
-          cargo build -p sntpc --no-default-features
-          cargo build -p example-simple-no-std --profile no-std
-      - name: Run tests with std
-        run: cargo test --all-features
-      - name: Run tests with no_std
-        run: cargo test --no-default-features
+      - name: Build sntpc with all features
+        run: cargo xtask build-crate --all-features
+      - name: Build sntpc with no default features
+        run: cargo xtask build-crate --no-default-features
+      - name: Build no-std examples
+        run: cargo xtask build-nostd
+      - name: Build unix examples
+        run: cargo xtask build-unix
+      - name: Build cross-platform examples
+        run: cargo xtask build-cross-platform
+      - name: Run tests with all features
+        run: cd sntpc && cargo test --all-features
+      - name: Run tests with no default features
+        run: cd sntpc && cargo test --no-default-features
+
   benchmark:
     name: Benchmark sync and async API
     runs-on: ubuntu-latest
@@ -59,14 +65,14 @@ jobs:
       - name: Start test NTP server
         run: uvx --from git+https://github.com/vpetrigo/ntpserver@master ntpserver > /dev/null &
       - name: Run benchmarking
-        run: cargo bench --bench async --bench sync --features sync -- --output-format bencher | tee output.txt
+        run: cd sntpc && cargo bench --bench async --bench sync --features sync -- --output-format bencher | tee output.txt
       - name: Kill NTP server
         run: pgrep -f ntpserver | xargs kill
       - name: Store benchmark result
         uses: benchmark-action/github-action-benchmark@v1
         with:
           tool: 'cargo'
-          output-file-path: output.txt
+          output-file-path: sntpc/output.txt
           github-token: ${{ secrets.GITHUB_TOKEN }}
           fail-on-alert: true
           comment-on-alert: true

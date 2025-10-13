@@ -294,11 +294,7 @@ use cfg_if::cfg_if;
 /// * The SNTP packet could not be sent to the server.
 /// * The response payload is invalid or indicates an error.
 /// * Mismatch between the expected and actual server addresses.
-pub async fn get_time<U, T>(
-    addr: net::SocketAddr,
-    socket: &U,
-    context: NtpContext<T>,
-) -> Result<NtpResult>
+pub async fn get_time<U, T>(addr: net::SocketAddr, socket: &U, context: NtpContext<T>) -> Result<NtpResult>
 where
     U: NtpUdpSocket,
     T: NtpTimestampGenerator + Copy,
@@ -579,8 +575,7 @@ where
         return Err(Error::IncorrectPayload);
     }
 
-    let result =
-        process_response(send_req_result, response_buf, recv_timestamp);
+    let result = process_response(send_req_result, response_buf, recv_timestamp);
 
     #[cfg(any(feature = "log", feature = "defmt"))]
     if let Ok(r) = &result {
@@ -590,11 +585,7 @@ where
     result
 }
 
-async fn send_request<U>(
-    dest: net::SocketAddr,
-    req: &NtpPacket,
-    socket: &U,
-) -> Result<()>
+async fn send_request<U>(dest: net::SocketAddr, req: &NtpPacket, socket: &U) -> Result<()>
 where
     U: NtpUdpSocket,
 {
@@ -618,10 +609,7 @@ pub mod sync {
     #[cfg(any(feature = "log", feature = "defmt"))]
     use crate::log::debug;
     use crate::net;
-    use crate::types::{
-        NtpContext, NtpResult, NtpTimestampGenerator, NtpUdpSocket, Result,
-        SendRequestResult,
-    };
+    use crate::types::{NtpContext, NtpResult, NtpTimestampGenerator, NtpUdpSocket, Result, SendRequestResult};
     pub(crate) const SYNC_EXECUTOR_NUMBER_OF_TASKS: usize = 1;
 
     use miniloop::executor::Executor;
@@ -642,11 +630,7 @@ pub mod sync {
     /// # Errors
     ///
     /// Will return `Err` if an SNTP request cannot be sent or SNTP response fails
-    pub fn get_time<U, T>(
-        addr: net::SocketAddr,
-        socket: &U,
-        context: NtpContext<T>,
-    ) -> Result<NtpResult>
+    pub fn get_time<U, T>(addr: net::SocketAddr, socket: &U, context: NtpContext<T>) -> Result<NtpResult>
     where
         U: NtpUdpSocket,
         T: NtpTimestampGenerator + Copy,
@@ -743,8 +727,7 @@ pub mod sync {
         U: NtpUdpSocket,
         T: NtpTimestampGenerator + Copy,
     {
-        Executor::<1>::new()
-            .block_on(crate::sntp_send_request(dest, socket, context))
+        Executor::<1>::new().block_on(crate::sntp_send_request(dest, socket, context))
     }
 
     /// Processes the response from an SNTP server and calculates the NTP offset and round-trip delay.
@@ -839,27 +822,17 @@ pub mod sync {
         U: NtpUdpSocket,
         T: NtpTimestampGenerator + Copy,
     {
-        Executor::<SYNC_EXECUTOR_NUMBER_OF_TASKS>::new().block_on(
-            crate::sntp_process_response(
-                dest,
-                socket,
-                context,
-                send_req_result,
-            ),
-        )
+        Executor::<SYNC_EXECUTOR_NUMBER_OF_TASKS>::new().block_on(crate::sntp_process_response(
+            dest,
+            socket,
+            context,
+            send_req_result,
+        ))
     }
 }
 
-#[allow(
-    clippy::cast_possible_truncation,
-    clippy::cast_sign_loss,
-    clippy::cast_possible_wrap
-)]
-fn process_response(
-    send_req_result: SendRequestResult,
-    resp: RawNtpPacket,
-    recv_timestamp: u64,
-) -> Result<NtpResult> {
+#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss, clippy::cast_possible_wrap)]
+fn process_response(send_req_result: SendRequestResult, resp: RawNtpPacket, recv_timestamp: u64) -> Result<NtpResult> {
     const SNTP_UNICAST: u8 = 4;
     const SNTP_BROADCAST: u8 = 5;
     const LI_MAX_VALUE: u8 = 3;
@@ -881,8 +854,7 @@ fn process_response(
     let mode = shifter(packet.li_vn_mode, MODE_MASK, MODE_SHIFT);
     let li = shifter(packet.li_vn_mode, LI_MASK, LI_SHIFT);
     let resp_version = shifter(packet.li_vn_mode, VERSION_MASK, VERSION_SHIFT);
-    let req_version =
-        shifter(send_req_result.version, VERSION_MASK, VERSION_SHIFT);
+    let req_version = shifter(send_req_result.version, VERSION_MASK, VERSION_SHIFT);
 
     if mode != SNTP_UNICAST && mode != SNTP_BROADCAST {
         return Err(Error::IncorrectMode);
@@ -918,10 +890,7 @@ fn process_response(
     let timestamp = NtpTimestamp::from(packet.tx_timestamp);
 
     #[cfg(any(feature = "log", feature = "defmt"))]
-    debug!(
-        "Roundtrip delay: {} {}. Offset: {} {}",
-        roundtrip, units, offset, units
-    );
+    debug!("Roundtrip delay: {} {}. Offset: {} {}", roundtrip, units, offset, units);
 
     Ok(NtpResult::new(
         timestamp.seconds as u32,
@@ -955,106 +924,72 @@ fn convert_delays(sec: u64, fraction: u64, units: u64) -> u64 {
     sec * units + fraction * units / u64::from(u32::MAX)
 }
 
-fn roundtrip_calculate(
-    t1: u64,
-    t2: u64,
-    t3: u64,
-    t4: u64,
-    units: Units,
-) -> u64 {
+fn roundtrip_calculate(t1: u64, t2: u64, t3: u64, t4: u64, units: Units) -> u64 {
     let delta = t4.wrapping_sub(t1).saturating_sub(t3.wrapping_sub(t2));
     let delta_sec = (delta & SECONDS_MASK) >> 32;
     let delta_sec_fraction = delta & SECONDS_FRAC_MASK;
 
     match units {
-        Units::Milliseconds => convert_delays(
-            delta_sec,
-            delta_sec_fraction,
-            u64::from(MSEC_IN_SEC),
-        ),
-        Units::Microseconds => convert_delays(
-            delta_sec,
-            delta_sec_fraction,
-            u64::from(USEC_IN_SEC),
-        ),
+        Units::Milliseconds => convert_delays(delta_sec, delta_sec_fraction, u64::from(MSEC_IN_SEC)),
+        Units::Microseconds => convert_delays(delta_sec, delta_sec_fraction, u64::from(USEC_IN_SEC)),
     }
 }
 
 #[allow(clippy::cast_possible_wrap)]
 fn offset_calculate(t1: u64, t2: u64, t3: u64, t4: u64, units: Units) -> i64 {
-    let theta = (t2.wrapping_sub(t1) as i64 / 2)
-        .saturating_add(t3.wrapping_sub(t4) as i64 / 2);
+    let theta = (t2.wrapping_sub(t1) as i64 / 2).saturating_add(t3.wrapping_sub(t4) as i64 / 2);
     let theta_sec = (theta.unsigned_abs() & SECONDS_MASK) >> 32;
     let theta_sec_fraction = theta.unsigned_abs() & SECONDS_FRAC_MASK;
 
     match units {
         Units::Milliseconds => {
-            convert_delays(
-                theta_sec,
-                theta_sec_fraction,
-                u64::from(MSEC_IN_SEC),
-            ) as i64
-                * theta.signum()
+            convert_delays(theta_sec, theta_sec_fraction, u64::from(MSEC_IN_SEC)) as i64 * theta.signum()
         }
         Units::Microseconds => {
-            convert_delays(
-                theta_sec,
-                theta_sec_fraction,
-                u64::from(USEC_IN_SEC),
-            ) as i64
-                * theta.signum()
+            convert_delays(theta_sec, theta_sec_fraction, u64::from(USEC_IN_SEC)) as i64 * theta.signum()
         }
     }
 }
 
 fn get_ntp_timestamp<T: NtpTimestampGenerator>(timestamp_gen: &T) -> u64 {
-    ((timestamp_gen.timestamp_sec()
-        + (u64::from(NtpPacket::NTP_TIMESTAMP_DELTA)))
-        << 32)
-        + u64::from(timestamp_gen.timestamp_subsec_micros())
-            * u64::from(u32::MAX)
-            / u64::from(USEC_IN_SEC)
+    ((timestamp_gen.timestamp_sec() + (u64::from(NtpPacket::NTP_TIMESTAMP_DELTA))) << 32)
+        + u64::from(timestamp_gen.timestamp_subsec_micros()) * u64::from(u32::MAX) / u64::from(USEC_IN_SEC)
 }
 
 /// Convert second fraction value to milliseconds value
 #[allow(clippy::cast_possible_truncation)]
 #[must_use]
 pub fn fraction_to_milliseconds(sec_fraction: u32) -> u32 {
-    (u64::from(sec_fraction) * u64::from(MSEC_IN_SEC) / u64::from(u32::MAX))
-        as u32
+    (u64::from(sec_fraction) * u64::from(MSEC_IN_SEC) / u64::from(u32::MAX)) as u32
 }
 
 /// Convert second fraction value to microseconds value
 #[allow(clippy::cast_possible_truncation)]
 #[must_use]
 pub fn fraction_to_microseconds(sec_fraction: u32) -> u32 {
-    (u64::from(sec_fraction) * u64::from(USEC_IN_SEC) / u64::from(u32::MAX))
-        as u32
+    (u64::from(sec_fraction) * u64::from(USEC_IN_SEC) / u64::from(u32::MAX)) as u32
 }
 
 /// Convert second fraction value to nanoseconds value
 #[allow(clippy::cast_possible_truncation)]
 #[must_use]
 pub fn fraction_to_nanoseconds(sec_fraction: u32) -> u32 {
-    (u64::from(sec_fraction) * u64::from(NSEC_IN_SEC) / u64::from(u32::MAX))
-        as u32
+    (u64::from(sec_fraction) * u64::from(NSEC_IN_SEC) / u64::from(u32::MAX)) as u32
 }
 
 /// Convert second fraction value to picoseconds value
 #[allow(clippy::cast_possible_truncation)]
 #[must_use]
 pub fn fraction_to_picoseconds(sec_fraction: u32) -> u64 {
-    (u128::from(sec_fraction) * u128::from(PSEC_IN_SEC) / u128::from(u32::MAX))
-        as u64
+    (u128::from(sec_fraction) * u128::from(PSEC_IN_SEC) / u128::from(u32::MAX)) as u64
 }
 
 #[cfg(test)]
 mod sntpc_ntp_result_tests {
     use crate::types::Units;
     use crate::{
-        fraction_to_microseconds, fraction_to_milliseconds,
-        fraction_to_nanoseconds, fraction_to_picoseconds, offset_calculate,
-        NtpResult,
+        fraction_to_microseconds, fraction_to_milliseconds, fraction_to_nanoseconds, fraction_to_picoseconds,
+        offset_calculate, NtpResult,
     };
 
     struct Timestamps(u64, u64, u64, u64);
@@ -1108,8 +1043,7 @@ mod sntpc_ntp_result_tests {
         assert_eq!(5, result2.stratum());
         assert_eq!(-23, result2.precision());
 
-        let result3 =
-            NtpResult::new(u32::MAX - 1, u32::MAX, u64::MAX, i64::MAX, 1, -127);
+        let result3 = NtpResult::new(u32::MAX - 1, u32::MAX, u64::MAX, i64::MAX, 1, -127);
 
         assert_eq!(u32::MAX, result3.sec());
         assert_eq!(0, result3.sec_fraction());
@@ -1215,13 +1149,7 @@ mod sntpc_ntp_result_tests {
         ];
 
         for t in tests {
-            let offset = offset_calculate(
-                t.t1(),
-                t.t2(),
-                t.t3(),
-                t.t4(),
-                Units::Microseconds,
-            );
+            let offset = offset_calculate(t.t1(), t.t2(), t.t3(), t.t4(), Units::Microseconds);
             let expected = t.expected;
             assert_eq!(offset, expected);
         }
@@ -1262,17 +1190,10 @@ mod sntpc_sync_tests {
                 .set_read_timeout(Some(std::time::Duration::from_secs(2)))
                 .expect("Unable to set up socket timeout");
 
-            for address in
-                pool.to_socket_addrs().unwrap().filter(SocketAddr::is_ipv4)
-            {
+            for address in pool.to_socket_addrs().unwrap().filter(SocketAddr::is_ipv4) {
                 let result = get_time(address, &socket, context);
 
-                assert!(
-                    result.is_ok(),
-                    "{} is bad - {:?}",
-                    pool,
-                    result.unwrap_err()
-                );
+                assert!(result.is_ok(), "{} is bad - {:?}", pool, result.unwrap_err());
                 assert_ne!(result.unwrap().seconds, 0);
             }
         }
@@ -1290,15 +1211,10 @@ mod sntpc_sync_tests {
                 .set_read_timeout(Some(std::time::Duration::from_secs(5)))
                 .expect("Unable to set up socket timeout");
 
-            for address in
-                pool.to_socket_addrs().unwrap().filter(SocketAddr::is_ipv4)
-            {
+            for address in pool.to_socket_addrs().unwrap().filter(SocketAddr::is_ipv4) {
                 let result = get_time(address, &socket, context);
                 assert!(result.is_err(), "{pool} is ok");
-                assert_eq!(
-                    result.unwrap_err(),
-                    Error::IncorrectResponseVersion
-                );
+                assert_eq!(result.unwrap_err(), Error::IncorrectResponseVersion);
             }
         }
     }
@@ -1316,7 +1232,7 @@ mod sntpc_sync_tests {
     }
 }
 
-#[cfg(all(test, feature = "std", feature = "std-socket"))]
+#[cfg(all(test, feature = "std", feature = "std-socket", feature = "sync"))]
 mod sntpc_async_tests {
     use crate::get_time;
     use crate::sync::SYNC_EXECUTOR_NUMBER_OF_TASKS;
@@ -1341,17 +1257,11 @@ mod sntpc_async_tests {
                 .set_read_timeout(Some(std::time::Duration::from_secs(5)))
                 .expect("Unable to set up socket timeout");
 
-            for address in
-                pool.to_socket_addrs().unwrap().filter(SocketAddr::is_ipv4)
-            {
-                let result = Executor::<SYNC_EXECUTOR_NUMBER_OF_TASKS>::new()
-                    .block_on(get_time(address, &socket, context));
+            for address in pool.to_socket_addrs().unwrap().filter(SocketAddr::is_ipv4) {
+                let result =
+                    Executor::<SYNC_EXECUTOR_NUMBER_OF_TASKS>::new().block_on(get_time(address, &socket, context));
 
-                assert!(
-                    result.is_ok(),
-                    "{pool} is bad - {:?}",
-                    result.unwrap_err()
-                );
+                assert!(result.is_ok(), "{pool} is bad - {:?}", result.unwrap_err());
                 assert_ne!(result.unwrap().seconds, 0);
             }
         }
@@ -1369,16 +1279,11 @@ mod sntpc_async_tests {
                 .set_read_timeout(Some(std::time::Duration::from_secs(5)))
                 .expect("Unable to set up socket timeout");
 
-            for address in
-                pool.to_socket_addrs().unwrap().filter(SocketAddr::is_ipv4)
-            {
-                let result = Executor::<SYNC_EXECUTOR_NUMBER_OF_TASKS>::new()
-                    .block_on(get_time(address, &socket, context));
+            for address in pool.to_socket_addrs().unwrap().filter(SocketAddr::is_ipv4) {
+                let result =
+                    Executor::<SYNC_EXECUTOR_NUMBER_OF_TASKS>::new().block_on(get_time(address, &socket, context));
                 assert!(result.is_err(), "{pool} is ok");
-                assert_eq!(
-                    result.unwrap_err(),
-                    Error::IncorrectResponseVersion
-                );
+                assert_eq!(result.unwrap_err(), Error::IncorrectResponseVersion);
             }
         }
     }
