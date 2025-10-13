@@ -1,4 +1,0 @@
-[workspace]
-members = ["sntpc", "examples/*"]
-default-members = ["sntpc"]
-resolver = "2"
