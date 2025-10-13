@@ -35,6 +35,8 @@ enum Commands {
     Test,
     /// Check all code (main crate + examples)
     Check,
+    /// Run clippy on all code with strict linting
+    Clippy,
     /// Clean all build artifacts
     Clean,
 }
@@ -54,6 +56,7 @@ fn main() -> Result<()> {
         Commands::Test => run_tests(),
         Commands::Check => check_all(),
         Commands::Clean => clean_all(),
+        Commands::Clippy => run_clippy(),
     }
 }
 
@@ -278,6 +281,144 @@ fn clean_all() -> Result<()> {
     }
 
     println!("{}", "✓ All build artifacts cleaned!".bright_green().bold());
+    Ok(())
+}
+
+fn run_clippy() -> Result<()> {
+    println!(
+        "{}",
+        "Running Clippy with strict linting on all code..."
+            .bright_blue()
+            .bold()
+    );
+
+    // Run clippy on main sntpc crate with all features
+    println!(
+        "  {} Main sntpc crate (all features)",
+        "Clippy".bright_blue()
+    );
+    let status = Command::new("cargo")
+        .args([
+            "clippy",
+            "--manifest-path",
+            "sntpc/Cargo.toml",
+            "--all-features",
+            "--",
+            "-D",
+            "clippy::all",
+            "-D",
+            "clippy::pedantic",
+        ])
+        .status()
+        .context("Failed to execute cargo clippy on main crate")?;
+
+    if !status.success() {
+        eprintln!(
+            "{}",
+            "✗ Clippy found issues in main crate (all features)"
+                .bright_red()
+                .bold()
+        );
+        anyhow::bail!("Clippy found issues in main crate");
+    }
+
+    println!("  {} Main sntpc crate (all features)", "✓".bright_green());
+
+    // Run clippy on main sntpc crate with no default features
+    println!(
+        "  {} Main sntpc crate (no default features)",
+        "Clippy".bright_blue()
+    );
+    let status = Command::new("cargo")
+        .args([
+            "clippy",
+            "--manifest-path", "sntpc/Cargo.toml",
+            "--no-default-features",
+            "--",
+            "-D", "clippy::all",
+            "-D", "clippy::pedantic"
+        ])
+        .status()
+        .context("Failed to execute cargo clippy on main crate (no default features)")?;
+
+    if !status.success() {
+        eprintln!(
+            "{}",
+            "✗ Clippy found issues in main crate (no default features)"
+                .bright_red()
+                .bold()
+        );
+        anyhow::bail!("Clippy found issues in main crate");
+    }
+
+    println!(
+        "  {} Main sntpc crate (no default features)",
+        "✓".bright_green()
+    );
+
+    // Run clippy on all examples except simple-no-std
+    let std_examples = [
+        "simple-request",
+        "tokio",
+        "embassy-net",
+        "embassy-net-timeout",
+        "smoltcp-request",
+        "timesync",
+    ];
+
+    for example in std_examples {
+        clippy_run(example, false)?;
+    }
+
+    // Run clippy on simple-no-std example with no-default-features
+    clippy_run("simple-no-std", true)?;
+
+    println!("{}", "✓ All Clippy checks passed!".bright_green().bold());
+    Ok(())
+}
+
+fn clippy_run(example_name: &str, no_std: bool) -> Result<()> {
+    let example_dir = format!("examples/{example_name}");
+
+    if !Path::new(&example_dir).exists() {
+        println!(
+            "{}",
+            format!("⚠ Skipping {example_name}: directory not found")
+                .bright_yellow()
+        );
+        return Ok(());
+    }
+
+    let feature_msg = if no_std { " (no-std)" } else { "" };
+    println!(
+        "  {} {}{}",
+        "Clippy".bright_blue(),
+        example_name,
+        feature_msg
+    );
+
+    let mut cmd = Command::new("cargo");
+    cmd.args(["clippy"]).current_dir(&example_dir);
+
+    if no_std {
+        cmd.args(["--no-default-features", "--profile", "no-std"]);
+    }
+
+    cmd.args(["--", "-D", "clippy::all", "-D", "clippy::pedantic"]);
+
+    let status = cmd.status().context(format!(
+        "Failed to execute cargo clippy for {example_name}"
+    ))?;
+
+    if !status.success() {
+        eprintln!(
+            "{}",
+            format!("✗ Clippy found issues in {example_name}").bright_red()
+        );
+        anyhow::bail!("Clippy found issues in {example_name}");
+    }
+
+    println!("  {} {}{}", "✓".bright_green(), example_name, feature_msg);
     Ok(())
 }
 
