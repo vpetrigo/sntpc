@@ -7,8 +7,10 @@ edition = "2024"
 embassy-executor = { version = "~0.9", features = ["arch-std", "executor-thread"] }
 embassy-time = { version = "~0.5", features = ["std", "generic-queue-8"] }
 embassy-net = { version = "~0.7", features = ["std", "udp", "medium-ethernet", "proto-ipv4"] }
-embassy-net-tuntap = "0.1.0"
 sntpc = { path = "../../sntpc", features = ["embassy-socket"] }
 heapless = { version = "~0.8" }
 static_cell = { version = "2.1.1" }
 rand_core = { version = "~0.9", features = ["std", "os_rng"] }
+
+[target.'cfg(unix)'.dependencies]
+embassy-net-tuntap = "0.1.0"
