@@ -5,8 +5,7 @@ use std::hint::black_box;
 use std::net::{Ipv4Addr, SocketAddr, UdpSocket};
 
 fn criterion_benchmark(c: &mut Criterion) {
-    let socket =
-        UdpSocket::bind(SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0))).unwrap();
+    let socket = UdpSocket::bind(SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0))).unwrap();
     let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, 1231));
     let context = NtpContext::new(StdTimestampGen::default());
 

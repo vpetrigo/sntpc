@@ -7,17 +7,13 @@ use std::net::{Ipv4Addr, SocketAddr, UdpSocket};
 
 fn criterion_benchmark(c: &mut Criterion) {
     const NUM_OF_TASKS: usize = 1;
-    let socket =
-        UdpSocket::bind(SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0))).unwrap();
+    let socket = UdpSocket::bind(SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0))).unwrap();
     let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, 1231));
     let context = NtpContext::new(StdTimestampGen::default());
-    let mut executor: Executor<NUM_OF_TASKS> =
-        miniloop::executor::Executor::new();
+    let mut executor: Executor<NUM_OF_TASKS> = miniloop::executor::Executor::new();
 
     c.bench_function("async_sntp_client", |b| {
-        b.iter(|| {
-            black_box(executor.block_on(get_time(addr, &socket, context)))
-        });
+        b.iter(|| black_box(executor.block_on(get_time(addr, &socket, context))));
     });
 }
 

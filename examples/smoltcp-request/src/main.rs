@@ -136,14 +136,8 @@ pub mod internal {
     impl<'a> UdpSocketBuffers<'a> {
         pub fn new(buffers: &'a mut Buffers) -> Self {
             UdpSocketBuffers {
-                rx: udp::PacketBuffer::new(
-                    buffers.rx_meta.as_mut(),
-                    buffers.rx_buffer.as_mut(),
-                ),
-                tx: udp::PacketBuffer::new(
-                    buffers.tx_meta.as_mut(),
-                    buffers.tx_buffer.as_mut(),
-                ),
+                rx: udp::PacketBuffer::new(buffers.rx_meta.as_mut(), buffers.rx_buffer.as_mut()),
+                tx: udp::PacketBuffer::new(buffers.tx_meta.as_mut(), buffers.tx_buffer.as_mut()),
             }
         }
     }
@@ -182,11 +176,7 @@ pub mod internal {
     }
 
     impl NtpUdpSocket for SmoltcpUdpSocketWrapper<'_, '_> {
-        async fn send_to(
-            &self,
-            buf: &[u8],
-            addr: SocketAddr,
-        ) -> Result<usize, Error> {
+        async fn send_to(&self, buf: &[u8], addr: SocketAddr) -> Result<usize, Error> {
             let endpoint = match addr {
                 SocketAddr::V4(v4) => IpEndpoint::from(v4),
                 SocketAddr::V6(_) => return Err(Error::Network),
@@ -199,10 +189,7 @@ pub mod internal {
             Err(Error::Network)
         }
 
-        async fn recv_from(
-            &self,
-            buf: &mut [u8],
-        ) -> Result<(usize, SocketAddr), Error> {
+        async fn recv_from(&self, buf: &mut [u8]) -> Result<(usize, SocketAddr), Error> {
             let result = self.socket.borrow_mut().recv_slice(&mut buf[..]);
 
             if let Ok((size, address)) = result {
@@ -213,8 +200,7 @@ pub mod internal {
                 else {
                     todo!()
                 };
-                let sockaddr =
-                    SocketAddr::new(IpAddr::V4(v4), address.endpoint.port);
+                let sockaddr = SocketAddr::new(IpAddr::V4(v4), address.endpoint.port);
 
                 return Ok((size, sockaddr));
             }
@@ -288,10 +274,7 @@ pub mod internal {
 }
 
 #[cfg(unix)]
-use internal::{
-    create_app_cli, Buffers, SmoltcpUdpSocketWrapper, StdTimestampGen,
-    UdpSocketBuffers,
-};
+use internal::{create_app_cli, Buffers, SmoltcpUdpSocketWrapper, StdTimestampGen, UdpSocketBuffers};
 
 #[cfg(unix)]
 fn main() {
@@ -302,22 +285,17 @@ fn main() {
 
     let app = create_app_cli();
     let interface_name = app.value_of("interface").unwrap();
-    let mut tuntap = TunTapInterface::new(interface_name, Medium::Ethernet)
-        .expect("Cannot create TAP interface");
+    let mut tuntap = TunTapInterface::new(interface_name, Medium::Ethernet).expect("Cannot create TAP interface");
 
     let server_ip = app.value_of("server").unwrap();
-    let server_port = u16::from_str(app.value_of("port").unwrap())
-        .expect("Unable to parse server port");
-    let server_sock_addr =
-        SocketAddr::new(IpAddr::from_str(server_ip).unwrap(), server_port);
-    let eth_address = EthernetAddress::from_str(app.value_of("mac").unwrap())
-        .expect("Cannot parse MAC address of the interface");
-    let ip_addr = IpCidr::from_str(app.value_of("ip").unwrap())
-        .expect("Cannot parse IP address of the interface");
-    let default_gw = Ipv4Address::from_str(app.value_of("gw").unwrap())
-        .expect("Cannot parse GW address of the interface");
-    let sock_port = u16::from_str(app.value_of("sock_port").unwrap())
-        .expect("Unable to parse socket port");
+    let server_port = u16::from_str(app.value_of("port").unwrap()).expect("Unable to parse server port");
+    let server_sock_addr = SocketAddr::new(IpAddr::from_str(server_ip).unwrap(), server_port);
+    let eth_address =
+        EthernetAddress::from_str(app.value_of("mac").unwrap()).expect("Cannot parse MAC address of the interface");
+    let ip_addr = IpCidr::from_str(app.value_of("ip").unwrap()).expect("Cannot parse IP address of the interface");
+    let default_gw =
+        Ipv4Address::from_str(app.value_of("gw").unwrap()).expect("Cannot parse GW address of the interface");
+    let sock_port = u16::from_str(app.value_of("sock_port").unwrap()).expect("Unable to parse socket port");
 
     let mut buffer = Buffers::default();
     let udp_buffer = UdpSocketBuffers::new(&mut buffer);
@@ -328,13 +306,9 @@ fn main() {
 
     config.random_seed = 0;
 
-    let mut iface =
-        Interface::new(config, &mut tuntap, std::time::Instant::now().into());
+    let mut iface = Interface::new(config, &mut tuntap, std::time::Instant::now().into());
     iface.update_ip_addrs(|ip_addrs| ip_addrs.push(ip_addr).unwrap());
-    iface
-        .routes_mut()
-        .add_default_ipv4_route(default_gw)
-        .unwrap();
+    iface.routes_mut().add_default_ipv4_route(default_gw).unwrap();
 
     // let mut socket_items = [None; 1];
     let mut sockets = SocketSet::new(vec![]);
@@ -357,13 +331,10 @@ fn main() {
         if once_tx && sockets.get::<udp::Socket>(udp_handle).can_send() {
             once_tx = false;
             let sock_wrapper = SmoltcpUdpSocketWrapper {
-                socket: RefCell::new(
-                    sockets.get_mut::<udp::Socket>(udp_handle),
-                ),
+                socket: RefCell::new(sockets.get_mut::<udp::Socket>(udp_handle)),
             };
             let context = NtpContext::new(StdTimestampGen::default());
-            let result =
-                sntp_send_request(server_sock_addr, &sock_wrapper, context);
+            let result = sntp_send_request(server_sock_addr, &sock_wrapper, context);
 
             match result {
                 Ok(result) => {
@@ -388,16 +359,9 @@ fn main() {
                 {
                     let context = NtpContext::new(StdTimestampGen::default());
                     let sock_wrapper = SmoltcpUdpSocketWrapper {
-                        socket: RefCell::new(
-                            sockets.get_mut::<udp::Socket>(udp_handle),
-                        ),
+                        socket: RefCell::new(sockets.get_mut::<udp::Socket>(udp_handle)),
                     };
-                    let result = sntp_process_response(
-                        server_sock_addr,
-                        &sock_wrapper,
-                        context,
-                        tx_result,
-                    );
+                    let result = sntp_process_response(server_sock_addr, &sock_wrapper, context, tx_result);
 
                     #[cfg(feature = "log")]
                     log::info!("{result:?}");
@@ -405,11 +369,7 @@ fn main() {
             }
         }
 
-        wait(
-            tuntap.as_raw_fd(),
-            iface.poll_delay(Instant::from_secs(1), &sockets),
-        )
-        .unwrap();
+        wait(tuntap.as_raw_fd(), iface.poll_delay(Instant::from_secs(1), &sockets)).unwrap();
     }
 }
 

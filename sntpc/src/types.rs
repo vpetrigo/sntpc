@@ -125,9 +125,7 @@ pub(crate) struct NtpTimestamp {
 impl From<u64> for NtpTimestamp {
     #[allow(clippy::cast_possible_wrap)]
     fn from(v: u64) -> Self {
-        let seconds = (((v & SECONDS_MASK) >> 32)
-            - u64::from(NtpPacket::NTP_TIMESTAMP_DELTA))
-            as i64;
+        let seconds = (((v & SECONDS_MASK) >> 32) - u64::from(NtpPacket::NTP_TIMESTAMP_DELTA)) as i64;
         let microseconds = (v & SECONDS_FRAC_MASK) as i64;
 
         NtpTimestamp {
@@ -213,14 +211,7 @@ impl NtpResult {
     /// * `stratum` - integer indicating the stratum (level of server's hierarchy to stratum 0 - "reference clock")
     /// * `precision` - an exponent of two, where the resulting value is the precision of the system clock in seconds
     #[must_use]
-    pub fn new(
-        seconds: u32,
-        seconds_fraction: u32,
-        roundtrip: u64,
-        offset: i64,
-        stratum: u8,
-        precision: i8,
-    ) -> Self {
+    pub fn new(seconds: u32, seconds_fraction: u32, roundtrip: u64, offset: i64, stratum: u8, precision: i8) -> Self {
         let seconds = seconds + seconds_fraction / u32::MAX;
         let seconds_fraction = seconds_fraction % u32::MAX;
 
@@ -349,9 +340,7 @@ mod sup {
 
     impl NtpTimestampGenerator for StdTimestampGen {
         fn init(&mut self) {
-            self.duration = SystemTime::now()
-                .duration_since(SystemTime::UNIX_EPOCH)
-                .unwrap();
+            self.duration = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap();
         }
 
         fn timestamp_sec(&self) -> u64 {
@@ -378,11 +367,7 @@ pub trait NtpUdpSocket {
     /// # Errors
     ///
     /// Will return `Err` if an underlying UDP send fails
-    fn send_to(
-        &self,
-        buf: &[u8],
-        addr: SocketAddr,
-    ) -> impl Future<Output = Result<usize>>;
+    fn send_to(&self, buf: &[u8], addr: SocketAddr) -> impl Future<Output = Result<usize>>;
 
     /// Receives a single datagram message on the socket. On success, returns the number
     /// of bytes read and the origin.
@@ -392,10 +377,7 @@ pub trait NtpUdpSocket {
     /// # Errors
     ///
     /// Will return `Err` if an underlying UDP receive fails
-    fn recv_from(
-        &self,
-        buf: &mut [u8],
-    ) -> impl Future<Output = Result<(usize, SocketAddr)>>;
+    fn recv_from(&self, buf: &mut [u8]) -> impl Future<Output = Result<(usize, SocketAddr)>>;
 }
 /// SNTP client context that contains of objects that may be required for client's
 /// operation

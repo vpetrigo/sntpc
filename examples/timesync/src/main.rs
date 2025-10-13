@@ -56,8 +56,7 @@ fn main() {
 
     let ntp_addr = format!("{ntp_server}:{ntp_port}");
 
-    let socket =
-        UdpSocket::bind("0.0.0.0:0").expect("Unable to create UDP socket");
+    let socket = UdpSocket::bind("0.0.0.0:0").expect("Unable to create UDP socket");
     socket
         .set_read_timeout(Some(Duration::from_secs(2)))
         .expect("Unable to set UDP socket read timeout");
@@ -65,9 +64,7 @@ fn main() {
     for addr in ntp_addr.to_socket_addrs().unwrap() {
         let ntp_context = NtpContext::new(StdTimestampGen::default());
         let result =
-            get_time(addr, &socket, ntp_context).unwrap_or_else(|_| {
-                panic!("Unable to receive time from: {ntp_addr}")
-            });
+            get_time(addr, &socket, ntp_context).unwrap_or_else(|_| panic!("Unable to receive time from: {ntp_addr}"));
 
         println!("Received time: {result:?}");
         sntpc::utils::update_system_time(result.sec(), result.sec_fraction());

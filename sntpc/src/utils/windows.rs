@@ -23,9 +23,7 @@ pub(super) fn sync_time(time: DateTime<Local>) {
 
     match cmd {
         Ok(mut child) => {
-            child
-                .wait()
-                .expect("Time synchronization finished incorrectly");
+            child.wait().expect("Time synchronization finished incorrectly");
         }
         Err(e) => {
             eprintln!("Error occurred: {e}");

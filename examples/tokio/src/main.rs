@@ -13,10 +13,7 @@ async fn main() {
         .expect("Socket creation");
     let ntp_context = NtpContext::new(StdTimestampGen::default());
 
-    for addr in lookup_host(POOL_NTP_ADDR)
-        .await
-        .expect("Unable to resolve address")
-    {
+    for addr in lookup_host(POOL_NTP_ADDR).await.expect("Unable to resolve address") {
         let duration = core::time::Duration::from_secs(2);
         let res = timeout(duration, get_time(addr, &socket, ntp_context)).await;
 

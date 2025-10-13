@@ -26,10 +26,10 @@ enum Commands {
     /// Build the main sntpc crate
     BuildCrate {
         /// Build with all features enabled
-        #[arg(long)]
+        #[arg(long, conflicts_with = "no_default_features")]
         all_features: bool,
         /// Build with no default features
-        #[arg(long)]
+        #[arg(long, conflicts_with = "all_features")]
         no_default_features: bool,
     },
     /// Run tests for the main crate
@@ -39,7 +39,14 @@ enum Commands {
     /// Run clippy on all code with strict linting
     Clippy,
     /// Check code formatting for the main crate and all examples
-    Format,
+    Format {
+        /// Check formatting without making changes
+        #[arg(long, conflicts_with = "fix")]
+        check: bool,
+        /// Fix formatting issues
+        #[arg(long, conflicts_with = "check")]
+        fix: bool,
+    },
     /// Clean all build artifacts
     Clean,
 }
@@ -60,7 +67,18 @@ fn main() -> Result<()> {
         Commands::Check => check_all(),
         Commands::Clean => clean_all(),
         Commands::Clippy => run_clippy(),
-        Commands::Format => check_formatting(),
+        Commands::Format { check, fix } => {
+            if check {
+                check_formatting()?;
+            } else if fix {
+                fix_formatting()?;
+            } else {
+                // Default to checking if no flag is provided
+                check_formatting()?;
+            }
+
+            Ok(())
+        }
     }
 }
 
@@ -397,6 +415,29 @@ fn check_formatting() -> Result<()> {
     Ok(())
 }
 
+fn fix_formatting() -> Result<()> {
+    println!(
+        "{}",
+        "Fixing code formatting for main crate and all examples..."
+            .bright_blue()
+            .bold()
+    );
+
+    // Fix main crate
+    fix_format_crate("sntpc", "Main crate")?;
+
+    // Fix all examples
+    let examples = get_all_examples()?;
+
+    for example in examples {
+        let example_path = format!("examples/{example}");
+        fix_format_crate(&example_path, &format!("Example: {example}"))?;
+    }
+
+    println!("{}", "✓ All formatting issues fixed!".bright_green().bold());
+    Ok(())
+}
+
 fn clippy_run(example_name: &str, no_std: bool) -> Result<()> {
     let example_dir = format!("examples/{example_name}");
 
@@ -507,6 +548,29 @@ fn check_format_crate(path: &str, name: &str) -> Result<()> {
     if !status.success() {
         eprintln!("{}", format!("✗ Format check failed for {name}").bright_red());
         anyhow::bail!("Format check failed for {name}");
+    }
+
+    println!("  {} {name}", "✓".bright_green());
+    Ok(())
+}
+
+fn fix_format_crate(path: &str, name: &str) -> Result<()> {
+    if !Path::new(path).exists() {
+        println!("{}", format!("⚠ Skipping {name}: directory not found").bright_yellow());
+        return Ok(());
+    }
+
+    println!("  {} {}", "Fixing format".bright_blue(), name);
+
+    let status = Command::new("cargo")
+        .args(["fmt", "--all"])
+        .current_dir(path)
+        .status()
+        .context(format!("Failed to execute cargo fmt for {name}"))?;
+
+    if !status.success() {
+        eprintln!("{}", format!("✗ Format fix failed for {name}").bright_red());
+        anyhow::bail!("Format fix failed for {name}");
     }
 
     println!("  {} {name}", "✓".bright_green());
