@@ -30,5 +30,5 @@ pub(super) fn sync_time(time: DateTime<Local>) {
         Err(e) => {
             eprintln!("Error occurred: {e}");
         }
-    };
+    }
 }
