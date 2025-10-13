@@ -1316,7 +1316,7 @@ mod sntpc_sync_tests {
     }
 }
 
-#[cfg(all(test, feature = "std", feature = "std-socket"))]
+#[cfg(all(test, feature = "std", feature = "std-socket", feature = "sync"))]
 mod sntpc_async_tests {
     use crate::get_time;
     use crate::sync::SYNC_EXECUTOR_NUMBER_OF_TASKS;
