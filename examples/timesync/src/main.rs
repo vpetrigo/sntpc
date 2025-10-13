@@ -22,33 +22,27 @@
 use sntpc::{sync::get_time, NtpContext, StdTimestampGen};
 
 use std::net::{ToSocketAddrs, UdpSocket};
-use std::str::FromStr;
 use std::time::Duration;
 
-use clap::{crate_version, App, Arg};
+use clap::Parser;
 
 const GOOGLE_NTP_ADDR: &str = "time.google.com";
 
+#[derive(Parser)]
+#[command(name = "timesync")]
+#[command(version)]
+struct Cli {
+    /// NTP server hostname
+    #[arg(short, long, default_value = GOOGLE_NTP_ADDR)]
+    server: String,
+
+    /// NTP server port
+    #[arg(short, long, default_value = "123")]
+    port: u32,
+}
+
 fn main() {
-    let app = App::new("timesync")
-        .version(crate_version!())
-        .arg(
-            Arg::with_name("server")
-                .short("s")
-                .long("server")
-                .takes_value(true)
-                .default_value(GOOGLE_NTP_ADDR)
-                .help("NTP server hostname"),
-        )
-        .arg(
-            Arg::with_name("port")
-                .short("p")
-                .long("port")
-                .takes_value(true)
-                .default_value("123")
-                .help("NTP server port"),
-        )
-        .get_matches();
+    let cli = Cli::parse();
 
     #[cfg(feature = "log")]
     if cfg!(debug_assertions) {
@@ -57,16 +51,8 @@ fn main() {
         simple_logger::init_with_level(log::Level::Info).unwrap();
     }
 
-    let ntp_server = app.value_of("server").unwrap();
-    let ntp_port = u32::from_str(app.value_of("port").unwrap());
-
-    let ntp_port = match ntp_port {
-        Ok(ntp_port) => ntp_port,
-        Err(err) => {
-            eprintln!("Unable to convert NTP server port value: {err}");
-            return;
-        }
-    };
+    let ntp_server = &cli.server;
+    let ntp_port = cli.port;
 
     let ntp_addr = format!("{ntp_server}:{ntp_port}");
 
