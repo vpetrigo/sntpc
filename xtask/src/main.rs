@@ -180,13 +180,12 @@ fn build_main_crate(
         command.arg("--no-default-features");
     }
 
-    let output = command
-        .output()
+    let status = command
+        .status()
         .context("Failed to execute cargo build for main crate")?;
 
-    if !output.status.success() {
+    if !status.success() {
         eprintln!("{}", "✗ Failed to build main crate".bright_red().bold());
-        eprintln!("{}", String::from_utf8_lossy(&output.stderr));
         anyhow::bail!("Build failed");
     }
 
@@ -205,14 +204,13 @@ fn run_tests() -> Result<()> {
         "Running tests for main sntpc crate...".bright_blue().bold()
     );
 
-    let output = Command::new("cargo")
+    let status = Command::new("cargo")
         .args(["test", "--manifest-path", "sntpc/Cargo.toml"])
-        .output()
+        .status()
         .context("Failed to execute cargo test")?;
 
-    if !output.status.success() {
+    if !status.success() {
         eprintln!("{}", "✗ Tests failed".bright_red().bold());
-        eprintln!("{}", String::from_utf8_lossy(&output.stderr));
         anyhow::bail!("Tests failed");
     }
 
@@ -298,23 +296,22 @@ fn build_example(example_name: &str, category: &str) -> Result<()> {
     println!("  {} {}", "Building".bright_blue(), example_name);
 
     let mut cmd = Command::new("cargo");
-    cmd.args(["build"]).current_dir(&example_dir); // Change working directory to the example
+    cmd.args(["build"]).current_dir(&example_dir);
 
     // Add special flags for no-std examples
     if category == "no-std" {
         cmd.args(["--target", "thumbv7em-none-eabihf"]);
     }
 
-    let output = cmd
-        .output()
+    let status = cmd
+        .status()
         .context(format!("Failed to execute cargo build for {example_name}"))?;
 
-    if !output.status.success() {
+    if !status.success() {
         eprintln!(
             "{}",
             format!("✗ Failed to build {example_name}").bright_red()
         );
-        eprintln!("{}", String::from_utf8_lossy(&output.stderr));
         anyhow::bail!("Build failed for {example_name}");
     }
 
@@ -333,15 +330,14 @@ fn check_crate(path: &str, name: &str) -> Result<()> {
 
     println!("  {} {}", "Checking".bright_blue(), name);
 
-    let output = Command::new("cargo")
+    let status = Command::new("cargo")
         .args(["check"])
         .current_dir(path)
-        .output()
+        .status()
         .context(format!("Failed to execute cargo check for {name}"))?;
 
-    if !output.status.success() {
+    if !status.success() {
         eprintln!("{}", format!("✗ Check failed for {name}").bright_red());
-        eprintln!("{}", String::from_utf8_lossy(&output.stderr));
         anyhow::bail!("Check failed for {name}");
     }
 
