@@ -1,7 +1,7 @@
 [![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/vpetrigo/sntpc/ci.yml?logo=github)](https://github.com/vpetrigo/sntpc/actions/workflows/ci.yml)
 [![](https://img.shields.io/crates/v/sntpc)](https://crates.io/crates/sntpc)
 [![docs.rs](https://img.shields.io/badge/docs.rs-sntpc-66c2a5?logo=docs.rs&label=docs.rs)](https://docs.rs/sntpc)
-[![](https://img.shields.io/crates/l/sntpc)](https://github.com/vpetrigo/sntpc/blob/master/LICENSE.md)
+[![codecov](https://codecov.io/gh/vpetrigo/sntpc/graph/badge.svg?token=dZ6iBIsSih)](https://codecov.io/gh/vpetrigo/sntpc)
 
 # Simple Rust SNTP client
 
