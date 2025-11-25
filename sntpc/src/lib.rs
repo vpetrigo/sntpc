@@ -3,7 +3,7 @@
 //! # Overview
 //!
 //! This crate provides a method for sending requests to NTP servers
-//! and process responses, extracting received timestamp. Supported SNTP protocol
+//! and process responses, extracting the received timestamp. Supported SNTP protocol
 //! versions:
 //! - [SNTPv4](https://datatracker.ietf.org/doc/html/rfc4330)
 //!
@@ -30,8 +30,8 @@
 //! <div class="warning">
 //!
 //! **Warning**: `log` and `defmt` are mutually exclusive features. If for some reason both are
-//! enabled `defmt` is considered to have higher priority feature, so all logging will use `defmt`
-//! API.
+//! enabled, `defmt` is considered to have a higher priority feature, so all logging
+//! will use `defmt` API.
 //! </div>
 //!
 //! <div class="warning">
@@ -41,10 +41,10 @@
 //!
 //! # Details
 //!
-//! There are multiple approaches how the library can be used:
-//! - under environments where a networking stuff is hidden in system/RTOS kernel, [`get_time`] can
+//! There are multiple approaches to how the library can be used:
+//! - under environments where networking stuff is hidden in system/RTOS kernel, [`get_time`] can
 //!   be used since it encapsulates network I/O
-//! - under environments where TCP/IP stack requires to call some helper functions like `poll`,
+//! - under environments where TCP/IP stack requires calling some helper functions like `poll`,
 //!   `wait`, etc. and/or there are no options to perform I/O operations within a single call,
 //!   [`sntp_send_request`] and [`sntp_process_response`] can be used
 //!
@@ -54,11 +54,11 @@
 //! - [`NtpUdpSocket`] trait should be implemented for `UdpSocket`-like objects for the
 //!   library to be able to send and receive data from NTP servers
 //! - [`NtpTimestampGenerator`] trait should be implemented for timestamp generator objects to
-//!   provide the library with system related timestamps
+//!   provide the library with system-related timestamps
 //!
 //! ## Logging support
 //!
-//! Library debug logs can be enabled in executables by enabling `log` or `defmt`
+//! Library debug logs can be enabled in executables by enabling the `log` or `defmt`
 //! feature. Server addresses, response payload will be printed.
 //!
 //! # Example
@@ -988,8 +988,8 @@ pub fn fraction_to_picoseconds(sec_fraction: u32) -> u64 {
 mod sntpc_ntp_result_tests {
     use crate::types::Units;
     use crate::{
-        fraction_to_microseconds, fraction_to_milliseconds, fraction_to_nanoseconds, fraction_to_picoseconds,
-        offset_calculate, NtpResult,
+        NtpResult, fraction_to_microseconds, fraction_to_milliseconds, fraction_to_nanoseconds,
+        fraction_to_picoseconds, offset_calculate,
     };
 
     struct Timestamps(u64, u64, u64, u64);
