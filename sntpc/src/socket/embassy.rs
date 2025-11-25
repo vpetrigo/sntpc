@@ -21,9 +21,10 @@ impl NtpUdpSocket for UdpSocket<'_> {
 
         match UdpSocket::send_to(self, buf, endpoint).await {
             Ok(()) => Ok(buf.len()),
-            Err(_e) => {
+            #[allow(unused_variables)]
+            Err(e) => {
                 #[cfg(any(feature = "log", feature = "defmt"))]
-                error!("Error while sending to {}: {:?}", endpoint, _e);
+                error!("Error while sending to {endpoint}: {e:?}");
                 Err(Error::Network)
             }
         }
@@ -43,9 +44,10 @@ impl NtpUdpSocket for UdpSocket<'_> {
 
         match UdpSocket::recv_from(self, buf).await {
             Ok((len, ep)) => Ok((len, to_addr(ep.endpoint))),
-            Err(_e) => {
+            #[allow(unused_variables)]
+            Err(e) => {
                 #[cfg(any(feature = "log", feature = "defmt"))]
-                error!("Error receiving {:?}", _e);
+                error!("Error receiving {e:?}");
                 Err(Error::Network)
             }
         }
