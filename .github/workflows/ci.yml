@@ -12,7 +12,11 @@ jobs:
   clippy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+          components: clippy
       - name: Run clippy on sntpc crate and all examples
         run: cargo xtask clippy
 
@@ -21,25 +25,34 @@ jobs:
     container:
       image: rust:latest
     steps:
-      - uses: actions/checkout@v5
-      - name: Install nightly toolchain
-        run: rustup toolchain add nightly
-      - name: Install clippy
-        run: rustup component add clippy --toolchain nightly
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly
+          components: clippy
       - name: Run clippy for async feature with nightly
         run: cargo +nightly xtask clippy
 
   check-format:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+          components: rustfmt
       - name: Check formatting
         run: cargo xtask format
 
   build-test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+      - uses: taiki-e/install-action@cargo-llvm-cov
+      - uses: taiki-e/install-action@nextest
       - name: Build sntpc with all features
         run: cargo xtask build-crate --all-features
       - name: Build sntpc with no default features
@@ -51,17 +64,26 @@ jobs:
       - name: Build cross-platform examples
         run: cargo xtask build-cross-platform
       - name: Run tests with all features
-        run: cd sntpc && cargo test --all-features
+        run: cd sntpc && cargo llvm-cov nextest --profile ci --lcov --output-path lcov.info
       - name: Run tests with no default features
-        run: cd sntpc && cargo test --no-default-features
+        run: cd sntpc && cargo nextest --no-default-features
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: lcov.info
+          fail_ci_if_error: true
 
   benchmark:
     name: Benchmark sync and async API
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
       - name: Install uv
-        uses: astral-sh/setup-uv@v4
+        uses: astral-sh/setup-uv@v7
       - name: Start test NTP server
         run: uvx --from git+https://github.com/vpetrigo/ntpserver@master ntpserver > /dev/null &
       - name: Run benchmarking
