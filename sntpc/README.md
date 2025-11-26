@@ -1,6 +1,7 @@
-[![sntpc test](https://github.com/vpetrigo/sntpc/actions/workflows/ci.yml/badge.svg)](https://github.com/vpetrigo/sntpc/actions/workflows/ci.yml)
+[![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/vpetrigo/sntpc/ci.yml?logo=github)](https://github.com/vpetrigo/sntpc/actions/workflows/ci.yml)
 [![](https://img.shields.io/crates/v/sntpc)](https://crates.io/crates/sntpc)
-[![](https://img.shields.io/crates/l/sntpc)](https://github.com/vpetrigo/sntpc/blob/master/LICENSE.md)
+[![docs.rs](https://img.shields.io/badge/docs.rs-sntpc-66c2a5?logo=docs.rs&label=docs.rs)](https://docs.rs/sntpc)
+[![codecov](https://codecov.io/gh/vpetrigo/sntpc/graph/badge.svg?token=dZ6iBIsSih)](https://codecov.io/gh/vpetrigo/sntpc)
 
 # Simple Rust SNTP client
 
@@ -12,12 +13,6 @@ extracting received timestamp.
 Supported SNTP protocol versions:
 
 - [SNTPv4](https://datatracker.ietf.org/doc/html/rfc4330)
-
-### Documentation
-
------------------
-
-More information about this crate can be found in the [crate documentation](https://docs.rs/sntpc)
 
 ### Usage example
 
@@ -83,14 +78,10 @@ You can find this [example](examples/simple-request) as well as other example pr
 
 ## `no_std` support
 
--------------------
-
 There is an example available on how to use [`smoltcp`](examples/smoltcp-request) stack and that should provide
 general idea on how to bootstrap `no_std` networking and timestamping tools for `sntpc` library usage
 
 ## `async` support
-
--------------------
 
 Starting version `0.5` the default interface is `async`. If you want to use synchronous interface, read about `sync`
 feature below.
@@ -101,8 +92,6 @@ There is also `no_std` support with feature `async`, but it requires Rust >= `1.
 The example can be found in [separate repository](https://github.com/vpikulik/sntpc_embassy).
 
 ## `sync` support
-
--------------------
 
 `sntpc` crate is `async` by default, since most of the frameworks (I have seen) for embedded systems utilize
 asynchronous approach, e.g.:
@@ -146,8 +135,6 @@ Small overhead introduced by creating an executor should be negligible.
 
 # Contribution
 
---------------
-
 Contributions are always welcome! If you have an idea, it's best to float it by me before working on it to ensure no
 effort is wasted. If there's already an open issue for it, knock yourself out. See the
 [**contributing section**](CONTRIBUTING.md) for additional details
@@ -172,16 +159,15 @@ Really appreciate all your efforts! Please [let me know](mailto:vladimir.petrigo
 
 # License
 
----------
-
 <sup>
-This project is licensed under <a href="LICENSE.md">The 3-Clause BSD License</a>
+Licensed under either of <a href="LICENSE-APACHE">Apache License, Version 2.0</a> or
+<a href="LICENSE-MIT">MIT license</a> at your option.
 </sup>
 
-<br/>
+<br>
 
-<sup>
-Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in time by you, as
-defined in the 3-Clause BSD license, shall be licensed as above, without any additional terms or
-conditions.
-</sup>
+<sub>
+Unless you explicitly state otherwise, any contribution intentionally submitted
+for inclusion in this codebase by you, as defined in the Apache-2.0 license,
+shall be dual licensed as above, without any additional terms or conditions.
+</sub>
