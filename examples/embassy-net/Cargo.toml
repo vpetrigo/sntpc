@@ -6,12 +6,12 @@ publish = false
 
 [dependencies]
 sntpc = { path = "../../sntpc", default-features = false, features = ["defmt", "embassy-socket-ipv6"] }
-embassy-executor = { version = "0.7.0", features = ["arch-std", "defmt", "task-arena-size-32768", "executor-thread"] }
-embassy-time = { version = "0.4.0", features = ["std", "defmt", "generic-queue-8"] }
+embassy-executor = { version = "0.9.1", features = ["arch-std", "defmt", "executor-thread"] }
+embassy-time = { version = "0.5.0", features = ["std", "defmt", "generic-queue-8"] }
 embassy-net = { version = "0.7.0", features = ["defmt", "medium-ethernet", "proto-ipv4", "proto-ipv6", "udp", "dns"] }
 static_cell = "2"
-heapless = { version = "0.8", default-features = false }
-defmt = "0.3"
+heapless = { version = "0.9.2", default-features = false }
+defmt = "1.0.1"
 defmt-logger-tcp = "0.2"
 
 [target.'cfg(unix)'.dependencies]

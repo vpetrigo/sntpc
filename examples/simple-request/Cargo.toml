@@ -10,4 +10,4 @@ log = ["dep:simple_logger", "dep:log", "sntpc/log"]
 [dependencies]
 sntpc = { path = "../../sntpc", features = ["sync"] }
 log = { version = "~0.4", optional = true }
-simple_logger = { version = "~1.13", optional = true }
+simple_logger = { version = "~5.1", optional = true }
