@@ -20,7 +20,7 @@ Supported SNTP protocol versions:
 
 ```toml
 [dependencies]
-sntpc = { version = "0.6", features = ["sync"] }
+sntpc = { version = "0.7", features = ["sync"] }
 ```
 
 - application code
