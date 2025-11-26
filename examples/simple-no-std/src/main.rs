@@ -141,7 +141,7 @@ pub extern "C" fn WinMain() {
 }
 
 fn main() -> ! {
-    let mut executor = Executor::new();
+    let mut executor: Executor<1> = Executor::new();
     let mut task = Task::new("sntp", body());
     let mut handler = task.create_handle();
 
