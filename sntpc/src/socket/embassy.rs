@@ -24,7 +24,7 @@ impl NtpUdpSocket for UdpSocket<'_> {
             #[allow(unused_variables)]
             Err(e) => {
                 #[cfg(any(feature = "log", feature = "defmt"))]
-                error!("Error while sending to {endpoint}: {e:?}");
+                error!("Error while sending to {}: {:?}", endpoint, e);
                 Err(Error::Network)
             }
         }
@@ -47,7 +47,7 @@ impl NtpUdpSocket for UdpSocket<'_> {
             #[allow(unused_variables)]
             Err(e) => {
                 #[cfg(any(feature = "log", feature = "defmt"))]
-                error!("Error receiving {e:?}");
+                error!("Error receiving {:?}", e);
                 Err(Error::Network)
             }
         }

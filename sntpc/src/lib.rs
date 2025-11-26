@@ -420,7 +420,7 @@ where
     T: NtpTimestampGenerator,
 {
     #[cfg(any(feature = "log", feature = "defmt"))]
-    debug!("send request - Address: {dest:?}");
+    debug!("send request - Address: {:?}", dest);
     let request = NtpPacket::new(context.timestamp_gen);
 
     send_request(dest, &request, socket).await?;
@@ -565,7 +565,7 @@ where
     context.timestamp_gen.init();
     let recv_timestamp = get_ntp_timestamp(&context.timestamp_gen);
     #[cfg(any(feature = "log", feature = "defmt"))]
-    debug!("Response: {response}");
+    debug!("Response: {}", response);
 
     if dest != src {
         return Err(Error::ResponseAddressMismatch);
@@ -579,7 +579,7 @@ where
 
     #[cfg(any(feature = "log", feature = "defmt"))]
     if let Ok(r) = &result {
-        debug!("{r:?}");
+        debug!("{:?}", r);
     }
 
     result
@@ -843,7 +843,7 @@ fn process_response(send_req_result: SendRequestResult, resp: RawNtpPacket, recv
     cfg_if!(
         if #[cfg(any(feature = "log", feature = "defmt"))] {
             let debug_packet = DebugNtpPacket::new(&packet, recv_timestamp);
-            debug!("{debug_packet:#?}");
+            debug!("{:#?}", debug_packet);
         }
     );
 
@@ -890,7 +890,7 @@ fn process_response(send_req_result: SendRequestResult, resp: RawNtpPacket, recv
     let timestamp = NtpTimestamp::from(packet.tx_timestamp);
 
     #[cfg(any(feature = "log", feature = "defmt"))]
-    debug!("Roundtrip delay: {roundtrip} {units}. Offset: {offset} {units}");
+    debug!("Roundtrip delay: {} {}. Offset: {} {}", roundtrip, units, offset, units);
 
     Ok(NtpResult::new(
         timestamp.seconds as u32,

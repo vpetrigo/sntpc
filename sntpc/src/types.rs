@@ -272,7 +272,7 @@ impl NtpPacket {
         let tx_timestamp = get_ntp_timestamp(&timestamp_gen);
 
         #[cfg(any(feature = "log", feature = "defmt"))]
-        debug!("NtpPacket::new(tx_timestamp: {tx_timestamp})");
+        debug!("NtpPacket::new(tx_timestamp: {})", tx_timestamp);
 
         NtpPacket {
             li_vn_mode: NtpPacket::SNTP_CLIENT_MODE | NtpPacket::SNTP_VERSION,
