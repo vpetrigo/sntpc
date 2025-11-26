@@ -68,7 +68,7 @@ jobs:
       - name: Build cross-platform examples
         run: cargo xtask build-cross-platform
       - name: Run tests with all features
-        run: cargo nextest run --all-features --profile ci --lcov --output-path lcov.info
+        run: cargo nextest run --all-features --profile ci
         working-directory: sntpc
       - name: Run tests with no default features
         run: cargo nextest run --no-default-features --profile ci
