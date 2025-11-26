@@ -5,8 +5,6 @@
 
 # Simple Rust SNTP client
 
--------------------------
-
 This crate provides a method for sending requests to NTP servers and process responses,
 extracting received timestamp.
 
