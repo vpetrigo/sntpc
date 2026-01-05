@@ -32,7 +32,7 @@ defmt = ["dep:defmt", "embassy-net/defmt"]
 log = { version = "~0.4", optional = true }
 chrono = { version = "~0.4", default-features = false, optional = true }
 miniloop = { version = "~0.4", optional = true }
-embassy-net = { version = ">=0.5", features = ["udp", "proto-ipv4", "medium-ip"], optional = true }
+embassy-net = { version = ">=0.5, <0.8", features = ["udp", "proto-ipv4", "medium-ip"], optional = true }
 tokio = { version = "1", features = ["net"], optional = true }
 defmt = { version = "~1.0", optional = true }
 cfg-if = "~1"
