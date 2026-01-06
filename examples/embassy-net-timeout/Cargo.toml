@@ -2,6 +2,7 @@
 name = "example-embassy-net-timeout"
 version = "0.2.0"
 edition = "2024"
+publish = false
 
 [dependencies]
 embassy-executor = { version = "~0.9", features = ["arch-std", "executor-thread"] }
