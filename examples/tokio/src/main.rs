@@ -1,4 +1,5 @@
 use sntpc::{get_time, NtpContext, StdTimestampGen};
+use sntpc_net_tokio::UdpSocketWrapper;
 use tokio::net::{lookup_host, UdpSocket};
 use tokio::time::timeout;
 
@@ -11,6 +12,7 @@ async fn main() {
     let socket = UdpSocket::bind("0.0.0.0:0".parse::<SocketAddr>().unwrap())
         .await
         .expect("Socket creation");
+    let socket = UdpSocketWrapper::from(socket);
     let ntp_context = NtpContext::new(StdTimestampGen::default());
 
     for addr in lookup_host(POOL_NTP_ADDR).await.expect("Unable to resolve address") {

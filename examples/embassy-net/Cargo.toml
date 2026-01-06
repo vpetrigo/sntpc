@@ -1,14 +1,15 @@
 [package]
 name = "example-embassy-net"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 publish = false
 
 [dependencies]
-sntpc = { path = "../../sntpc", default-features = false, features = ["defmt", "embassy-socket-ipv6"] }
+sntpc = { path = "../../sntpc", version = "~0.8", default-features = false, features = ["defmt"] }
+sntpc-net-embassy = { path = "../../sntpc-net-embassy", version = "~0.7", default-features = false, features = ["defmt"] }
 embassy-executor = { version = "0.9.1", features = ["arch-std", "defmt", "executor-thread"] }
 embassy-time = { version = "0.5.0", features = ["std", "defmt", "generic-queue-8"] }
-embassy-net = { version = "0.7.0", features = ["defmt", "medium-ethernet", "proto-ipv4", "proto-ipv6", "udp", "dns"] }
+embassy-net = { version = "~0.7", features = ["defmt", "medium-ethernet", "proto-ipv4", "udp", "dns"] }
 static_cell = "2"
 heapless = { version = "~0.8", default-features = false }
 defmt = "1.0.1"

@@ -1,13 +1,14 @@
 [package]
 name = "example-embassy-net-timeout"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 
 [dependencies]
 embassy-executor = { version = "~0.9", features = ["arch-std", "executor-thread"] }
 embassy-time = { version = "~0.5", features = ["std", "generic-queue-8"] }
 embassy-net = { version = "~0.7", features = ["std", "udp", "medium-ethernet", "proto-ipv4"] }
-sntpc = { path = "../../sntpc", features = ["embassy-socket"] }
+sntpc = { path = "../../sntpc", version = "~0.8", default-features = false, features = ["std"] }
+sntpc-net-embassy = { path = "../../sntpc-net-embassy", version = "~0.7" }
 heapless = { version = "~0.8" }
 static_cell = { version = "2.1.1" }
 rand_core = { version = "~0.9", features = ["std", "os_rng"] }

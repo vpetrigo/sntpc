@@ -46,6 +46,9 @@
 //! ```sh
 //! sudo ip link del tap0
 //! ```
+
+use sntpc_net_embassy::UdpSocketWrapper;
+
 macro_rules! cfg_unix {
     ($($item:item)*) => {
         $(
@@ -129,6 +132,7 @@ cfg_unix! {
             &mut tx_buffer,
         );
         socket.bind(9400).unwrap();
+        let socket = UdpSocketWrapper::new(socket);
 
         loop {
             let ntp_context = NtpContext::new(StdTimestampGen::default());

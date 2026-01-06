@@ -278,10 +278,7 @@ use internal::{create_app_cli, Buffers, SmoltcpUdpSocketWrapper, StdTimestampGen
 
 #[cfg(unix)]
 fn main() {
-    #[cfg(feature = "log")]
-    if cfg!(feature = "log") {
-        simple_logger::init_with_level(log::Level::Trace).unwrap();
-    }
+    simple_logger::init_with_level(log::Level::Trace).unwrap();
 
     let app = create_app_cli();
     let interface_name = app.value_of("interface").unwrap();
@@ -324,7 +321,6 @@ fn main() {
             iface.poll(timestamp, &mut tuntap, &mut sockets),
             PollResult::SocketStateChanged
         ) {
-            #[cfg(feature = "log")]
             log::trace!("Poll ok!");
         }
 
@@ -341,13 +337,11 @@ fn main() {
                     send_result = Some(result);
                 }
                 Err(e) => {
-                    #[cfg(feature = "log")]
                     log::error!("send error: {e:?}");
                     once_tx = true;
                 }
             }
 
-            #[cfg(feature = "log")]
             log::trace!("{:?}", &result);
         }
 
@@ -355,17 +349,13 @@ fn main() {
             if once_rx && sockets.get::<udp::Socket>(udp_handle).can_recv() {
                 once_rx = false;
 
-                #[cfg(feature = "log")]
-                {
-                    let context = NtpContext::new(StdTimestampGen::default());
-                    let sock_wrapper = SmoltcpUdpSocketWrapper {
-                        socket: RefCell::new(sockets.get_mut::<udp::Socket>(udp_handle)),
-                    };
-                    let result = sntp_process_response(server_sock_addr, &sock_wrapper, context, tx_result);
+                let context = NtpContext::new(StdTimestampGen::default());
+                let sock_wrapper = SmoltcpUdpSocketWrapper {
+                    socket: RefCell::new(sockets.get_mut::<udp::Socket>(udp_handle)),
+                };
+                let result = sntp_process_response(server_sock_addr, &sock_wrapper, context, tx_result);
 
-                    #[cfg(feature = "log")]
-                    log::info!("{result:?}");
-                }
+                log::info!("{result:?}");
             }
         }
 
