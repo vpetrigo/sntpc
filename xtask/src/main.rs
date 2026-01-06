@@ -30,6 +30,8 @@ enum Commands {
     },
     /// Run tests for the main crate
     Test,
+    /// Run tests for the main crate with code coverage
+    Coverage,
     /// Check all code (main crate and examples)
     Check,
     /// Run clippy on all code with strict linting
@@ -60,6 +62,7 @@ fn main() -> Result<()> {
             no_default_features,
         } => commands::build::build_main_crate(all_features, no_default_features),
         Commands::Test => commands::test::run_tests(),
+        Commands::Coverage => commands::test::run_tests_with_coverage(),
         Commands::Check => commands::check::check_all(),
         Commands::Clean => commands::clean::clean_all(),
         Commands::Clippy => commands::clippy::run_clippy(),
