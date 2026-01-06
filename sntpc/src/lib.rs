@@ -23,9 +23,6 @@
 //! - `utils`: includes functionality that mostly OS specific and allows system time sync
 //! - `log`: enables library debug output during execution
 //! - `defmt`: enables library debug output using defmt
-//! - `std-socket`: add `NtpUdpSocket` trait implementation for `std::net::UdpSocket`
-//! - `embassy-socket`: add `NtpUdpSocket` trait implementation for `embassy_net::udp::UdpSocket`
-//! - `tokio-socket`: add `NtpUdpSocket` trait implementation for `tokio::net::UdpSocket`
 //!
 //! <div class="warning">
 //!
@@ -160,7 +157,6 @@
 pub mod utils;
 
 mod log;
-mod socket;
 mod types;
 
 pub use crate::types::*;
@@ -1167,11 +1163,44 @@ mod sntpc_std_tests {
     }
 }
 
-#[cfg(all(test, feature = "std", feature = "std-socket", feature = "sync"))]
+#[cfg(all(test, feature = "std", feature = "sync"))]
 mod sntpc_sync_tests {
     use crate::sync::get_time;
-    use crate::{Error, NtpContext, StdTimestampGen};
+    use crate::{Error, NtpContext, NtpUdpSocket, StdTimestampGen};
     use std::net::{SocketAddr, ToSocketAddrs, UdpSocket};
+
+    struct UdpSocketWrapper {
+        socket: UdpSocket,
+    }
+
+    impl UdpSocketWrapper {
+        #[must_use]
+        fn new(socket: UdpSocket) -> Self {
+            Self { socket }
+        }
+    }
+
+    impl From<UdpSocket> for UdpSocketWrapper {
+        fn from(socket: UdpSocket) -> Self {
+            UdpSocketWrapper::new(socket)
+        }
+    }
+
+    impl NtpUdpSocket for UdpSocketWrapper {
+        async fn send_to(&self, buf: &[u8], addr: SocketAddr) -> crate::Result<usize> {
+            match self.socket.send_to(buf, addr) {
+                Ok(usize) => Ok(usize),
+                Err(_) => Err(Error::Network),
+            }
+        }
+
+        async fn recv_from(&self, buf: &mut [u8]) -> crate::Result<(usize, SocketAddr)> {
+            match self.socket.recv_from(buf) {
+                Ok((size, addr)) => Ok((size, addr)),
+                Err(_) => Err(Error::Network),
+            }
+        }
+    }
 
     #[test]
     fn test_ntp_request_sntpv4_supported() {
@@ -1189,6 +1218,7 @@ mod sntpc_sync_tests {
             socket
                 .set_read_timeout(Some(std::time::Duration::from_secs(2)))
                 .expect("Unable to set up socket timeout");
+            let socket = UdpSocketWrapper::from(socket);
 
             for address in pool.to_socket_addrs().unwrap().filter(SocketAddr::is_ipv4) {
                 let result = get_time(address, &socket, context);
@@ -1210,6 +1240,7 @@ mod sntpc_sync_tests {
             socket
                 .set_read_timeout(Some(std::time::Duration::from_secs(5)))
                 .expect("Unable to set up socket timeout");
+            let socket = UdpSocketWrapper::from(socket);
 
             for address in pool.to_socket_addrs().unwrap().filter(SocketAddr::is_ipv4) {
                 let result = get_time(address, &socket, context);
@@ -1232,13 +1263,46 @@ mod sntpc_sync_tests {
     }
 }
 
-#[cfg(all(test, feature = "std", feature = "std-socket", feature = "sync"))]
+#[cfg(all(test, feature = "std", feature = "sync"))]
 mod sntpc_async_tests {
-    use crate::get_time;
     use crate::sync::SYNC_EXECUTOR_NUMBER_OF_TASKS;
     use crate::{Error, NtpContext, StdTimestampGen};
+    use crate::{NtpUdpSocket, get_time};
     use miniloop::executor::Executor;
     use std::net::{SocketAddr, ToSocketAddrs, UdpSocket};
+
+    struct UdpSocketWrapper {
+        socket: UdpSocket,
+    }
+
+    impl UdpSocketWrapper {
+        #[must_use]
+        fn new(socket: UdpSocket) -> Self {
+            Self { socket }
+        }
+    }
+
+    impl From<UdpSocket> for UdpSocketWrapper {
+        fn from(socket: UdpSocket) -> Self {
+            UdpSocketWrapper::new(socket)
+        }
+    }
+
+    impl NtpUdpSocket for UdpSocketWrapper {
+        async fn send_to(&self, buf: &[u8], addr: SocketAddr) -> crate::Result<usize> {
+            match self.socket.send_to(buf, addr) {
+                Ok(usize) => Ok(usize),
+                Err(_) => Err(Error::Network),
+            }
+        }
+
+        async fn recv_from(&self, buf: &mut [u8]) -> crate::Result<(usize, SocketAddr)> {
+            match self.socket.recv_from(buf) {
+                Ok((size, addr)) => Ok((size, addr)),
+                Err(_) => Err(Error::Network),
+            }
+        }
+    }
 
     #[test]
     fn test_ntp_async_request_sntpv4_supported() {
@@ -1256,6 +1320,7 @@ mod sntpc_async_tests {
             socket
                 .set_read_timeout(Some(std::time::Duration::from_secs(5)))
                 .expect("Unable to set up socket timeout");
+            let socket = UdpSocketWrapper::from(socket);
 
             for address in pool.to_socket_addrs().unwrap().filter(SocketAddr::is_ipv4) {
                 let result =
@@ -1278,6 +1343,7 @@ mod sntpc_async_tests {
             socket
                 .set_read_timeout(Some(std::time::Duration::from_secs(5)))
                 .expect("Unable to set up socket timeout");
+            let socket = UdpSocketWrapper::from(socket);
 
             for address in pool.to_socket_addrs().unwrap().filter(SocketAddr::is_ipv4) {
                 let result =
