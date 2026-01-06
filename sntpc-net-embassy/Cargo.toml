@@ -1,0 +1,23 @@
+[package]
+name = "sntpc-net-embassy"
+version = "0.7.0"
+edition = "2024"
+description = "Embassy socket wrapper for sntpc library"
+repository = "https://github.com/vpetrigo/sntpc"
+categories = ["date-and-time", "no-std", "embedded", "asynchronous"]
+keywords = ["sntp", "ntp", "sntp-client", "ntp-client"]
+license = "MIT OR Apache-2.0"
+authors = ["Vladimir Petrigo <vladimir.petrigo@gmail.com>"]
+
+[dependencies]
+sntpc = { version = "~0.8", path = "../sntpc", default-features = false }
+embassy-net = { version = ">=0.7, <0.8", default-features = false, features = ["udp", "proto-ipv4", "medium-ip"] }
+
+cfg-if = { version = "1", optional = true }
+log = { version = "~0.4", optional = true }
+defmt = { version = "~1.0", optional = true }
+
+[features]
+ipv6 = ["embassy-net/proto-ipv6"]
+log = ["dep:log", "dep:cfg-if"]
+defmt = ["dep:defmt", "dep:cfg-if", "embassy-net/defmt"]
