@@ -1,6 +1,5 @@
 [![Crates.io](https://img.shields.io/crates/v/sntpc-net-tokio)](https://crates.io/crates/sntpc-net-tokio)
 [![docs.rs](https://img.shields.io/badge/docs.rs-sntpc--net--tokio-66c2a5?logo=docs.rs)](https://docs.rs/sntpc-net-tokio)
-[![License](https://img.shields.io/crates/l/sntpc-net-tokio)](https://github.com/vpetrigo/sntpc)
 
 # sntpc-net-tokio
 

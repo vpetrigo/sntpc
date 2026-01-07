@@ -1,6 +1,5 @@
 [![Crates.io](https://img.shields.io/crates/v/sntpc-net-std)](https://crates.io/crates/sntpc-net-std)
 [![docs.rs](https://img.shields.io/badge/docs.rs-sntpc--net--std-66c2a5?logo=docs.rs)](https://docs.rs/sntpc-net-std)
-[![License](https://img.shields.io/crates/l/sntpc-net-std)](https://github.com/vpetrigo/sntpc)
 
 # sntpc-net-std
 
