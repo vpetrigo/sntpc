@@ -19,7 +19,7 @@
 //!
 //! Example provides a basic implementation of [`NtpTimestampGenerator`] and [`NtpUdpSocket`]
 //! required for the [`sntpc`] library
-use sntpc::{sync::get_time, NtpContext, StdTimestampGen};
+use sntpc::{NtpContext, StdTimestampGen, sync::get_time};
 use sntpc_net_std::UdpSocketWrapper;
 
 use std::net::{ToSocketAddrs, UdpSocket};

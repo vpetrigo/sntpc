@@ -1,6 +1,6 @@
-use sntpc::{get_time, NtpContext, StdTimestampGen};
+use sntpc::{NtpContext, StdTimestampGen, get_time};
 use sntpc_net_tokio::UdpSocketWrapper;
-use tokio::net::{lookup_host, UdpSocket};
+use tokio::net::{UdpSocket, lookup_host};
 use tokio::time::timeout;
 
 use core::net::SocketAddr;

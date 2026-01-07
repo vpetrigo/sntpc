@@ -8,7 +8,7 @@ use core::ptr::null_mut;
 use core::sync::atomic::{AtomicUsize, Ordering::Relaxed};
 use miniloop::{executor::Executor, task::Task};
 use sntpc::net::SocketAddr;
-use sntpc::{get_time, NtpContext, NtpTimestampGenerator, NtpUdpSocket, Result};
+use sntpc::{NtpContext, NtpTimestampGenerator, NtpUdpSocket, Result, get_time};
 
 const ARENA_SIZE: usize = 128 * 1024;
 const MAX_SUPPORTED_ALIGN: usize = 4096;
@@ -50,9 +50,7 @@ unsafe impl GlobalAlloc for SimpleAllocator {
             return null_mut();
         }
 
-        unsafe {
-            self.arena.get().cast::<u8>().add(allocated)
-        }
+        unsafe { self.arena.get().cast::<u8>().add(allocated) }
     }
 
     unsafe fn dealloc(&self, _ptr: *mut u8, _layout: Layout) {
