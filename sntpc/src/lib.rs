@@ -71,15 +71,9 @@ pub use crate::types::*;
 #[cfg(any(feature = "log", feature = "defmt"))]
 use crate::log::debug;
 
-/// Network types used by the `sntpc` crate
-pub mod net {
-    pub use core::net::SocketAddr;
-
-    #[cfg(feature = "std")]
-    pub use std::net::UdpSocket;
-}
-
 use cfg_if::cfg_if;
+
+use core::net;
 
 /// Retrieves the current time from an NTP server.
 ///
