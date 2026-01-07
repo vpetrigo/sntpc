@@ -5,10 +5,11 @@ description = "Library for making SNTP requests"
 repository = "https://github.com/vpetrigo/sntpc"
 categories = ["date-and-time", "no-std", "embedded", "asynchronous"]
 keywords = ["sntp", "ntp", "sntp-client", "ntp-client"]
-license = "MIT OR Apache-2.0"
-authors = ["Vladimir Petrigo <vladimir.petrigo@gmail.com>"]
-edition = "2024"
 autoexamples = false
+
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
 
 exclude = [
     ".*",

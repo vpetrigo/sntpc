@@ -144,6 +144,16 @@ sync/async feature [violates Cargo requirements](https://doc.rust-lang.org/cargo
 
 Small overhead introduced by creating an executor should be negligible.
 
+# Network Adapters
+
+The `sntpc` uses a modular architecture:
+
+- `sntpc`: Core SNTP protocol implementation (network-agnostic)
+- `sntpc-net-std`: Standard library UDP socket adapter
+- `sntpc-net-tokio`: Tokio async runtime adapter
+- `sntpc-net-embassy`: Embassy embedded async runtime adapter
+
+
 # Contribution
 
 Contributions are always welcome! If you have an idea, it's best to float it by me before working on it to ensure no
