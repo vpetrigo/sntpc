@@ -134,8 +134,14 @@ pub fn run_cargo_check(path: &str) -> Result<()> {
         anyhow::bail!("Path does not exist: {path}");
     }
 
+    let mut args = vec!["check"];
+
+    if path.contains("no-std") {
+        args.extend_from_slice(&["--profile", "no-std"]);
+    }
+
     let status = Command::new("cargo")
-        .args(["check"])
+        .args(args)
         .current_dir(path)
         .status()
         .with_context(|| format!("Failed to execute cargo check for {path}"))?;
