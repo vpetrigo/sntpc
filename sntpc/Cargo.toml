@@ -32,7 +32,7 @@ cfg-if = "~1"
 
 [dev-dependencies]
 miniloop = "~0.4"
-criterion = "~0.7"
+criterion = "~0.8"
 sntpc-net-std = { path = "../sntpc-net-std", version = "1" }
 
 [badges]
