@@ -140,30 +140,36 @@ pub fn build_main_crate(all_features: bool, no_default_features: bool) -> Result
     message.push_str("...");
     utils::print_header(&message);
 
-    let mut command = Command::new("cargo");
-    command.args(["build", "--manifest-path", "sntpc/Cargo.toml"]);
+    let main_crates = utils::get_workspace_crates()?;
 
-    if all_features && no_default_features {
-        utils::print_error("✗ Cannot specify both --all-features and --no-default-features");
-        anyhow::bail!("Conflicting feature flags");
+    for main_crate in main_crates {
+        let mainfest_path = format!("{main_crate}/Cargo.toml");
+        let mut command = Command::new("cargo");
+        command.args(["build", "--manifest-path", &mainfest_path]);
+
+        if all_features && no_default_features {
+            utils::print_error("✗ Cannot specify both --all-features and --no-default-features");
+            anyhow::bail!("Conflicting feature flags");
+        }
+
+        if all_features {
+            command.arg("--all-features");
+        } else if no_default_features {
+            command.arg("--no-default-features");
+        }
+
+        let status = command.status().context(format!(
+            "Failed to execute cargo build for the main crate: {main_crate}"
+        ))?;
+
+        if !status.success() {
+            utils::print_error(format!("✗ Failed to build the main crate: {main_crate}").as_str());
+            anyhow::bail!("Build failed");
+        }
+
+        utils::print_success(format!("✓ Main crate {main_crate} built successfully!").as_str());
     }
 
-    if all_features {
-        command.arg("--all-features");
-    } else if no_default_features {
-        command.arg("--no-default-features");
-    }
-
-    let status = command
-        .status()
-        .context("Failed to execute cargo build for the main crate")?;
-
-    if !status.success() {
-        utils::print_error("✗ Failed to build the main crate");
-        anyhow::bail!("Build failed");
-    }
-
-    utils::print_success("✓ Main sntpc crate built successfully!");
     Ok(())
 }
 
