@@ -3,11 +3,11 @@
 use core::alloc::{GlobalAlloc, Layout};
 use core::cell::UnsafeCell;
 use core::future::Future;
+use core::net::SocketAddr;
 use core::net::{IpAddr, Ipv4Addr};
 use core::ptr::null_mut;
 use core::sync::atomic::{AtomicUsize, Ordering::Relaxed};
 use miniloop::{executor::Executor, task::Task};
-use sntpc::net::SocketAddr;
 use sntpc::{NtpContext, NtpTimestampGenerator, NtpUdpSocket, Result, get_time};
 
 const ARENA_SIZE: usize = 128 * 1024;
