@@ -3,12 +3,12 @@ use crate::utils;
 use std::path::Path;
 
 /// Checks all code in the main crate and examples for compilation errors.
-/// 
+///
 /// This function runs `cargo check` on the main sntpc crate and all discovered
 /// examples to verify that the code compiles without errors.
-/// 
+///
 /// # Errors
-/// 
+///
 /// Returns an error if:
 /// - Failed to discover examples
 /// - Any cargo check command execution fails
@@ -17,7 +17,11 @@ pub fn check_all() -> Result<()> {
     utils::print_header("Checking main crate and all examples...");
 
     // Check main crate
-    check_crate("sntpc", "Main crate")?;
+    let main_crates = utils::get_workspace_crates()?;
+
+    for main_crate in main_crates {
+        check_crate(main_crate.as_str(), format!("Main crate: {main_crate}").as_str())?;
+    }
 
     // Check all examples
     let all_examples = utils::get_all_examples()?;

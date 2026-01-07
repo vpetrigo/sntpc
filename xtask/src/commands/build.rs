@@ -4,12 +4,12 @@ use std::path::Path;
 use std::process::Command;
 
 /// Builds all no-std examples that can run on embedded targets.
-/// 
+///
 /// This function discovers and builds examples that are designed for embedded
 /// environments without the standard library.
-/// 
+///
 /// # Errors
-/// 
+///
 /// Returns an error if:
 /// - Failed to discover no-std examples
 /// - Any example build process fails
@@ -33,12 +33,12 @@ pub fn build_nostd_examples() -> Result<()> {
 }
 
 /// Builds Unix-specific examples that require Unix system features.
-/// 
+///
 /// This function builds examples that use Unix-specific networking or
 /// system features. It will warn if running on a non-Unix system.
-/// 
+///
 /// # Errors
-/// 
+///
 /// Returns an error if:
 /// - Failed to discover Unix examples
 /// - Any example build process fails
@@ -67,12 +67,12 @@ pub fn build_unix_examples() -> Result<()> {
 }
 
 /// Builds cross-platform examples that work on multiple operating systems.
-/// 
+///
 /// This function builds examples that are designed to work across different
 /// platforms and don't require platform-specific features.
-/// 
+///
 /// # Errors
-/// 
+///
 /// Returns an error if:
 /// - Failed to discover cross-platform examples
 /// - Any example build process fails
@@ -96,12 +96,12 @@ pub fn build_cross_platform_examples() -> Result<()> {
 }
 
 /// Builds all available examples including no-std, Unix-specific, and cross-platform.
-/// 
+///
 /// This is a convenience function that calls all other build functions to
 /// build the complete set of examples.
-/// 
+///
 /// # Errors
-/// 
+///
 /// Returns an error if:
 /// - Any of the individual build functions fail
 /// - Failed to discover or build any category of examples
@@ -116,14 +116,14 @@ pub fn build_all_examples() -> Result<()> {
 }
 
 /// Builds the main sntpc crate with optional feature flags.
-/// 
+///
 /// # Arguments
-/// 
+///
 /// * `all_features` - If true, builds with all features enabled
 /// * `no_default_features` - If true, builds with no default features
-/// 
+///
 /// # Errors
-/// 
+///
 /// Returns an error if:
 /// - Both `all_features` and `no_default_features` are true (conflicting flags)
 /// - Cargo build command execution fails

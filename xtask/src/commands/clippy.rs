@@ -19,6 +19,36 @@ use std::process::Command;
 pub fn run_clippy() -> Result<()> {
     utils::print_header("Running Clippy with strict linting on all code...");
 
+    // Run clippy on all workspace crates
+    let workspace_crates = utils::get_workspace_crates()?;
+
+    for crate_path in workspace_crates {
+        utils::print_step("Clippy", &format!("Workspace crate: {crate_path}"));
+
+        let manifest_path = format!("{crate_path}/Cargo.toml");
+        let status = Command::new("cargo")
+            .args([
+                "clippy",
+                "--manifest-path",
+                &manifest_path,
+                "--all-features",
+                "--",
+                "-D",
+                "clippy::all",
+                "-D",
+                "clippy::pedantic",
+            ])
+            .status()
+            .context(format!("Failed to execute cargo clippy on {crate_path}"))?;
+
+        if !status.success() {
+            utils::print_error(&format!("✗ Clippy found issues in {crate_path}"));
+            anyhow::bail!("Clippy found issues in {crate_path}");
+        }
+
+        utils::print_step_success(&format!("Workspace crate: {crate_path}"));
+    }
+
     // Run clippy on the main sntpc crate with all features
     utils::print_step("Clippy", "Main sntpc crate (all features)");
     let status = Command::new("cargo")
