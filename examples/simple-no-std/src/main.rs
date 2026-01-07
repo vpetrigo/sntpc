@@ -49,7 +49,10 @@ unsafe impl GlobalAlloc for SimpleAllocator {
         {
             return null_mut();
         }
-        self.arena.get().cast::<u8>().add(allocated)
+
+        unsafe {
+            self.arena.get().cast::<u8>().add(allocated)
+        }
     }
 
     unsafe fn dealloc(&self, _ptr: *mut u8, _layout: Layout) {
@@ -124,18 +127,18 @@ fn panic(_info: &PanicInfo) -> ! {
     loop {}
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn rust_eh_personality() {}
 
 /// # Safety
 ///
 /// This is a definition of an entry point of a program that should not be called directly
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn _start() -> ! {
     main()
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn WinMain() {
     main()
 }
