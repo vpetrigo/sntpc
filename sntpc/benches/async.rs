@@ -2,12 +2,14 @@ use criterion::{Criterion, criterion_group, criterion_main};
 use miniloop::executor::Executor;
 use sntpc::get_time;
 use sntpc::{NtpContext, StdTimestampGen};
+use sntpc_net_std::UdpSocketWrapper;
 use std::hint::black_box;
 use std::net::{Ipv4Addr, SocketAddr, UdpSocket};
 
 fn criterion_benchmark(c: &mut Criterion) {
     const NUM_OF_TASKS: usize = 1;
     let socket = UdpSocket::bind(SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0))).unwrap();
+    let socket = UdpSocketWrapper::new(socket);
     let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, 1231));
     let context = NtpContext::new(StdTimestampGen::default());
     let mut executor: Executor<NUM_OF_TASKS> = miniloop::executor::Executor::new();
