@@ -71,10 +71,8 @@ jobs:
         run: cargo xtask build-cross-platform
       - name: Run tests with all features and without default features
         run: cargo xtask test
-        working-directory: sntpc
       - name: Run tests with std features
         run: cargo xtask coverage
-        working-directory: sntpc
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
         with:
