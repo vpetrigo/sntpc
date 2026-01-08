@@ -46,3 +46,6 @@ required-features = ["sync"]
 [[bench]]
 name = "async"
 harness = false
+
+[package.metadata.docs.rs]
+features = ["sync"]
