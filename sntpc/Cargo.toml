@@ -1,45 +1,39 @@
 [package]
 name = "sntpc"
-version = "0.7.0"
+version = "0.8.0"
 description = "Library for making SNTP requests"
 repository = "https://github.com/vpetrigo/sntpc"
 categories = ["date-and-time", "no-std", "embedded", "asynchronous"]
 keywords = ["sntp", "ntp", "sntp-client", "ntp-client"]
-license = "MIT OR Apache-2.0"
-authors = ["Vladimir Petrigo <vladimir.petrigo@gmail.com>"]
-edition = "2024"
 autoexamples = false
 
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
 exclude = [
-    "CONTRIBUTING.md",
     ".*",
     "benches/"
 ]
 
 [features]
-default = ["std", "std-socket"]
+default = ["std"]
 std = []
 sync = ["dep:miniloop"]
 utils = ["std", "dep:chrono", "chrono/clock"]
 log = ["dep:log"]
-std-socket = []
-embassy-socket = ["dep:embassy-net"]
-embassy-socket-ipv6 = ["embassy-socket", "embassy-net?/proto-ipv6"]
-tokio-socket = ["dep:tokio"]
-defmt = ["dep:defmt", "embassy-net/defmt"]
 
 [dependencies]
 log = { version = "~0.4", optional = true }
 chrono = { version = "~0.4", default-features = false, optional = true }
 miniloop = { version = "~0.4", optional = true }
-embassy-net = { version = ">=0.5", features = ["udp", "proto-ipv4", "medium-ip"], optional = true }
-tokio = { version = "1", features = ["net"], optional = true }
 defmt = { version = "~1.0", optional = true }
 cfg-if = "~1"
 
 [dev-dependencies]
 miniloop = "~0.4"
-criterion = "~0.7"
+criterion = "~0.8"
+sntpc-net-std = { path = "../sntpc-net-std", version = "1" }
 
 [badges]
 maintenance = { status = "actively-developed" }

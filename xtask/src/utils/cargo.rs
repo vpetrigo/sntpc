@@ -41,14 +41,73 @@ pub fn run_cargo_build(manifest_path: &str, args: &[&str]) -> Result<()> {
 /// Returns an error if:
 /// - Failed to execute the cargo test command
 /// - Any tests fail (non-zero exit code)
-pub fn run_cargo_test(manifest_path: &str) -> Result<()> {
+pub fn run_cargo_test(manifest_path: &str, features: &str) -> Result<()> {
     let status = Command::new("cargo")
-        .args(["test", "--manifest-path", manifest_path])
+        .args([
+            "nextest",
+            "--manifest-path",
+            manifest_path,
+            "run",
+            features,
+            "--profile",
+            "ci",
+        ])
         .status()
         .context("Failed to execute cargo test")?;
 
     if !status.success() {
         anyhow::bail!("Tests failed");
+    }
+
+    Ok(())
+}
+
+/// Executes the tests for a Rust project using `cargo nextest` with specific options and generates a code coverage report in `lcov` format.
+///
+/// # Arguments
+/// - `manifest_path`: A string slice that represents the path to the `Cargo.toml` manifest file of the Rust project.
+///
+/// # Returns
+/// - `Ok(())`: If the tests execute successfully with coverage.
+/// - `Err(anyhow::Error)`: If an error occurs while executing the command or if the tests fail.
+///
+/// # Behavior
+/// - Invokes the `cargo nextest` command to run tests with the following options:
+///   - Disables default features.
+///   - Enables specified features: `std`, `std-socket`, and `sync`.
+///   - Retries failed tests up to 3 times.
+///   - Uses the `ci` test profile.
+///   - Generates a code coverage report in `lcov` format.
+///   - Outputs the coverage report to a file named `lcov.info`.
+///
+/// # Errors
+/// - Returns an error if the command fails to execute (e.g., `cargo` is not installed or there is an issue with the project).
+/// - Returns an error if the test run does not complete successfully (e.g., test failures).
+///
+/// # Dependencies
+/// - Requires the `nextest` cargo subcommand to be installed.
+/// - Assumes the project is configured to use `nextest` for testing.
+pub fn run_tests_with_coverage(manifest_path: &str) -> Result<()> {
+    let status = Command::new("cargo")
+        .args([
+            "llvm-cov",
+            "nextest",
+            "--manifest-path",
+            manifest_path,
+            "--no-default-features",
+            "--features",
+            "std,sync",
+            "--lcov",
+            "--output-path",
+            "lcov.info",
+            "--profile",
+            "ci",
+        ])
+        .status()
+        .context("Failed to execute cargo with coverage")?;
+
+    if !status.success() {
+        anyhow::bail!("Tests with coverage failed");
     }
 
     Ok(())
@@ -71,8 +130,14 @@ pub fn run_cargo_check(path: &str) -> Result<()> {
         anyhow::bail!("Path does not exist: {path}");
     }
 
+    let mut args = vec!["check"];
+
+    if path.contains("no-std") {
+        args.extend_from_slice(&["--profile", "no-std"]);
+    }
+
     let status = Command::new("cargo")
-        .args(["check"])
+        .args(args)
         .current_dir(path)
         .status()
         .with_context(|| format!("Failed to execute cargo check for {path}"))?;

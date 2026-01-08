@@ -85,13 +85,13 @@ use {
     smoltcp::iface::PollResult,
     smoltcp::iface::{Config, Interface, SocketSet},
     smoltcp::phy::TunTapInterface,
-    smoltcp::phy::{wait, Medium},
+    smoltcp::phy::{Medium, wait},
     smoltcp::socket::udp,
     smoltcp::time::Instant,
     smoltcp::wire::{EthernetAddress, IpCidr, Ipv4Address},
     sntpc::{
-        sync::{sntp_process_response, sntp_send_request},
         NtpContext,
+        sync::{sntp_process_response, sntp_send_request},
     },
     std::os::unix::prelude::AsRawFd,
 };
@@ -99,7 +99,7 @@ use {
 #[cfg(unix)]
 pub mod internal {
     use {
-        clap::{crate_version, App, Arg, ArgMatches},
+        clap::{App, Arg, ArgMatches, crate_version},
         core::cell::RefCell,
         core::fmt::Debug,
         smoltcp::socket::udp,
@@ -196,8 +196,7 @@ pub mod internal {
                 // make compiler and clippy happy as without the else branch clippy complains
                 // that not all variants covered for some reason
                 #[allow(irrefutable_let_patterns)]
-                let IpAddress::Ipv4(v4) = address.endpoint.addr
-                else {
+                let IpAddress::Ipv4(v4) = address.endpoint.addr else {
                     todo!()
                 };
                 let sockaddr = SocketAddr::new(IpAddr::V4(v4), address.endpoint.port);
@@ -274,14 +273,11 @@ pub mod internal {
 }
 
 #[cfg(unix)]
-use internal::{create_app_cli, Buffers, SmoltcpUdpSocketWrapper, StdTimestampGen, UdpSocketBuffers};
+use internal::{Buffers, SmoltcpUdpSocketWrapper, StdTimestampGen, UdpSocketBuffers, create_app_cli};
 
 #[cfg(unix)]
 fn main() {
-    #[cfg(feature = "log")]
-    if cfg!(feature = "log") {
-        simple_logger::init_with_level(log::Level::Trace).unwrap();
-    }
+    simple_logger::init_with_level(log::Level::Trace).unwrap();
 
     let app = create_app_cli();
     let interface_name = app.value_of("interface").unwrap();
@@ -324,7 +320,6 @@ fn main() {
             iface.poll(timestamp, &mut tuntap, &mut sockets),
             PollResult::SocketStateChanged
         ) {
-            #[cfg(feature = "log")]
             log::trace!("Poll ok!");
         }
 
@@ -341,32 +336,27 @@ fn main() {
                     send_result = Some(result);
                 }
                 Err(e) => {
-                    #[cfg(feature = "log")]
                     log::error!("send error: {e:?}");
                     once_tx = true;
                 }
             }
 
-            #[cfg(feature = "log")]
             log::trace!("{:?}", &result);
         }
 
-        if let Some(tx_result) = send_result {
-            if once_rx && sockets.get::<udp::Socket>(udp_handle).can_recv() {
-                once_rx = false;
+        if let Some(tx_result) = send_result
+            && once_rx
+            && sockets.get::<udp::Socket>(udp_handle).can_recv()
+        {
+            once_rx = false;
 
-                #[cfg(feature = "log")]
-                {
-                    let context = NtpContext::new(StdTimestampGen::default());
-                    let sock_wrapper = SmoltcpUdpSocketWrapper {
-                        socket: RefCell::new(sockets.get_mut::<udp::Socket>(udp_handle)),
-                    };
-                    let result = sntp_process_response(server_sock_addr, &sock_wrapper, context, tx_result);
+            let context = NtpContext::new(StdTimestampGen::default());
+            let sock_wrapper = SmoltcpUdpSocketWrapper {
+                socket: RefCell::new(sockets.get_mut::<udp::Socket>(udp_handle)),
+            };
+            let result = sntp_process_response(server_sock_addr, &sock_wrapper, context, tx_result);
 
-                    #[cfg(feature = "log")]
-                    log::info!("{result:?}");
-                }
-            }
+            log::info!("{result:?}");
         }
 
         wait(tuntap.as_raw_fd(), iface.poll_delay(Instant::from_secs(1), &sockets)).unwrap();

@@ -1,0 +1,14 @@
+[package]
+name = "sntpc-net-std"
+version = "1.0.0"
+description = "std socket wrapper for sntpc library"
+repository = "https://github.com/vpetrigo/sntpc"
+categories = ["date-and-time", "no-std", "embedded", "asynchronous"]
+keywords = ["sntp", "ntp", "sntp-client", "ntp-client"]
+
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+sntpc = { path = "../sntpc", version = "~0.8", default-features = false, features = ["std"] }

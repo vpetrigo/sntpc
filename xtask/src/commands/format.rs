@@ -18,8 +18,12 @@ use std::path::Path;
 pub fn check_formatting() -> Result<()> {
     utils::print_header("Checking code formatting for main crate and all examples...");
 
-    // Check main crate
-    check_format_crate("sntpc", "Main crate")?;
+    // Check main crates
+    let main_crates = utils::get_workspace_crates()?;
+
+    for main_crate in main_crates {
+        check_format_crate(main_crate.as_str(), format!("Main crate: {main_crate}").as_str())?;
+    }
 
     // Check all examples
     let all_examples = utils::get_all_examples()?;
@@ -48,7 +52,11 @@ pub fn fix_formatting() -> Result<()> {
     utils::print_header("Fixing code formatting for the main crate and all examples...");
 
     // Fix main crate
-    fix_format_crate("sntpc", "Main crate")?;
+    let main_crates = utils::get_workspace_crates()?;
+
+    for main_crate in main_crates {
+        fix_format_crate(main_crate.as_str(), format!("Main crate: {main_crate}").as_str())?;
+    }
 
     // Fix all examples
     let all_examples = utils::get_all_examples()?;

@@ -1,9 +1,10 @@
 [package]
 name = "example-tokio"
-version = "0.2.0"
-edition = "2021"
+version = "0.3.0"
+edition = "2024"
 publish = false
 
 [dependencies]
-sntpc = { path = "../../sntpc", features = ["tokio-socket"] }
+sntpc = { path = "../../sntpc", version = "~0.8" }
+sntpc-net-tokio = { path = "../../sntpc-net-tokio", version = "1" }
 tokio = { version = "1", features = ["rt", "net", "macros", "time"] }

@@ -1,11 +1,13 @@
 use criterion::{Criterion, criterion_group, criterion_main};
 use sntpc::sync::get_time;
 use sntpc::{NtpContext, StdTimestampGen};
+use sntpc_net_std::UdpSocketWrapper;
 use std::hint::black_box;
 use std::net::{Ipv4Addr, SocketAddr, UdpSocket};
 
 fn criterion_benchmark(c: &mut Criterion) {
     let socket = UdpSocket::bind(SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0))).unwrap();
+    let socket = UdpSocketWrapper::new(socket);
     let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, 1231));
     let context = NtpContext::new(StdTimestampGen::default());
 

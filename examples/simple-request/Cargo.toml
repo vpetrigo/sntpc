@@ -1,13 +1,14 @@
 [package]
 name = "example-simple-request"
-version = "0.2.0"
-edition = "2021"
+version = "0.3.0"
+edition = "2024"
 publish = false
 
 [features]
 log = ["dep:simple_logger", "dep:log", "sntpc/log"]
 
 [dependencies]
-sntpc = { path = "../../sntpc", features = ["sync"] }
+sntpc = { path = "../../sntpc", version = "~0.8", features = ["sync"] }
+sntpc-net-std = { path = "../../sntpc-net-std", version = "1" }
 log = { version = "~0.4", optional = true }
 simple_logger = { version = "~5.1", optional = true }

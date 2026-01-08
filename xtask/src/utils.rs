@@ -11,6 +11,8 @@
 
 /// Cargo command execution utilities
 pub mod cargo;
+/// Crate discovery and management utilities
+pub mod crates;
 /// Example project management utilities
 pub mod examples;
 /// Output formatting and display utilities
@@ -18,5 +20,6 @@ pub mod output;
 
 // Re-export commonly used utilities
 pub use cargo::*;
+pub use crates::*;
 pub use examples::*;
 pub use output::*;

@@ -1,14 +1,15 @@
 [package]
 name = "example-timesync"
-version = "0.2.0"
-edition = "2021"
+version = "0.3.0"
+edition = "2024"
 publish = false
 
 [features]
 log = ["dep:simple_logger", "dep:log", "sntpc/log"]
 
 [dependencies]
-sntpc = { path = "../../sntpc", default-features = false, features = ["utils", "sync", "std-socket"] }
+sntpc = { path = "../../sntpc", version = "~0.8", default-features = false, features = ["utils", "sync"] }
+sntpc-net-std = { path = "../../sntpc-net-std", version = "1" }
 clap = { version = "~4.5", features = ["derive"] }
 simple_logger = { version = "~5.1", optional = true }
 log = { version = "~0.4", optional = true }

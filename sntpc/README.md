@@ -18,13 +18,25 @@ Supported SNTP protocol versions:
 
 ```toml
 [dependencies]
-sntpc = { version = "0.7", features = ["sync"] }
+sntpc = { version = "0.8", features = ["sync"] }
 ```
 
-- application code
+- application code. Based on a socket implementation used, you may want to use supplementary crates with UDP socket
+  wrappers:
+    - `sntpc-net-std`: for standard library UDP sockets
+    - `sntpc-net-embassy`: for `embassy-net` UDP sockets
+    - `sntpc-net-tokio`: for `tokio` UDP sockets
+
+Example below uses `sntpc-net-std` crate:
+
+```toml
+[dependencies]
+sntpc-net-std = "1"
+```
 
 ```rust
 use sntpc::{sync::get_time, NtpContext, StdTimestampGen};
+use sntpc_net_std::UdpSocketWrapper;
 
 use std::net::{SocketAddr, ToSocketAddrs, UdpSocket};
 use std::thread;
@@ -48,6 +60,7 @@ fn main() {
     socket
         .set_read_timeout(Some(Duration::from_secs(2)))
         .expect("Unable to set UDP socket read timeout");
+    let socket = UdpSocketWrapper::new(socket);
 
     for addr in POOL_NTP_ADDR.to_socket_addrs().unwrap() {
         let ntp_context = NtpContext::new(StdTimestampGen::default());
@@ -97,7 +110,7 @@ asynchronous approach, e.g.:
 - [RTIC](https://github.com/rtic-rs/rtic)
 - [embassy](https://github.com/embassy-rs/embassy)
 
-If you need fully synchronous interface it is available in the `sntpc::sync` submodule and respective `sync`-feature
+If you need a fully synchronous interface, it is available in the `sntpc::sync` submodule and respective `sync`-feature
 enabled. In the case someone needs a synchronous socket support the currently async `NtpUdpSocket` trait can be
 implemented in a fully synchronous manner. This is an example for the `std::net::UdpSocket` that is available in the
 crate:
@@ -130,6 +143,16 @@ sync/async feature [violates Cargo requirements](https://doc.rust-lang.org/cargo
 > of features.
 
 Small overhead introduced by creating an executor should be negligible.
+
+# Network Adapters
+
+The `sntpc` uses a modular architecture:
+
+- `sntpc`: Core SNTP protocol implementation (network-agnostic)
+- `sntpc-net-std`: Standard library UDP socket adapter
+- `sntpc-net-tokio`: Tokio async runtime adapter
+- `sntpc-net-embassy`: Embassy embedded async runtime adapter
+
 
 # Contribution
 

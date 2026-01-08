@@ -69,15 +69,10 @@ jobs:
         run: cargo xtask build-unix
       - name: Build cross-platform examples
         run: cargo xtask build-cross-platform
-      - name: Run tests with all features
-        run: cargo nextest run --all-features --profile ci
-        working-directory: sntpc
-      - name: Run tests with no default features
-        run: cargo nextest run --no-default-features --profile ci
-        working-directory: sntpc
+      - name: Run tests with all features and without default features
+        run: cargo xtask test
       - name: Run tests with std features
-        run: cargo llvm-cov nextest --no-default-features --features "std,std-socket,sync" --profile ci --lcov --output-path lcov.info
-        working-directory: sntpc
+        run: cargo xtask coverage
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
         with:

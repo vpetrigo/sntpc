@@ -64,140 +64,124 @@ macro_rules! cfg_win {
 }
 
 cfg_unix! {
-    use embassy_executor::{Executor, Spawner};
-    use embassy_net::dns::DnsQueryType;
-    use embassy_net::udp::{PacketMetadata, UdpSocket};
-    use embassy_net::{Config, Ipv4Address, Ipv4Cidr, StackResources};
-    use embassy_net_tuntap::TunTapDevice;
-    use embassy_time::{Duration, Timer};
-    use heapless::Vec;
-    use sntpc::{get_time, NtpContext, NtpTimestampGenerator};
-    use static_cell::StaticCell;
+use embassy_executor::{Executor, Spawner};
+use embassy_net::dns::DnsQueryType;
+use embassy_net::udp::{PacketMetadata, UdpSocket};
+use embassy_net::{Config, Ipv4Address, Ipv4Cidr, StackResources};
+use embassy_net_tuntap::TunTapDevice;
+use embassy_time::{Duration, Timer};
+use heapless::Vec;
+use sntpc::{get_time, NtpContext, NtpTimestampGenerator};
+use sntpc_net_embassy::UdpSocketWrapper;
+use static_cell::StaticCell;
 
-    use core::net::{IpAddr, SocketAddr};
-    use std::time::SystemTime;
-    use std::thread;
+use core::net::{IpAddr, SocketAddr};
+use std::thread;
+use std::time::SystemTime;
 
-    const NTP_SERVER: &str = "pool.ntp.org";
+const NTP_SERVER: &str = "pool.ntp.org";
 
-    #[derive(Copy, Clone, Default)]
-    struct Timestamp {
-        duration: std::time::Duration,
+#[derive(Copy, Clone, Default)]
+struct Timestamp {
+    duration: std::time::Duration,
+}
+
+impl NtpTimestampGenerator for Timestamp {
+    fn init(&mut self) {
+        self.duration = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap();
     }
 
-    impl NtpTimestampGenerator for Timestamp {
-        fn init(&mut self) {
-            self.duration = SystemTime::now()
-                .duration_since(SystemTime::UNIX_EPOCH)
-                .unwrap();
-        }
-
-        fn timestamp_sec(&self) -> u64 {
-            self.duration.as_secs()
-        }
-
-        fn timestamp_subsec_micros(&self) -> u32 {
-            self.duration.subsec_micros()
-        }
+    fn timestamp_sec(&self) -> u64 {
+        self.duration.as_secs()
     }
 
-    use defmt::{error, info};
-
-    #[embassy_executor::task]
-    async fn net_task(
-        mut runner: embassy_net::Runner<'static, TunTapDevice>,
-    ) -> ! {
-        runner.run().await
-    }
-
-    #[embassy_executor::task]
-    async fn main_task(spawner: Spawner) {
-        static RESOURCES: StaticCell<StackResources<3>> = StaticCell::new();
-
-        // Create TUN/TAP device
-        let device = TunTapDevice::new("tap0").unwrap();
-
-        // Configure network stack
-        let config = Config::ipv4_static(embassy_net::StaticConfigV4 {
-            address: Ipv4Cidr::new(Ipv4Address::new(192, 168, 69, 2), 24),
-            dns_servers: Vec::from_slice(&[Ipv4Address::new(8, 8, 8, 8)])
-                .unwrap(),
-            gateway: Some(Ipv4Address::new(192, 168, 69, 1)),
-        });
-
-        // Init network stack
-        let (stack, runner) = embassy_net::new(
-            device,
-            config,
-            RESOURCES.init(StackResources::new()),
-            0,
-        );
-
-        // Launch network task
-        spawner.spawn(net_task(runner)).unwrap();
-
-        // Wait for the tap interface to be up before continuing
-        stack.wait_config_up().await;
-
-        // Create UDP socket
-        let mut rx_meta = [PacketMetadata::EMPTY; 16];
-        let mut rx_buffer = [0; 4096];
-        let mut tx_meta = [PacketMetadata::EMPTY; 16];
-        let mut tx_buffer = [0; 4096];
-
-        let mut socket = UdpSocket::new(
-            stack,
-            &mut rx_meta,
-            &mut rx_buffer,
-            &mut tx_meta,
-            &mut tx_buffer,
-        );
-        socket.bind(123).unwrap();
-
-        let context = NtpContext::new(Timestamp::default());
-
-        let ntp_addrs = stack
-            .dns_query(NTP_SERVER, DnsQueryType::A)
-            .await
-            .expect("Failed to resolve DNS");
-        if ntp_addrs.is_empty() {
-            error!("Failed to resolve DNS");
-            return;
-        }
-
-        loop {
-            let addr: IpAddr = ntp_addrs[0].into();
-            let result =
-                get_time(SocketAddr::from((addr, 123)), &socket, context)
-                    .await;
-
-            match result {
-                Ok(time) => {
-                    info!("Time: {:?}", time);
-                }
-                Err(e) => {
-                    error!("Error getting time: {:?}", e);
-                }
-            }
-
-            Timer::after(Duration::from_secs(15)).await;
-        }
-    }
-
-    static EXECUTOR: StaticCell<Executor> = StaticCell::new();
-
-    fn main() {
-        thread::spawn(defmt_logger_tcp::run);
-
-        let executor = EXECUTOR.init(Executor::new());
-        executor.run(|spawner| {
-            spawner.spawn(main_task(spawner)).unwrap();
-        });
+    fn timestamp_subsec_micros(&self) -> u32 {
+        self.duration.subsec_micros()
     }
 }
 
-cfg_win! {
-    fn main() {
-        panic!("This example is not supported on Windows");
+use defmt::{error, info};
+
+#[embassy_executor::task]
+async fn net_task(mut runner: embassy_net::Runner<'static, TunTapDevice>) -> ! {
+    runner.run().await
+}
+
+#[embassy_executor::task]
+async fn main_task(spawner: Spawner) {
+    static RESOURCES: StaticCell<StackResources<3>> = StaticCell::new();
+
+    // Create TUN/TAP device
+    let device = TunTapDevice::new("tap0").unwrap();
+
+    // Configure network stack
+    let config = Config::ipv4_static(embassy_net::StaticConfigV4 {
+        address: Ipv4Cidr::new(Ipv4Address::new(192, 168, 69, 2), 24),
+        dns_servers: Vec::from_slice(&[Ipv4Address::new(8, 8, 8, 8)]).unwrap(),
+        gateway: Some(Ipv4Address::new(192, 168, 69, 1)),
+    });
+
+    // Init network stack
+    let (stack, runner) = embassy_net::new(device, config, RESOURCES.init(StackResources::new()), 0);
+
+    // Launch network task
+    spawner.spawn(net_task(runner)).unwrap();
+
+    // Wait for the tap interface to be up before continuing
+    stack.wait_config_up().await;
+
+    // Create UDP socket
+    let mut rx_meta = [PacketMetadata::EMPTY; 16];
+    let mut rx_buffer = [0; 4096];
+    let mut tx_meta = [PacketMetadata::EMPTY; 16];
+    let mut tx_buffer = [0; 4096];
+
+    let mut socket = UdpSocket::new(stack, &mut rx_meta, &mut rx_buffer, &mut tx_meta, &mut tx_buffer);
+    socket.bind(123).unwrap();
+    let socket = UdpSocketWrapper::new(socket);
+
+    let context = NtpContext::new(Timestamp::default());
+
+    let ntp_addrs = stack
+        .dns_query(NTP_SERVER, DnsQueryType::A)
+        .await
+        .expect("Failed to resolve DNS");
+    if ntp_addrs.is_empty() {
+        error!("Failed to resolve DNS");
+        return;
     }
+
+    loop {
+        let addr: IpAddr = ntp_addrs[0].into();
+        let result = get_time(SocketAddr::from((addr, 123)), &socket, context).await;
+
+        match result {
+            Ok(time) => {
+                info!("Time: {:?}", time);
+            }
+            Err(e) => {
+                error!("Error getting time: {:?}", e);
+            }
+        }
+
+        Timer::after(Duration::from_secs(15)).await;
+    }
+}
+
+static EXECUTOR: StaticCell<Executor> = StaticCell::new();
+
+fn main() {
+    thread::spawn(defmt_logger_tcp::run);
+
+    let executor = EXECUTOR.init(Executor::new());
+    executor.run(|spawner| {
+        spawner.spawn(main_task(spawner)).unwrap();
+    });
+}
+}
+
+cfg_win! {
+fn main() {
+    panic!("This example is not supported on Windows");
+}
 }
