@@ -11,7 +11,7 @@ Embassy async runtime UDP socket adapter for the [`sntpc`](https://crates.io/cra
 This crate provides a wrapper around `embassy_net::udp::UdpSocket` that implements the `NtpUdpSocket` trait from `sntpc`. This separation allows:
 
 - **Independent versioning**: Update embassy-net without requiring `sntpc` core updates
-- **Version flexibility**: Works with embassy-net 0.7.x (`>=0.7, <0.8`)
+- **Version flexibility**: Works with embassy-net 0.8.x (`>=0.8, <0.9`)
 - **Embedded focus**: Minimal dependencies suitable for `no_std` embedded systems
 - **Future compatibility**: When embassy-net 0.8+ releases, only this adapter needs updating
 
@@ -22,8 +22,8 @@ Add this to your `Cargo.toml`:
 ```toml
 [dependencies]
 sntpc = { version = "0.8", default-features = false }
-sntpc-net-embassy = { version = "0.7", default-features = false }
-embassy-net = { version = "0.7", features = ["udp", "proto-ipv4"] }
+sntpc-net-embassy = { version = "0.8", default-features = false }
+embassy-net = { version = "0.8", features = ["udp", "proto-ipv4"] }
 ```
 
 ## Features
@@ -54,7 +54,7 @@ For complete examples, see the [sntpc examples](https://github.com/vpetrigo/sntp
 ## Compatibility
 
 - **sntpc**: 0.8.x
-- **embassy-net**: 0.7.x (any version >= 0.7, < 0.8)
+- **embassy-net**: 0.8.x (any version >= 0.8, < 0.9)
 - **no_std**: Fully supported
 
 ## License

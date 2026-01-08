@@ -8,9 +8,8 @@
 //!
 //! The network adapters are separated into their own crates to:
 //! - Enable independent versioning (updating Embassy doesn't require updating `sntpc` core)
-//! - Allow version flexibility (works with embassy-net 0.7.x)
+//! - Allow version flexibility (works with embassy-net 0.8.x)
 //! - Maintain `no_std` compatibility for embedded systems
-//! - Simplify future compatibility (only this adapter needs updating for embassy-net 0.8+)
 //!
 //! # Features
 //!
@@ -41,6 +40,7 @@
 //! ```
 //!
 //! For more examples, see the [repository examples](https://github.com/vpetrigo/sntpc/tree/master/examples/embassy-net).
+#![no_std]
 
 /// Logging module that conditionally uses either `defmt` or `log` based on feature flags.
 #[cfg(any(feature = "log", feature = "defmt"))]
