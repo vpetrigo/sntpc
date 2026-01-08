@@ -1,3 +1,4 @@
+[![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/vpetrigo/sntpc/ci.yml?logo=github)](https://github.com/vpetrigo/sntpc/actions/workflows/ci.yml)
 [![Crates.io](https://img.shields.io/crates/v/sntpc-net-std)](https://crates.io/crates/sntpc-net-std)
 [![docs.rs](https://img.shields.io/badge/docs.rs-sntpc--net--std-66c2a5?logo=docs.rs)](https://docs.rs/sntpc-net-std)
 
