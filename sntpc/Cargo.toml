@@ -1,6 +1,6 @@
 [package]
 name = "sntpc"
-version = "0.8.0"
+version = "0.8.1"
 description = "Library for making SNTP requests"
 repository = "https://github.com/vpetrigo/sntpc"
 categories = ["date-and-time", "no-std", "embedded", "asynchronous"]
