@@ -1,9 +1,9 @@
 [package]
 name = "sntpc-net-std"
-version = "1.0.0"
+version = "1.0.1"
 description = "std socket wrapper for sntpc library"
 repository = "https://github.com/vpetrigo/sntpc"
-categories = ["date-and-time", "no-std", "embedded", "asynchronous"]
+categories = ["date-and-time", "asynchronous"]
 keywords = ["sntp", "ntp", "sntp-client", "ntp-client"]
 
 edition.workspace = true
