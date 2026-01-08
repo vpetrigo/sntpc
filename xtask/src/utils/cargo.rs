@@ -49,8 +49,6 @@ pub fn run_cargo_test(manifest_path: &str, features: &str) -> Result<()> {
             manifest_path,
             "run",
             features,
-            "--retries",
-            "5",
             "--profile",
             "ci",
         ])
@@ -99,8 +97,6 @@ pub fn run_tests_with_coverage(manifest_path: &str) -> Result<()> {
             "--no-default-features",
             "--features",
             "std,sync",
-            "--retries",
-            "5",
             "--lcov",
             "--output-path",
             "lcov.info",
