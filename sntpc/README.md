@@ -148,11 +148,10 @@ Small overhead introduced by creating an executor should be negligible.
 
 The `sntpc` uses a modular architecture:
 
-- `sntpc`: Core SNTP protocol implementation (network-agnostic)
-- `sntpc-net-std`: Standard library UDP socket adapter
-- `sntpc-net-tokio`: Tokio async runtime adapter
-- `sntpc-net-embassy`: Embassy embedded async runtime adapter
-
+- [`sntpc`](sntpc): Core SNTP protocol implementation (network-agnostic)
+- [`sntpc-net-std`](sntpc-net-std): Standard library UDP socket adapter
+- [`sntpc-net-tokio`](sntpc-net-tokio): Tokio async runtime adapter
+- [`sntpc-net-embassy`](sntpc-net-embassy): Embassy embedded async runtime adapter
 
 # Contribution
 
