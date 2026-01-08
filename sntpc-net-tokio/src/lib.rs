@@ -35,6 +35,7 @@
 //! ```
 //!
 //! For more examples, see the [repository examples](https://github.com/vpetrigo/sntpc/tree/master/examples/tokio).
+#![no_std]
 
 use sntpc::{Error, NtpUdpSocket, Result};
 use tokio::net::UdpSocket;
