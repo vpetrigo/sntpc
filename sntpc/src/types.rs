@@ -155,6 +155,33 @@ impl Display for Units {
     }
 }
 
+// Kiss-o'-Death value representation
+#[derive(Debug, Copy, Clone, PartialEq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+pub struct KissOfDeathCode {
+    code: [u8; 4],
+}
+
+impl KissOfDeathCode {
+    /// Creates a new instance of the struct with the specified 4-byte code.
+    ///
+    /// # Parameters
+    /// - `code`: An array of 4 bytes representing the kiss-o'-death code.
+    pub(crate) fn new(code: [u8; 4]) -> Self {
+        Self { code }
+    }
+
+    /// Converts the internal code representation to a string slice (`&str`).
+    ///
+    /// This method attempts to interpret the bytes of the internal code as valid UTF-8,
+    /// returning the corresponding string slice. If the internal code is not valid UTF-8,
+    /// it will return an empty string (`""`).
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        str::from_utf8(&self.code).unwrap_or("")
+    }
+}
+
 /// The error type for SNTP client
 /// Errors originate on network layer or during processing response from a NTP server
 #[derive(Debug, PartialEq, Copy, Clone)]
@@ -181,6 +208,8 @@ pub enum Error {
     /// A NTP server address response has been received from does not match
     /// to the address the request was sent to
     ResponseAddressMismatch,
+    /// Kiss-o'-Death packet received from a NTP server
+    KissOfDeath(KissOfDeathCode),
 }
 
 /// SNTP request result representation
