@@ -525,6 +525,10 @@ fn process_response(send_req_result: SendRequestResult, resp: RawNtpPacket, recv
     }
 
     if packet.stratum == 0 {
+        return Err(Error::KissOfDeath(KissOfDeathCode::new(packet.ref_id.to_be_bytes())));
+    }
+
+    if packet.stratum >= 16 {
         return Err(Error::IncorrectStratumHeaders);
     }
     // System clock offset:
@@ -644,8 +648,8 @@ pub fn fraction_to_picoseconds(sec_fraction: u32) -> u64 {
 mod sntpc_ntp_result_tests {
     use crate::types::Units;
     use crate::{
-        NtpResult, fraction_to_microseconds, fraction_to_milliseconds, fraction_to_nanoseconds,
-        fraction_to_picoseconds, offset_calculate,
+        Error, NtpPacket, NtpResult, RawNtpPacket, SendRequestResult, fraction_to_microseconds,
+        fraction_to_milliseconds, fraction_to_nanoseconds, fraction_to_picoseconds, offset_calculate, process_response,
     };
 
     struct Timestamps(u64, u64, u64, u64);
@@ -808,6 +812,45 @@ mod sntpc_ntp_result_tests {
             let offset = offset_calculate(t.t1(), t.t2(), t.t3(), t.t4(), Units::Microseconds);
             let expected = t.expected;
             assert_eq!(offset, expected);
+        }
+    }
+
+    #[test]
+    fn test_kiss_of_death() {
+        let defined_codes = [
+            "ACST", "AUTH", "AUTO", "BCST", "CRYP", "DENY", "DROP", "RSTR", "INIT", "MCST", "NKEY", "RATE", "RMOT",
+            "STEP",
+        ];
+
+        for code in defined_codes {
+            let ref_id_bytes = code.as_bytes();
+            let ref_id = u32::from_be_bytes(ref_id_bytes.try_into().unwrap_or([0; 4]));
+            let req_resp = SendRequestResult {
+                originate_timestamp: 0u64,
+                version: 0u8,
+            };
+            let response = NtpPacket {
+                li_vn_mode: 0xC4,
+                stratum: 0,
+                poll: 0,
+                precision: 0,
+                root_delay: 0,
+                root_dispersion: 0,
+                ref_id,
+                ref_timestamp: 0,
+                origin_timestamp: 0,
+                recv_timestamp: 0,
+                tx_timestamp: 0,
+            };
+            let raw: RawNtpPacket = (&response).into();
+            let result = process_response(req_resp, raw, 0);
+
+            assert!(result.is_err());
+
+            match result.unwrap_err() {
+                Error::KissOfDeath(kod_code) => assert_eq!(kod_code.as_str(), code),
+                _ => panic!("Unexpected error type"),
+            }
         }
     }
 }
