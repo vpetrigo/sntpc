@@ -8,7 +8,7 @@ publish = false
 log = ["dep:simple_logger", "dep:log", "sntpc/log"]
 
 [dependencies]
-sntpc = { path = "../../sntpc", version = "~0.8", default-features = false, features = ["utils", "sync"] }
+sntpc = { path = "../../sntpc", version = "~0.9", default-features = false, features = ["utils", "sync"] }
 sntpc-net-std = { path = "../../sntpc-net-std", version = "1" }
 clap = { version = "~4.5", features = ["derive"] }
 simple_logger = { version = "~5.1", optional = true }
