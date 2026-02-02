@@ -17,7 +17,7 @@ exclude = [
 ]
 
 [features]
-default = ["std"]
+default = []
 std = []
 sync = ["dep:miniloop"]
 utils = ["std", "dep:chrono", "chrono/clock"]
@@ -41,11 +41,12 @@ maintenance = { status = "actively-developed" }
 [[bench]]
 name = "sync"
 harness = false
-required-features = ["sync"]
+required-features = ["std", "sync"]
 
 [[bench]]
 name = "async"
 harness = false
+required-features = ["std"]
 
 [package.metadata.docs.rs]
 features = ["sync"]
