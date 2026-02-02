@@ -22,7 +22,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-sntpc = "0.8"
+sntpc = "0.9"
 sntpc-net-tokio = "1"
 tokio = { version = "1", features = ["net", "rt"] }
 ```
@@ -49,7 +49,7 @@ For complete examples, see the [sntpc examples](https://github.com/vpetrigo/sntp
 
 ## Compatibility
 
-- **sntpc**: 0.8.x
+- **sntpc**: 0.9.x
 - **tokio**: 1.x (any version >= 1.0, < 2.0)
 
 ## License

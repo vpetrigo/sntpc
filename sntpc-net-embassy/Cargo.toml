@@ -1,6 +1,6 @@
 [package]
 name = "sntpc-net-embassy"
-version = "0.8.0"
+version = "0.9.0"
 description = "Embassy socket wrapper for sntpc library"
 repository = "https://github.com/vpetrigo/sntpc"
 categories = ["date-and-time", "no-std", "embedded", "asynchronous"]
@@ -11,7 +11,7 @@ license.workspace = true
 authors.workspace = true
 
 [dependencies]
-sntpc = { version = "~0.8", path = "../sntpc", default-features = false }
+sntpc = { version = "~0.9", path = "../sntpc", default-features = false }
 embassy-net = { version = ">=0.8, <0.9", default-features = false, features = ["udp", "proto-ipv4", "medium-ip"] }
 
 cfg-if = { version = "1", optional = true }

@@ -1,6 +1,6 @@
 [package]
 name = "sntpc-net-std"
-version = "1.0.1"
+version = "1.1.0"
 description = "std socket wrapper for sntpc library"
 repository = "https://github.com/vpetrigo/sntpc"
 categories = ["date-and-time", "asynchronous"]
@@ -11,4 +11,4 @@ license.workspace = true
 authors.workspace = true
 
 [dependencies]
-sntpc = { path = "../sntpc", version = "~0.8", default-features = false, features = ["std"] }
+sntpc = { path = "../sntpc", version = "~0.9", default-features = false, features = ["std"] }
