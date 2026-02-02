@@ -1,6 +1,6 @@
 [package]
 name = "sntpc-net-tokio"
-version = "1.0.1"
+version = "1.1.0"
 description = "Tokio socket wrapper for sntpc library"
 repository = "https://github.com/vpetrigo/sntpc"
 categories = ["date-and-time", "no-std", "embedded", "asynchronous"]
@@ -11,5 +11,5 @@ license.workspace = true
 authors.workspace = true
 
 [dependencies]
-sntpc = { path = "../sntpc", version = "~0.8", default-features = false }
+sntpc = { path = "../sntpc", version = "~0.9", default-features = false }
 tokio = { version = ">=1, <2", default-features = false, features = ["net"] }
