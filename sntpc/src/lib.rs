@@ -849,7 +849,7 @@ mod sntpc_ntp_result_tests {
 
             match result.unwrap_err() {
                 Error::KissOfDeath(kod_code) => assert_eq!(kod_code.as_str(), code),
-                _ => panic!("Unexpected error type"),
+                _ => unreachable!("Unexpected error code"),
             }
         }
     }
