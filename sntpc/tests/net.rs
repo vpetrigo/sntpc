@@ -241,12 +241,10 @@ fn test_kiss_of_death() {
 
 #[test]
 fn test_process_incorrect_origin_timestamp() {
-    const DEFINED_STRATUMS: u8 = 16;
     let dest: SocketAddr = "127.0.0.1:123".parse().unwrap();
     let context = NtpContext::new(MockTimestampGen);
 
     let data = {
-        const TIMESTAMP: u64 = 9_487_534_653_230_284_800u64;
         let mut data = [0u8; 48];
 
         data[0] = 4 | (4 << 3);
