@@ -17,41 +17,39 @@ impl NtpTimestampGenerator for MockTimestampGen {
 }
 
 pub struct MockUdpSocket {
-    dest_addr: SocketAddr,
-    to_write_result: sntpc::Result<usize>,
-    to_read: [u8; 48],
-    to_read_result: sntpc::Result<(usize, SocketAddr)>,
+    write_result: sntpc::Result<usize>,
+    read: [u8; 48],
+    read_result: sntpc::Result<(usize, SocketAddr)>,
 }
 
 impl MockUdpSocket {
     #[must_use]
     pub fn new(dest_addr: SocketAddr, data: [u8; 48]) -> Self {
         Self {
-            dest_addr,
-            to_write_result: Ok(48),
-            to_read: data,
-            to_read_result: Ok((data.len(), dest_addr)),
+            write_result: Ok(48),
+            read: data,
+            read_result: Ok((data.len(), dest_addr)),
         }
     }
 
     pub fn update_write_result(&mut self, value: sntpc::Result<usize>) {
-        self.to_write_result = value;
+        self.write_result = value;
     }
 
     pub fn update_read_result(&mut self, value: sntpc::Result<(usize, SocketAddr)>) {
-        self.to_read_result = value;
+        self.read_result = value;
     }
 }
 
 impl NtpUdpSocket for MockUdpSocket {
     async fn send_to(&self, _buf: &[u8], _addr: SocketAddr) -> sntpc::Result<usize> {
-        self.to_write_result
+        self.write_result
     }
 
     async fn recv_from(&self, buf: &mut [u8]) -> sntpc::Result<(usize, SocketAddr)> {
-        buf.copy_from_slice(&self.to_read);
+        buf.copy_from_slice(&self.read);
 
-        self.to_read_result
+        self.read_result
     }
 }
 
