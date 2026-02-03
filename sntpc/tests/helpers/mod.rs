@@ -1,4 +1,4 @@
-use sntpc::{sntp_process_response, sntp_send_request, Error, NtpContext, NtpTimestampGenerator, NtpUdpSocket};
+use sntpc::{Error, NtpContext, NtpTimestampGenerator, NtpUdpSocket, sntp_process_response, sntp_send_request};
 use std::net::SocketAddr;
 
 #[derive(Default, Copy, Clone)]
