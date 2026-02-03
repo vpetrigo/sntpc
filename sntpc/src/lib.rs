@@ -681,7 +681,7 @@ mod sntpc_ntp_result_tests {
     }
 
     #[test]
-    fn test_offset_calculate() {
+    fn test_offset_calculate_us() {
         let tests = [
             OffsetCalcTestCase::new(
                 16_893_142_954_672_769_962,
@@ -715,6 +715,46 @@ mod sntpc_ntp_result_tests {
 
         for t in tests {
             let offset = offset_calculate(t.t1(), t.t2(), t.t3(), t.t4(), Units::Microseconds);
+            let expected = t.expected;
+            assert_eq!(offset, expected);
+        }
+    }
+
+    #[test]
+    fn test_offset_calculate_ms() {
+        let tests = [
+            OffsetCalcTestCase::new(
+                16_893_142_954_672_769_962,
+                16_893_142_959_053_084_959,
+                16_893_142_959_053_112_968,
+                16_893_142_954_793_063_406,
+                1_005_870 / 1_000,
+            ),
+            OffsetCalcTestCase::new(
+                16_893_362_966_131_575_843,
+                16_893_362_966_715_800_791,
+                16_893_362_966_715_869_584,
+                16_893_362_967_084_349_913,
+                25115 / 1_000,
+            ),
+            OffsetCalcTestCase::new(
+                16_893_399_716_399_327_198,
+                16_893_399_716_453_045_029,
+                16_893_399_716_453_098_083,
+                16_893_399_716_961_924_964,
+                -52981 / 1_000,
+            ),
+            OffsetCalcTestCase::new(
+                9_487_534_663_484_046_772u64,
+                16_882_120_099_581_835_046u64,
+                16_882_120_099_583_884_144u64,
+                9_487_534_663_651_464_597u64,
+                1_721_686_086_620_926 / 1_000,
+            ),
+        ];
+
+        for t in tests {
+            let offset = offset_calculate(t.t1(), t.t2(), t.t3(), t.t4(), Units::Milliseconds);
             let expected = t.expected;
             assert_eq!(offset, expected);
         }
