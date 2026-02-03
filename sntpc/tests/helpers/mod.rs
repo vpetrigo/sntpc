@@ -1,15 +1,8 @@
-use sntpc::{Error, NtpContext, NtpTimestampGenerator, NtpUdpSocket, sntp_process_response, sntp_send_request};
+use sntpc::{sntp_process_response, sntp_send_request, Error, NtpContext, NtpTimestampGenerator, NtpUdpSocket};
+use std::net::SocketAddr;
 
-use core::net::SocketAddr;
-
-#[derive(Copy, Clone)]
-struct MockTimestampGen;
-
-impl MockTimestampGen {
-    fn new() -> Self {
-        Self
-    }
-}
+#[derive(Default, Copy, Clone)]
+pub struct MockTimestampGen;
 
 impl NtpTimestampGenerator for MockTimestampGen {
     fn init(&mut self) {}
@@ -23,25 +16,42 @@ impl NtpTimestampGenerator for MockTimestampGen {
     }
 }
 
-struct MockUdpSocket {
+pub struct MockUdpSocket {
     dest_addr: SocketAddr,
-    to_write: [u8; 48],
+    to_write_result: sntpc::Result<usize>,
+    to_read: [u8; 48],
+    to_read_result: sntpc::Result<(usize, SocketAddr)>,
 }
 
 impl MockUdpSocket {
-    fn new(dest_addr: SocketAddr, to_write: [u8; 48]) -> Self {
-        Self { dest_addr, to_write }
+    #[must_use]
+    pub fn new(dest_addr: SocketAddr, data: [u8; 48]) -> Self {
+        Self {
+            dest_addr,
+            to_write_result: Ok(48),
+            to_read: data,
+            to_read_result: Ok((data.len(), dest_addr)),
+        }
+    }
+
+    pub fn update_write_result(&mut self, value: sntpc::Result<usize>) {
+        self.to_write_result = value;
+    }
+
+    pub fn update_read_result(&mut self, value: sntpc::Result<(usize, SocketAddr)>) {
+        self.to_read_result = value;
     }
 }
 
 impl NtpUdpSocket for MockUdpSocket {
-    async fn send_to(&self, buf: &[u8], _addr: SocketAddr) -> sntpc::Result<usize> {
-        Ok(buf.len())
+    async fn send_to(&self, _buf: &[u8], _addr: SocketAddr) -> sntpc::Result<usize> {
+        self.to_write_result
     }
 
     async fn recv_from(&self, buf: &mut [u8]) -> sntpc::Result<(usize, SocketAddr)> {
-        buf.copy_from_slice(&self.to_write);
-        Ok((48, self.dest_addr))
+        buf.copy_from_slice(&self.to_read);
+
+        self.to_read_result
     }
 }
 
@@ -63,8 +73,11 @@ fn test_kiss_of_death() {
             data
         };
 
-        let socket = MockUdpSocket::new(dest, data);
-        let context = NtpContext::new(MockTimestampGen::new());
+        let mut socket = MockUdpSocket::new(dest, data);
+
+        socket.update_read_result(Ok((data.len(), dest)));
+
+        let context = NtpContext::new(MockTimestampGen);
         let mut executor: miniloop::executor::Executor<1> = miniloop::executor::Executor::new();
         let mut handler: miniloop::task::Handle<()> = miniloop::task::Handle::default();
         let mut task = miniloop::task::Task::new("test", async {
@@ -81,30 +94,5 @@ fn test_kiss_of_death() {
         let _ = executor.spawn(&mut task, &mut handler);
 
         executor.run();
-
-        // let ref_id_bytes = code.as_bytes();
-        // let ref_id = u32::from_be_bytes(ref_id_bytes.try_into().unwrap_or([0; 4]));
-        // let response = NtpPacket {
-        //     li_vn_mode: 0xC4,
-        //     stratum: 0,
-        //     poll: 0,
-        //     precision: 0,
-        //     root_delay: 0,
-        //     root_dispersion: 0,
-        //     ref_id,
-        //     ref_timestamp: 0,
-        //     origin_timestamp: 0,
-        //     recv_timestamp: 0,
-        //     tx_timestamp: 0,
-        // };
-        // let raw: RawNtpPacket = (&response).into();
-        // let result = process_response(req_resp, raw, 0);
-        //
-        // assert!(result.is_err());
-        //
-        // match result.unwrap_err() {
-        //     Error::KissOfDeath(kod_code) => assert_eq!(kod_code.as_str(), code),
-        //     _ => unreachable!("Unexpected error code"),
-        // }
     }
 }
