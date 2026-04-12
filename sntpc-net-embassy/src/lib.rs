@@ -8,7 +8,7 @@
 //!
 //! The network adapters are separated into their own crates to:
 //! - Enable independent versioning (updating Embassy doesn't require updating `sntpc` core)
-//! - Allow version flexibility (works with embassy-net 0.8.x)
+//! - Allow version flexibility
 //! - Maintain `no_std` compatibility for embedded systems
 //!
 //! # Features
