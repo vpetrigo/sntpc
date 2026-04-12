@@ -7,7 +7,7 @@ publish = false
 [dependencies]
 embassy-executor = { version = "~0.9", features = ["arch-std", "executor-thread"] }
 embassy-time = { version = "~0.5", features = ["std", "generic-queue-8"] }
-embassy-net = { version = "~0.8", features = ["std", "udp", "medium-ethernet", "proto-ipv4"] }
+embassy-net = { version = "~0.9", features = ["std", "udp", "medium-ethernet", "proto-ipv4"] }
 sntpc = { path = "../../sntpc", version = "~0.9", default-features = false, features = ["std"] }
 sntpc-net-embassy = { path = "../../sntpc-net-embassy", version = "~0.9" }
 heapless = { version = "~0.8" }
