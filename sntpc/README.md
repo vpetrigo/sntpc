@@ -174,7 +174,7 @@ effort is wasted. If there's already an open issue for it, knock yourself out. S
 9. [Damian Peckett](https://github.com/dpeckett): for adding `defmt` support and elaborating on `embassy` example
 10. [icalder](https://github.com/icalder): for improving `embassy-net` support and adding missing `defmt` format support
     for some `sntpc` types
-11. [borisfaure](https://github.com/borisfaure): for allowing embassy-net-0.9 that works without code change
+11. [Boris Faure](https://github.com/borisfaure): for allowing embassy-net-0.9 that works without code change
 
 Really appreciate all your efforts! Please [let me know](mailto:vladimir.petrigo@gmail.com) if I forgot someone.
 
