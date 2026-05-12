@@ -100,8 +100,15 @@ pub fn run_clippy() -> Result<()> {
     // Run clippy on all examples
     let all_examples = utils::get_all_examples()?;
     let nostd_examples = utils::get_nostd_examples()?;
+    // TODO: remove those examples from exclusion once dependency that introduces
+    // `rustix` crate is updated
+    const EXCLUDED_EXAMPLES: &[&str] = &["embassy-net", "embassy-net-timeout"];
 
     for example in all_examples {
+        if EXCLUDED_EXAMPLES.contains(&example.as_str()) {
+            continue;
+        }
+
         let is_nostd = nostd_examples.contains(&example);
         clippy_run(&example, is_nostd)?;
     }
