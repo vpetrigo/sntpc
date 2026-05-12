@@ -125,7 +125,7 @@ async fn main_task(spawner: Spawner) {
     let (stack, runner) = embassy_net::new(device, config, RESOURCES.init(StackResources::new()), 0);
 
     // Launch network task
-    spawner.spawn(net_task(runner)).unwrap();
+    spawner.spawn(net_task(runner).expect("REASON"));
 
     // Wait for the tap interface to be up before continuing
     stack.wait_config_up().await;
@@ -175,7 +175,7 @@ fn main() {
 
     let executor = EXECUTOR.init(Executor::new());
     executor.run(|spawner| {
-        spawner.spawn(main_task(spawner)).unwrap();
+        spawner.spawn(main_task(spawner).expect("REASON"));
     });
 }
 }
