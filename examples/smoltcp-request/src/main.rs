@@ -341,7 +341,7 @@ fn main() {
                 }
             }
 
-            log::trace!("{:?}", &result);
+            log::trace!("{result:?}");
         }
 
         if let Some(tx_result) = send_result
