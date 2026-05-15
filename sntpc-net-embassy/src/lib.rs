@@ -24,13 +24,14 @@
 //!
 //! ```ignore
 //! use sntpc::{get_time, NtpContext};
-//! use sntpc_net_embassy::UdpSocketWrapper;
+//! use sntpc_net_embassy::{EmbassyTimestampGenerator, UdpSocketWrapper};
 //! use embassy_net::udp::UdpSocket;
 //!
 //! // Within an Embassy async context
 //! let socket = UdpSocket::new(stack, &mut rx_buffer, &mut tx_buffer);
 //! socket.bind(local_port).unwrap();
 //! let socket = UdpSocketWrapper::from(socket);
+//! let ntp_context = NtpContext::new(EmbassyTimestampGenerator::default());
 //!
 //! let result = get_time(server_addr, &socket, ntp_context).await;
 //! match result {
@@ -60,9 +61,10 @@ mod log {
 use crate::log::error;
 
 use embassy_net::{IpAddress, IpEndpoint, udp::UdpSocket};
-use sntpc::{Error, NtpUdpSocket, Result};
+use sntpc::{Error, NtpTimestampGenerator, NtpUdpSocket, Result};
 
 use core::net::{IpAddr, SocketAddr};
+use embassy_time::Instant;
 
 /// A wrapper around [`embassy_net::udp::UdpSocket`] that implements [`NtpUdpSocket`].
 ///
@@ -165,6 +167,37 @@ fn from_endpoint(ep: IpEndpoint) -> SocketAddr {
         },
         ep.port,
     )
+}
+
+/// Timestamp generator backed by `embassy-time`.
+///
+/// This does not provide wall-clock time. It provides a monotonic timestamp
+/// source for `sntpc`, which is enough for request/response measurements.
+#[derive(Copy, Clone)]
+pub struct EmbassyTimestampGenerator {
+    instant: Instant,
+}
+
+impl Default for EmbassyTimestampGenerator {
+    fn default() -> Self {
+        Self {
+            instant: Instant::from_secs(0),
+        }
+    }
+}
+
+impl NtpTimestampGenerator for EmbassyTimestampGenerator {
+    fn init(&mut self) {
+        self.instant = Instant::now();
+    }
+
+    fn timestamp_sec(&self) -> u64 {
+        self.instant.as_secs()
+    }
+
+    fn timestamp_subsec_micros(&self) -> u32 {
+        self.instant.as_micros() as u32 % 1_000_000
+    }
 }
 
 impl NtpUdpSocket for UdpSocketWrapper<'_> {
