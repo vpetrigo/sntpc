@@ -424,6 +424,7 @@ impl<T: NtpTimestampGenerator + Copy> NtpContext<T> {
 
 /// Preserve SNTP request sending operation result required during receiving and processing
 /// state
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[derive(Copy, Clone, Debug)]
 pub struct SendRequestResult {
     pub(crate) originate_timestamp: u64,
