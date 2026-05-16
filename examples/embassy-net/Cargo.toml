@@ -12,7 +12,7 @@ embassy-time = { version = "0.5.0", features = ["std", "defmt", "generic-queue-8
 embassy-net = { version = "~0.9", features = ["defmt", "medium-ethernet", "proto-ipv4", "udp", "dns"] }
 static_cell = "2"
 heapless = { version = "~0.9", default-features = false }
-defmt = "1.0.1"
+defmt = "1.1.0"
 defmt-logger-tcp = "0.2"
 
 [target.'cfg(unix)'.dependencies]
