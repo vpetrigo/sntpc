@@ -35,7 +35,10 @@
 //!
 //! let result = get_time(server_addr, &socket, ntp_context).await;
 //! match result {
-//!     Ok(time) => defmt::info!("Received time: {}.{}", time.sec(), time.sec_fraction()),
+//!     Ok(time) => {
+//!         let subseconds = time.sec_fraction() * 1_000_000 / u64::from(u32::MAX);
+//!         defmt::info!("Received time: {}.{}", time.sec(), subseconds)
+//!     }
 //!     Err(e) => defmt::error!("Failed to get time: {:?}", e),
 //! }
 //! ```

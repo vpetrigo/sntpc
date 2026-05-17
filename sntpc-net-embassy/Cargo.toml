@@ -17,9 +17,9 @@ embassy-time = { version = ">=0.5, <0.6", default-features = false }
 
 cfg-if = { version = "1", optional = true }
 log = { version = "~0.4", optional = true }
-defmt = { version = "~1.0", optional = true }
+defmt = { version = "~1.1", optional = true }
 
 [features]
 ipv6 = ["embassy-net/proto-ipv6"]
 log = ["dep:log", "dep:cfg-if"]
-defmt = ["dep:defmt", "dep:cfg-if", "embassy-net/defmt"]
+defmt = ["dep:defmt", "dep:cfg-if", "sntpc/defmt", "embassy-net/defmt"]
