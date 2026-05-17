@@ -25,12 +25,14 @@
 //! ```ignore
 //! use sntpc::{get_time, NtpContext};
 //! use sntpc_net_embassy::UdpSocketWrapper;
+//! use sntpc_time_embassy::EmbassyTimestampGenerator;
 //! use embassy_net::udp::UdpSocket;
 //!
 //! // Within an Embassy async context
 //! let socket = UdpSocket::new(stack, &mut rx_buffer, &mut tx_buffer);
 //! socket.bind(local_port).unwrap();
 //! let socket = UdpSocketWrapper::from(socket);
+//! let ntp_context = NtpContext::new(EmbassyTimestampGenerator::default());
 //!
 //! let result = get_time(server_addr, &socket, ntp_context).await;
 //! match result {

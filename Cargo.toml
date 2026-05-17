@@ -1,5 +1,5 @@
 [workspace]
-members = ["sntpc", "sntpc-net-*"]
+members = ["sntpc", "sntpc-net-*", "sntpc-time-*"]
 exclude = ["examples", "xtask"]
 resolver = "3"
 

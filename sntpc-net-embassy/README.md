@@ -23,6 +23,7 @@ Add this to your `Cargo.toml`:
 [dependencies]
 sntpc = { version = "0.9", default-features = false }
 sntpc-net-embassy = { version = "0.9", default-features = false }
+sntpc-time-embassy = { version = "0.9" }
 embassy-net = { version = "0.9", features = ["udp", "proto-ipv4"] }
 ```
 
@@ -39,12 +40,15 @@ embassy-net = { version = "0.9", features = ["udp", "proto-ipv4"] }
 ```rust
 use sntpc::{get_time, NtpContext};
 use sntpc_net_embassy::UdpSocketWrapper;
+use sntpc_time_embassy::EmbassyTimestampGenerator;
 use embassy_net::udp::UdpSocket;
 
 // Within an embassy async context
 let socket = UdpSocket::new(stack, &mut rx_buffer, &mut tx_buffer);
 // binding and other required steps
 let socket = UdpSocketWrapper::from(socket);
+// Create an NtpContext with an EmbassyTimestampGenerator
+let ntp_context = NtpContext::new(EmbassyTimestampGenerator::default());
 
 let result = get_time(server_addr, &socket, ntp_context).await;
 ```
