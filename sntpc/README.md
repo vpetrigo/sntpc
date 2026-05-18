@@ -5,8 +5,7 @@
 
 # Simple Rust SNTP client
 
-This crate provides a method for sending requests to NTP servers and process responses,
-extracting received timestamp.
+This crate provides a method for sending requests to NTP servers and process responses, extracting received timestamp.
 
 Supported SNTP protocol versions:
 
@@ -18,7 +17,7 @@ Supported SNTP protocol versions:
 
 ```toml
 [dependencies]
-sntpc = { version = "0.9", features = ["sync"] }
+sntpc = { version = "0.10", features = ["sync"] }
 ```
 
 - application code. Based on a socket implementation used, you may want to use supplementary crates with UDP socket
@@ -89,8 +88,8 @@ You can find this [example](examples/simple-request) as well as other example pr
 
 ## `no_std` support
 
-There is an example available on how to use [`smoltcp`](examples/smoltcp-request) stack and that should provide
-general idea on how to bootstrap `no_std` networking and timestamping tools for `sntpc` library usage
+There is an example available on how to use [`smoltcp`](examples/smoltcp-request) stack and that should provide general
+idea on how to bootstrap `no_std` networking and timestamping tools for `sntpc` library usage
 
 ## `async` support
 
@@ -99,8 +98,8 @@ feature below.
 
 `tokio` example: [`examples/tokio`](examples/tokio)
 
-There is also `no_std` support with feature `async`, but it requires Rust >= `1.75-nightly` version.
-The example can be found in [separate repository](https://github.com/vpikulik/sntpc_embassy).
+There is also `no_std` support with feature `async`, but it requires Rust >= `1.75-nightly` version. The example can be
+found in [separate repository](https://github.com/vpikulik/sntpc_embassy).
 
 ## `sync` support
 
@@ -175,6 +174,10 @@ effort is wasted. If there's already an open issue for it, knock yourself out. S
 10. [icalder](https://github.com/icalder): for improving `embassy-net` support and adding missing `defmt` format support
     for some `sntpc` types
 11. [Boris Faure](https://github.com/borisfaure): for allowing embassy-net-0.9 that works without code change
+12. [Jaroslav Henner](https://github.com/jarovo): for fixing the `sntpc-net-embassy` documentation on how to get
+    microseconds from fractions of seconds properly
+13. [SimonIT](https://github.com/SimonIT): for introducing the `sntpc-time-embassy` crate with `embassy-time` support
+    and updating `defmt` version of the dependent crates
 
 Really appreciate all your efforts! Please [let me know](mailto:vladimir.petrigo@gmail.com) if I forgot someone.
 

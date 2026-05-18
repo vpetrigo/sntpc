@@ -12,7 +12,7 @@
 //! Add to your `Cargo.toml`:
 //! ```toml
 //! [dependencies]
-//! sntpc = "0.8"
+//! sntpc = "0.10"
 //! ```
 //!
 //! For common usage patterns, choose a network adapter:

@@ -21,6 +21,7 @@ pub fn clean_all() -> Result<()> {
     utils::run_cargo_clean("sntpc-net-embassy/Cargo.toml")?;
     utils::run_cargo_clean("sntpc-net-std/Cargo.toml")?;
     utils::run_cargo_clean("sntpc-net-tokio/Cargo.toml")?;
+    utils::run_cargo_clean("sntpc-time-embassy/Cargo.toml")?;
 
     // Clean all examples
     let all_examples = utils::get_all_examples()?;

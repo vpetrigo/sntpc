@@ -21,9 +21,9 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-sntpc = { version = "0.9", default-features = false }
-sntpc-net-embassy = { version = "0.9", default-features = false }
-sntpc-time-embassy = { version = "0.9" }
+sntpc = { version = "0.10", default-features = false }
+sntpc-net-embassy = { version = "0.10", default-features = false }
+sntpc-time-embassy = { version = "0.6" }
 embassy-net = { version = "0.9", features = ["udp", "proto-ipv4"] }
 ```
 
@@ -57,7 +57,7 @@ For complete examples, see the [sntpc examples](https://github.com/vpetrigo/sntp
 
 ## Compatibility
 
-- **sntpc**: 0.9.x
+- **sntpc**: 0.10.x
 - **embassy-net**: 0.9.x (any version >= 0.9, < 0.10)
 - **no_std**: Fully supported
 
