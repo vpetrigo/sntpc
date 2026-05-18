@@ -1,4 +1,4 @@
-#[cfg(all(test, feature = "std", feature = "sync"))]
+#[cfg(all(test, feature = "std"))]
 mod sntpc_async_tests {
     use miniloop::executor::Executor;
     use sntpc::{Error, NtpContext, NtpUdpSocket, Result, StdTimestampGen, get_time};
