@@ -22,9 +22,11 @@ sntpc = { version = "0.10", features = ["sync"] }
 
 - application code. Based on a socket implementation used, you may want to use supplementary crates with UDP socket
   wrappers:
-    - `sntpc-net-std`: for standard library UDP sockets
-    - `sntpc-net-embassy`: for `embassy-net` UDP sockets
-    - `sntpc-net-tokio`: for `tokio` UDP sockets
+    - [`sntpc-net-std`](https://docs.rs/sntpc-net-std): for standard library UDP sockets
+    - [`sntpc-net-embassy`](https://docs.rs/sntpc-net-embassy): for `embassy-net` UDP sockets
+    - [`sntpc-net-tokio`](https://docs.rs/sntpc-net-tokio): for `tokio` UDP sockets
+    - [`sntpc-time-embassy`](https://docs.rs/sntpc-time-embassy): timestamp generation based on the `embassy-time`
+      interface
 
 Example below uses `sntpc-net-std` crate:
 

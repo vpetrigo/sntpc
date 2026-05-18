@@ -16,9 +16,10 @@
 //! ```
 //!
 //! For common usage patterns, choose a network adapter:
-//! - `sntpc-net-std` - Standard library UDP sockets
-//! - `sntpc-net-tokio` - Tokio async runtime
-//! - `sntpc-net-embassy` - Embassy embedded runtime
+//! - [`sntpc-net-std`](https://docs.rs/sntpc-net-std) - Standard library UDP sockets
+//! - [`sntpc-net-tokio`](https://docs.rs/sntpc-net-tokio) - Tokio async runtime
+//! - [`sntpc-net-embassy`](https://docs.rs/sntpc-net-embassy) - Embassy embedded runtime
+//! - [`sntpc-time-embassy`](https://docs.rs/sntpc-time-embassy) - Timestamp generation based on the `embassy-time` interface
 //!
 //! ## Features
 //!
