@@ -11,5 +11,5 @@ license.workspace = true
 authors.workspace = true
 
 [dependencies]
-sntpc = { version = "~0.9", path = "../sntpc", default-features = false }
+sntpc = { version = "~0.10", path = "../sntpc", default-features = false }
 embassy-time = { version = ">=0.5, <0.6", default-features = false }

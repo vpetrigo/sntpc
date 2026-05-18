@@ -25,7 +25,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-sntpc = { version = "0.9", default-features = false }
+sntpc = { version = "0.10", default-features = false }
 sntpc-time-embassy = "0.5"
 embassy-time = ">=0.5,<0.6"
 ```
@@ -47,7 +47,7 @@ For complete examples, see the [sntpc examples](https://github.com/vpetrigo/sntp
 
 ## Compatibility
 
-- **sntpc**: 0.9.x
+- **sntpc**: 0.10.x
 - **embassy-time**: 0.5.x (any version >= 0.5, < 0.6)
 - **no_std**: Fully supported
 

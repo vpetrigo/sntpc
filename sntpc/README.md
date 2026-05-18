@@ -17,7 +17,7 @@ Supported SNTP protocol versions:
 
 ```toml
 [dependencies]
-sntpc = { version = "0.9", features = ["sync"] }
+sntpc = { version = "0.10", features = ["sync"] }
 ```
 
 - application code. Based on a socket implementation used, you may want to use supplementary crates with UDP socket
