@@ -27,4 +27,5 @@ jobs:
         with:
           registry-token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
           args: '--publish-as-is'
+          check-repo: false
           dry-run: ${{ github.event_name == 'workflow_dispatch' }}
