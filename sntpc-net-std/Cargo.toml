@@ -1,6 +1,6 @@
 [package]
 name = "sntpc-net-std"
-version = "1.2.0"
+version = "1.2.1"
 description = "std socket wrapper for sntpc library"
 repository = "https://github.com/vpetrigo/sntpc"
 categories = ["date-and-time", "asynchronous"]

@@ -99,17 +99,17 @@ impl From<UdpSocket> for UdpSocketWrapper {
 }
 
 impl NtpUdpSocket for UdpSocketWrapper {
-    async fn send_to(&self, buf: &[u8], addr: SocketAddr) -> Result<usize> {
-        match self.socket.send_to(buf, addr) {
+    fn send_to(&self, buf: &[u8], addr: SocketAddr) -> impl Future<Output = Result<usize>> {
+        std::future::ready(match self.socket.send_to(buf, addr) {
             Ok(usize) => Ok(usize),
             Err(_) => Err(Error::Network),
-        }
+        })
     }
 
-    async fn recv_from(&self, buf: &mut [u8]) -> Result<(usize, SocketAddr)> {
-        match self.socket.recv_from(buf) {
+    fn recv_from(&self, buf: &mut [u8]) -> impl Future<Output = Result<(usize, SocketAddr)>> {
+        std::future::ready(match self.socket.recv_from(buf) {
             Ok((size, addr)) => Ok((size, addr)),
             Err(_) => Err(Error::Network),
-        }
+        })
     }
 }
