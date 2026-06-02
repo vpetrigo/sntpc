@@ -204,7 +204,7 @@ pub mod internal {
                 return Ok((size, sockaddr));
             }
 
-            std::future::ready(Err(Error::Network));
+            std::future::ready(Err(Error::Network))
         }
     }
 
