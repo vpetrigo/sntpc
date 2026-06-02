@@ -176,20 +176,20 @@ pub mod internal {
     }
 
     impl NtpUdpSocket for SmoltcpUdpSocketWrapper<'_, '_> {
-        async fn send_to(&self, buf: &[u8], addr: SocketAddr) -> Result<usize, Error> {
+        fn send_to(&self, buf: &[u8], addr: SocketAddr) -> impl Future<Output = Result<usize, Error>> {
             let endpoint = match addr {
                 SocketAddr::V4(v4) => IpEndpoint::from(v4),
                 SocketAddr::V6(_) => return Err(Error::Network),
             };
 
             if self.socket.borrow_mut().send_slice(buf, endpoint).is_ok() {
-                return Ok(buf.len());
+                return std::future::ready(Ok(buf.len()));
             }
 
-            Err(Error::Network)
+            std::future::ready(Err(Error::Network))
         }
 
-        async fn recv_from(&self, buf: &mut [u8]) -> Result<(usize, SocketAddr), Error> {
+        fn recv_from(&self, buf: &mut [u8]) -> impl Future<Output = Result<(usize, SocketAddr), Error>> {
             let result = self.socket.borrow_mut().recv_slice(&mut buf[..]);
 
             if let Ok((size, address)) = result {
@@ -201,10 +201,10 @@ pub mod internal {
                 };
                 let sockaddr = SocketAddr::new(IpAddr::V4(v4), address.endpoint.port);
 
-                return Ok((size, sockaddr));
+                return std::future::ready(Ok((size, sockaddr)));
             }
 
-            Err(Error::Network)
+            std::future::ready(Err(Error::Network));
         }
     }
 
