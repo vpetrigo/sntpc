@@ -35,7 +35,6 @@
 
 use sntpc::{Error, NtpUdpSocket, Result};
 
-use std::future;
 use std::net::{SocketAddr, UdpSocket};
 
 /// A wrapper around [`std::net::UdpSocket`] that implements [`NtpUdpSocket`].
