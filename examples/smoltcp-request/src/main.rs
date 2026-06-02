@@ -176,7 +176,7 @@ pub mod internal {
     }
 
     impl NtpUdpSocket for SmoltcpUdpSocketWrapper<'_, '_> {
-        fn send_to(&self, buf: &[u8], addr: SocketAddr) -> impl Future<Output = Result<usize, Error>> {
+        async fn send_to(&self, buf: &[u8], addr: SocketAddr) -> Result<usize, Error> {
             let endpoint = match addr {
                 SocketAddr::V4(v4) => IpEndpoint::from(v4),
                 SocketAddr::V6(_) => return Err(Error::Network),
@@ -186,10 +186,10 @@ pub mod internal {
                 return Ok(buf.len());
             }
 
-            std::future::ready(Err(Error::Network))
+            Err(Error::Network)
         }
 
-        fn recv_from(&self, buf: &mut [u8]) -> impl Future<Output = Result<(usize, SocketAddr), Error>> {
+        async fn recv_from(&self, buf: &mut [u8]) -> Result<(usize, SocketAddr), Error> {
             let result = self.socket.borrow_mut().recv_slice(&mut buf[..]);
 
             if let Ok((size, address)) = result {
@@ -204,7 +204,7 @@ pub mod internal {
                 return Ok((size, sockaddr));
             }
 
-            std::future::ready(Err(Error::Network))
+            Err(Error::Network)
         }
     }
 
