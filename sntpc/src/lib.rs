@@ -532,6 +532,11 @@ fn process_response(send_req_result: SendRequestResult, resp: RawNtpPacket, recv
         packet.stratum,
         packet.precision,
         li,
+        packet.root_delay,
+        packet.root_dispersion,
+        packet.ref_id.to_be_bytes(),  // Convert to network byte order for external use
+        packet.ref_timestamp,
+        packet.poll,
     ))
 }
 
