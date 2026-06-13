@@ -9,7 +9,36 @@ This crate provides a method for sending requests to NTP servers and process res
 
 Supported SNTP protocol versions:
 
-- [SNTPv4](https://datatracker.ietf.org/doc/html/rfc4330)
+- [SNTPv4 (RFC 5905)](https://datatracker.ietf.org/doc/html/rfc5905)
+
+> **Note**: Broadcast mode (NTP mode 5) is not supported. This library only supports unicast client mode (mode 3 → mode 4).
+
+### Features
+
+- `std` - Standard library support (includes `StdTimestampGen`)
+- `sync` - Synchronous API in `sync` module
+- `dispersion` - Enables root dispersion estimation per RFC 5905 §9.2
+- `utils` - OS-specific utilities for system time sync
+- `log` / `defmt` - Debug logging
+
+### Return value: `NtpResult`
+
+The `get_time` and `sntp_process_response` functions return `NtpResult` which includes:
+
+| Field | Description |
+|-------|-------------|
+| `sec()` / `sec_fraction()` | Server-reported timestamp (seconds and fraction) |
+| `roundtrip()` | Round-trip delay in microseconds |
+| `offset()` | Estimated clock offset in microseconds |
+| `stratum()` | Server stratum level |
+| `precision()` | Server clock precision as log2(seconds) |
+| `leap_indicator()` | Leap indicator (0-3) from the server response |
+| `root_delay()` | Root delay in NTP short format (16.16 fixed-point) |
+| `root_dispersion()` | Root dispersion in NTP short format (16.16 fixed-point) |
+| `reference_id()` | Reference identifier (4-byte array in network byte order) |
+| `reference_timestamp()` | Reference timestamp in NTP timestamp format |
+| `poll()` | Server poll interval in log2 seconds |
+| `dispersion()` | Estimated dispersion in microseconds (requires `dispersion` feature) |
 
 ### Usage example
 
@@ -17,7 +46,7 @@ Supported SNTP protocol versions:
 
 ```toml
 [dependencies]
-sntpc = { version = "0.10", features = ["sync"] }
+sntpc = { version = "0.11", features = ["sync"] }
 ```
 
 - application code. Based on a socket implementation used, you may want to use supplementary crates with UDP socket

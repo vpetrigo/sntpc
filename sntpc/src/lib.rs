@@ -5,7 +5,9 @@
 //! This crate provides an async-first SNTP client for sending requests to NTP servers
 //! and processing responses to extract accurate timestamps.
 //!
-//! Supported protocol version: [SNTPv4 (RFC 4330)](https://datatracker.ietf.org/doc/html/rfc4330)
+//! Supported protocol version: [SNTPv4 (RFC 5905)](https://datatracker.ietf.org/doc/html/rfc5905)
+//!
+//! Note: RFC 5905 §14 defines SNTPv4 and references RFC 4330 for SNTP client operational semantics.
 //!
 //! ## Quick Start
 //!
@@ -48,6 +50,15 @@
 //! - [`get_time`] - Complete request/response in a single call (suitable for most cases)
 //! - [`sntp_send_request`] and [`sntp_process_response`] - Split send/receive workflow
 //!   (useful when the TCP/IP stack requires polling or has custom timing requirements)
+//!
+//! ## Limitations
+//!
+//! - **Broadcast mode** (NTP mode 5) is not supported. The library only supports unicast client mode (mode 3 → mode 4).
+//!   For broadcast client requirements, see RFC 5905 §14.
+//! - **Minimum poll interval**: Clients should not send requests at intervals less than one minute per RFC 4330 §5.
+//!   The library does not enforce this; it is the caller's responsibility.
+//! - **NTP era rollover**: Timestamps use a fixed NTP-to-Unix epoch offset of 2,208,988,800 seconds, which is only
+//!   valid for NTP era 0 (before February 2036). After that, timestamps will wrap and produce incorrect results.
 //!
 //! ## Examples
 //!

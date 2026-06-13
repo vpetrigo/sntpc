@@ -11,7 +11,7 @@ license.workspace = true
 authors.workspace = true
 
 [dependencies]
-sntpc = { version = "~0.10", path = "../sntpc", default-features = false }
+sntpc = { version = "~0.11", path = "../sntpc", default-features = false }
 embassy-net = { version = ">=0.9, <0.10", default-features = false, features = ["udp", "proto-ipv4", "medium-ip"] }
 
 cfg-if = { version = "1", optional = true }
