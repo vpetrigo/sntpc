@@ -4,7 +4,7 @@ use sntpc::{
 
 #[test]
 fn test_ntp_result() {
-    let result1 = NtpResult::new(0, 0, 0, 0, 1, -2, 0, 0, 0, [0; 4], 0, 0);
+    let result1 = NtpResult::new(0, 0, 0, 0, 1, -2, 0, 0, 0, [0; 4], 0, 0, 0);
 
     assert_eq!(0, result1.sec());
     assert_eq!(0, result1.sec_fraction());
@@ -19,7 +19,7 @@ fn test_ntp_result() {
     assert_eq!(0, result1.reference_timestamp());
     assert_eq!(0, result1.poll());
 
-    let result2 = NtpResult::new(1, 2, 3, 4, 5, -23, 1, 0, 0, [0; 4], 0, 0);
+    let result2 = NtpResult::new(1, 2, 3, 4, 5, -23, 1, 0, 0, [0; 4], 0, 0, 0);
 
     assert_eq!(1, result2.sec());
     assert_eq!(2, result2.sec_fraction());
@@ -47,6 +47,7 @@ fn test_ntp_result() {
         [0; 4],
         0,
         0,
+        0,
     );
 
     assert_eq!(u32::MAX, result3.sec());
@@ -59,13 +60,13 @@ fn test_ntp_result() {
 
 #[test]
 fn test_ntp_fraction_overflow_result() {
-    let result = NtpResult::new(0, u32::MAX, 0, 0, 1, -19, 0, 0, 0, [0; 4], 0, 0);
+    let result = NtpResult::new(0, u32::MAX, 0, 0, 1, -19, 0, 0, 0, [0; 4], 0, 0, 0);
     assert_eq!(1, result.sec());
     assert_eq!(0, result.sec_fraction());
     assert_eq!(0, result.roundtrip());
     assert_eq!(0, result.offset());
 
-    let result = NtpResult::new(u32::MAX - 1, u32::MAX, 0, 0, 1, -17, 0, 0, 0, [0; 4], 0, 0);
+    let result = NtpResult::new(u32::MAX - 1, u32::MAX, 0, 0, 1, -17, 0, 0, 0, [0; 4], 0, 0, 0);
     assert_eq!(u32::MAX, result.sec());
     assert_eq!(0, result.sec_fraction());
     assert_eq!(0, result.roundtrip());
@@ -74,48 +75,48 @@ fn test_ntp_fraction_overflow_result() {
 
 #[test]
 fn test_conversion_to_ms() {
-    let result = NtpResult::new(0, u32::MAX - 1, 0, 0, 1, 0, 0, 0, 0, [0; 4], 0, 0);
+    let result = NtpResult::new(0, u32::MAX - 1, 0, 0, 1, 0, 0, 0, 0, [0; 4], 0, 0, 0);
     let milliseconds = fraction_to_milliseconds(result.seconds_fraction);
     assert_eq!(999u32, milliseconds);
 
-    let result = NtpResult::new(0, 0, 0, 0, 1, 0, 0, 0, 0, [0; 4], 0, 0);
+    let result = NtpResult::new(0, 0, 0, 0, 1, 0, 0, 0, 0, [0; 4], 0, 0, 0);
     let milliseconds = fraction_to_milliseconds(result.seconds_fraction);
     assert_eq!(0u32, milliseconds);
 }
 
 #[test]
 fn test_conversion_to_us() {
-    let result = NtpResult::new(0, u32::MAX - 1, 0, 0, 1, 0, 0, 0, 0, [0; 4], 0, 0);
+    let result = NtpResult::new(0, u32::MAX - 1, 0, 0, 1, 0, 0, 0, 0, [0; 4], 0, 0, 0);
     let microseconds = fraction_to_microseconds(result.seconds_fraction);
     assert_eq!(999_999u32, microseconds);
 
-    let result = NtpResult::new(0, 0, 0, 0, 1, 0, 0, 0, 0, [0; 4], 0, 0);
+    let result = NtpResult::new(0, 0, 0, 0, 1, 0, 0, 0, 0, [0; 4], 0, 0, 0);
     let microseconds = fraction_to_microseconds(result.seconds_fraction);
     assert_eq!(0u32, microseconds);
 }
 
 #[test]
 fn test_conversion_to_ns() {
-    let result = NtpResult::new(0, u32::MAX - 1, 0, 0, 1, 0, 0, 0, 0, [0; 4], 0, 0);
+    let result = NtpResult::new(0, u32::MAX - 1, 0, 0, 1, 0, 0, 0, 0, [0; 4], 0, 0, 0);
     let nanoseconds = fraction_to_nanoseconds(result.seconds_fraction);
     assert_eq!(999_999_999u32, nanoseconds);
 
-    let result = NtpResult::new(0, 0, 0, 0, 1, 0, 0, 0, 0, [0; 4], 0, 0);
+    let result = NtpResult::new(0, 0, 0, 0, 1, 0, 0, 0, 0, [0; 4], 0, 0, 0);
     let nanoseconds = fraction_to_nanoseconds(result.seconds_fraction);
     assert_eq!(0u32, nanoseconds);
 }
 
 #[test]
 fn test_conversion_to_ps() {
-    let result = NtpResult::new(0, u32::MAX - 1, 0, 0, 1, 0, 0, 0, 0, [0; 4], 0, 0);
+    let result = NtpResult::new(0, u32::MAX - 1, 0, 0, 1, 0, 0, 0, 0, [0; 4], 0, 0, 0);
     let picoseconds = fraction_to_picoseconds(result.seconds_fraction);
     assert_eq!(999_999_999_767u64, picoseconds);
 
-    let result = NtpResult::new(0, 1, 0, 0, 1, 0, 0, 0, 0, [0; 4], 0, 0);
+    let result = NtpResult::new(0, 1, 0, 0, 1, 0, 0, 0, 0, [0; 4], 0, 0, 0);
     let picoseconds = fraction_to_picoseconds(result.seconds_fraction);
     assert_eq!(232u64, picoseconds);
 
-    let result = NtpResult::new(0, 0, 0, 0, 1, 0, 0, 0, 0, [0; 4], 0, 0);
+    let result = NtpResult::new(0, 0, 0, 0, 1, 0, 0, 0, 0, [0; 4], 0, 0, 0);
     let picoseconds = fraction_to_picoseconds(result.seconds_fraction);
     assert_eq!(0u64, picoseconds);
 }
