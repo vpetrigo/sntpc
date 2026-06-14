@@ -440,7 +440,7 @@ pub mod sync {
     /// Returns an `Err` if the underlying async SNTP response processing fails for any reason,
     /// such as:
     /// - Incorrect origin timestamp in the response,
-    /// - An invalid mode in the response (`SNTP_UNICAST` or `SNTP_BROADCAST`),
+    /// - An invalid mode in the response (`SNTP_UNICAST`),
     /// - A mismatch between the request and response versions,
     /// - Errors in the response headers (e.g., incorrect stratum, leap indicator),
     /// - Network errors during processing.
@@ -490,9 +490,6 @@ pub mod sync {
 
 #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss, clippy::cast_possible_wrap)]
 fn process_response(send_req_result: SendRequestResult, resp: RawNtpPacket, recv_timestamp: u64) -> Result<NtpResult> {
-    const SNTP_UNICAST: u8 = 4;
-    const SNTP_BROADCAST: u8 = 5;
-    const LI_MAX_VALUE: u8 = 3;
     let mut packet = NtpPacket::from(resp);
 
     convert_from_network(&mut packet);
@@ -504,34 +501,7 @@ fn process_response(send_req_result: SendRequestResult, resp: RawNtpPacket, recv
         }
     );
 
-    if send_req_result.originate_timestamp != packet.origin_timestamp {
-        return Err(Error::IncorrectOriginTimestamp);
-    }
-    // Shift is 0
-    let mode = shifter(packet.li_vn_mode, MODE_MASK, MODE_SHIFT);
-    let li = shifter(packet.li_vn_mode, LI_MASK, LI_SHIFT);
-    let resp_version = shifter(packet.li_vn_mode, VERSION_MASK, VERSION_SHIFT);
-    let req_version = shifter(send_req_result.version, VERSION_MASK, VERSION_SHIFT);
-
-    if mode != SNTP_UNICAST && mode != SNTP_BROADCAST {
-        return Err(Error::IncorrectMode);
-    }
-
-    if li > LI_MAX_VALUE {
-        return Err(Error::IncorrectLeapIndicator);
-    }
-
-    if req_version != resp_version {
-        return Err(Error::IncorrectResponseVersion);
-    }
-
-    if packet.stratum == 0 {
-        return Err(Error::KissOfDeath(KissOfDeathCode::new(packet.ref_id.to_be_bytes())));
-    }
-
-    if packet.stratum >= 16 {
-        return Err(Error::IncorrectStratumHeaders);
-    }
+    validate_response(&packet, &send_req_result)?;
     // System clock offset:
     // theta = T(B) - T(A) = 1/2 * [(T2-T1) + (T3-T4)]
     // Round-trip delay:
@@ -549,6 +519,7 @@ fn process_response(send_req_result: SendRequestResult, resp: RawNtpPacket, recv
     let roundtrip = roundtrip_calculate(t1, t2, t3, t4, units);
     let offset = offset_calculate(t1, t2, t3, t4, units);
     let timestamp = NtpTimestamp::from(packet.tx_timestamp);
+    let li = shifter(packet.li_vn_mode, LI_MASK, LI_SHIFT);
 
     #[cfg(any(feature = "log", feature = "defmt"))]
     debug!("Roundtrip delay: {} {}. Offset: {} {}", roundtrip, units, offset, units);
@@ -560,7 +531,68 @@ fn process_response(send_req_result: SendRequestResult, resp: RawNtpPacket, recv
         offset,
         packet.stratum,
         packet.precision,
+        li,
     ))
+}
+
+/// Validate an NTP response packet according to RFC 5905 §A.5.1.1
+fn validate_response(packet: &NtpPacket, send_req_result: &SendRequestResult) -> Result<()> {
+    // Origin timestamp check
+    if send_req_result.originate_timestamp != packet.origin_timestamp {
+        return Err(Error::IncorrectOriginTimestamp);
+    }
+
+    let mode = shifter(packet.li_vn_mode, MODE_MASK, MODE_SHIFT);
+    let li = shifter(packet.li_vn_mode, LI_MASK, LI_SHIFT);
+    let resp_version = shifter(packet.li_vn_mode, VERSION_MASK, VERSION_SHIFT);
+    let req_version = shifter(send_req_result.version, VERSION_MASK, VERSION_SHIFT);
+
+    // Mode check: only unicast (mode 4) is supported.
+    // Broadcast mode (mode 5) is not supported. See RFC 5905 §14 for broadcast client requirements.
+    if mode != SNTP_UNICAST {
+        return Err(Error::IncorrectMode);
+    }
+
+    // Kiss-of-death check (stratum 0 indicates KoD packet)
+    // Must be checked BEFORE LI check, because KoD packets may have LI=3 and should
+    // be identified as KoD rather than UnsynchronizedClock.
+    if packet.stratum == 0 {
+        return Err(Error::KissOfDeath(KissOfDeathCode::from_bytes(
+            packet.ref_id.to_be_bytes(),
+        )));
+    }
+
+    // Leap indicator check: LI=3 means clock unsynchronized per RFC 5905 §7.3 Figure 9
+    if li == LI_UNSYNCHRONIZED {
+        return Err(Error::UnsynchronizedClock);
+    }
+
+    // Version check
+    if req_version != resp_version {
+        return Err(Error::IncorrectResponseVersion);
+    }
+
+    // Stratum check
+    if packet.stratum >= 16 {
+        return Err(Error::IncorrectStratumHeaders);
+    }
+
+    // Zero transmit timestamp check (RFC 5905 §A.5.1.1, RFC 4330 §5)
+    if packet.tx_timestamp == 0 {
+        return Err(Error::InvalidTimestamp);
+    }
+
+    // Root distance validation (RFC 5905 §A.5.1.1)
+    // `root_delay/2 + root_dispersion` must be < `MAXDISP`
+    if (packet.root_delay / 2).saturating_add(packet.root_dispersion) >= MAXDISP {
+        return Err(Error::ExcessiveRootDistance);
+    }
+    // Reference timestamp must not be newer than transmit timestamp
+    if packet.ref_timestamp > packet.tx_timestamp {
+        return Err(Error::BackwardReferenceTimestamp);
+    }
+
+    Ok(())
 }
 
 fn shifter(val: u8, mask: u8, shift: u8) -> u8 {
@@ -586,7 +618,12 @@ fn convert_delays(sec: u64, fraction: u64, units: u64) -> u64 {
 }
 
 fn roundtrip_calculate(t1: u64, t2: u64, t3: u64, t4: u64, units: Units) -> u64 {
-    let delta = t4.wrapping_sub(t1).saturating_sub(t3.wrapping_sub(t2));
+    // delta = (T4 - T1) - (T3 - T2)
+    // If T4 < T1 or T3 < T2, saturating_sub gives zero for that component.
+    // If (T4 - T1) < (T3 - T2), delay would be negative — clamp to 0.
+    let outbound = t4.saturating_sub(t1);
+    let server_time = t3.saturating_sub(t2);
+    let delta = outbound.saturating_sub(server_time);
     let delta_sec = (delta & SECONDS_MASK) >> 32;
     let delta_sec_fraction = delta & SECONDS_FRAC_MASK;
 
@@ -648,6 +685,7 @@ pub fn fraction_to_picoseconds(sec_fraction: u32) -> u64 {
 #[cfg(test)]
 mod sntpc_ntp_result_tests {
     use crate::offset_calculate;
+    use crate::roundtrip_calculate;
     use crate::types::Units;
 
     struct Timestamps(u64, u64, u64, u64);
@@ -765,5 +803,44 @@ mod sntpc_ntp_result_tests {
     fn test_units_str_representation() {
         assert_eq!(format!("{}", Units::Milliseconds), "ms");
         assert_eq!(format!("{}", Units::Microseconds), "us");
+    }
+
+    #[test]
+    fn test_roundtrip_calculate_normal() {
+        // Normal case: T4 > T1, T3 > T2, positive delay
+        let t1 = 1_000_000_000u64;
+        let t2 = 1_000_010_000u64;
+        let t3 = 1_000_020_000u64;
+        let t4 = 1_000_030_000u64;
+        let result = roundtrip_calculate(t1, t2, t3, t4, Units::Microseconds);
+        assert!(result > 0);
+    }
+
+    #[test]
+    fn test_roundtrip_calculate_clock_backward() {
+        // T4 < T1 (clock went backward) — should clamp to 0
+        let t1 = 2_000_000_000u64;
+        let t2 = 1_000_010_000u64;
+        let t3 = 1_000_020_000u64;
+        let t4 = 1_000_030_000u64;
+        let result = roundtrip_calculate(t1, t2, t3, t4, Units::Microseconds);
+        assert_eq!(result, 0);
+    }
+
+    #[test]
+    fn test_roundtrip_calculate_negative_delay() {
+        // (T4-T1) < (T3-T2) — negative delay, should clamp to 0
+        let t1 = 1_000_000_000u64;
+        let t2 = 1_000_100_000u64;
+        let t3 = 1_000_200_000u64;
+        let t4 = 1_000_050_000u64;
+        let result = roundtrip_calculate(t1, t2, t3, t4, Units::Microseconds);
+        assert_eq!(result, 0);
+    }
+
+    #[test]
+    fn test_roundtrip_calculate_all_zeros() {
+        let result = roundtrip_calculate(0, 0, 0, 0, Units::Microseconds);
+        assert_eq!(result, 0);
     }
 }

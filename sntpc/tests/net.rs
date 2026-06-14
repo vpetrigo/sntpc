@@ -104,12 +104,12 @@ fn test_process_incorrect_payload() {
 
 #[test]
 fn test_process_incorrect_mode() {
-    const PROPER_SNTP_MODE1: u8 = 4;
-    const PROPER_SNTP_MODE2: u8 = 5;
+    const PROPER_SNTP_MODE: u8 = 4;
     let dest: SocketAddr = "127.0.0.1:123".parse().unwrap();
     let context = NtpContext::new(MockTimestampGen);
 
-    for i in (0..=0b111u8).filter(|&i| (i != PROPER_SNTP_MODE1) && (i != PROPER_SNTP_MODE2)) {
+    // All modes except 4 should be rejected (broadcast mode 5 is also rejected)
+    for i in (0..=0b111u8).filter(|&i| i != PROPER_SNTP_MODE) {
         let data = {
             const TIMESTAMP: u64 = 9_487_534_653_230_284_800u64;
             let mut data = [0u8; 48];
@@ -146,6 +146,7 @@ fn test_process_incorrect_response_version() {
             let mut data = [0u8; 48];
 
             data[0] = 4 | (i << 3);
+            data[1] = 1; // non-zero stratum to avoid KoD check
             data[24..32].copy_from_slice(TIMESTAMP.to_be_bytes().as_ref());
             data
         };
@@ -209,9 +210,10 @@ fn test_kiss_of_death() {
             const TIMESTAMP: u64 = 9_487_534_653_230_284_800u64;
             let mut data = [0u8; 48];
 
-            data[0] = 0xE4;
+            data[0] = 0x24; // LI=0, VN=4, mode=4
             data[12..16].copy_from_slice(code.as_bytes());
             data[24..32].copy_from_slice(TIMESTAMP.to_be_bytes().as_ref());
+            data[40..48].copy_from_slice(TIMESTAMP.to_be_bytes().as_ref());
             data
         };
 
@@ -264,4 +266,132 @@ fn test_process_incorrect_origin_timestamp() {
 
     assert!(result.is_err());
     assert!(matches!(result, Err(Error::IncorrectOriginTimestamp)));
+}
+
+#[test]
+fn test_unsynchronized_clock() {
+    let dest: SocketAddr = "127.0.0.1:123".parse().unwrap();
+    let context = NtpContext::new(MockTimestampGen);
+
+    let data = {
+        const TIMESTAMP: u64 = 9_487_534_653_230_284_800u64;
+        let mut data = [0u8; 48];
+
+        // LI=3, VN=4, mode=4 => 0b11_100_100 = 0xE4
+        data[0] = 0xE4;
+        data[1] = 1;
+        data[24..32].copy_from_slice(TIMESTAMP.to_be_bytes().as_ref());
+        data
+    };
+
+    let mut socket = MockUdpSocket::new(dest, data);
+    socket.update_write_result(Ok(48));
+    socket.update_read_result(Ok((48, dest)));
+    let mut executor: miniloop::executor::Executor<1> = miniloop::executor::Executor::new();
+    let result = executor.block_on(async {
+        let resp = sntp_send_request(dest, &socket, context).await;
+
+        sntp_process_response(dest, &socket, context, resp.unwrap()).await
+    });
+
+    assert!(result.is_err());
+    assert!(matches!(result, Err(Error::UnsynchronizedClock)));
+}
+
+#[test]
+fn test_invalid_timestamp() {
+    let dest: SocketAddr = "127.0.0.1:123".parse().unwrap();
+    let context = NtpContext::new(MockTimestampGen);
+
+    // Packet with zero transmit timestamp
+    let data = {
+        const TIMESTAMP: u64 = 9_487_534_653_230_284_800u64;
+        let mut data = [0u8; 48];
+
+        data[0] = 0x24; // LI=0, VN=4, mode=4
+        data[1] = 1; // stratum 1
+        data[24..32].copy_from_slice(TIMESTAMP.to_be_bytes().as_ref());
+        // tx_timestamp stays as 0 (default)
+        data
+    };
+
+    let mut socket = MockUdpSocket::new(dest, data);
+    socket.update_write_result(Ok(48));
+    socket.update_read_result(Ok((48, dest)));
+    let mut executor: miniloop::executor::Executor<1> = miniloop::executor::Executor::new();
+    let result = executor.block_on(async {
+        let resp = sntp_send_request(dest, &socket, context).await;
+
+        sntp_process_response(dest, &socket, context, resp.unwrap()).await
+    });
+
+    assert!(result.is_err());
+    assert!(matches!(result, Err(Error::InvalidTimestamp)));
+}
+
+#[test]
+fn test_invalid_root_distance() {
+    let dest: SocketAddr = "127.0.0.1:123".parse().unwrap();
+    let context = NtpContext::new(MockTimestampGen);
+
+    // Packet with root_delay/2 + root_dispersion >= MAXDISP
+    let data = {
+        const TIMESTAMP: u64 = 9_487_534_653_230_284_800u64;
+        let mut data = [0u8; 48];
+
+        data[0] = 0x24; // LI=0, VN=4, mode=4
+        data[1] = 1; // stratum 1
+        // root_delay = 0x0020_0000 (32 seconds in NTP short format)
+        data[4..8].copy_from_slice(&(0x0020_0000u32).to_be_bytes());
+        // root_dispersion = 0 (so root_delay/2 + root_disp = 0x0010_0000 = MAXDISP => should be rejected)
+        data[24..32].copy_from_slice(TIMESTAMP.to_be_bytes().as_ref());
+        data[40..48].copy_from_slice(TIMESTAMP.to_be_bytes().as_ref());
+        data
+    };
+
+    let mut socket = MockUdpSocket::new(dest, data);
+    socket.update_write_result(Ok(48));
+    socket.update_read_result(Ok((48, dest)));
+    let mut executor: miniloop::executor::Executor<1> = miniloop::executor::Executor::new();
+    let result = executor.block_on(async {
+        let resp = sntp_send_request(dest, &socket, context).await;
+
+        sntp_process_response(dest, &socket, context, resp.unwrap()).await
+    });
+
+    assert!(result.is_err());
+    assert!(matches!(result, Err(Error::ExcessiveRootDistance)));
+}
+
+#[test]
+fn test_ref_timestamp_newer_than_tx_timestamp() {
+    let dest: SocketAddr = "127.0.0.1:123".parse().unwrap();
+    let context = NtpContext::new(MockTimestampGen);
+
+    // Packet with ref_timestamp > tx_timestamp
+    let data = {
+        const TX_TIMESTAMP: u64 = 9_487_534_653_230_284_800u64;
+        const REF_TIMESTAMP: u64 = 9_487_534_653_230_284_801u64; // newer than tx
+        let mut data = [0u8; 48];
+
+        data[0] = 0x24; // LI=0, VN=4, mode=4
+        data[1] = 1; // stratum 1
+        data[16..24].copy_from_slice(REF_TIMESTAMP.to_be_bytes().as_ref());
+        data[24..32].copy_from_slice(TX_TIMESTAMP.to_be_bytes().as_ref());
+        data[40..48].copy_from_slice(TX_TIMESTAMP.to_be_bytes().as_ref());
+        data
+    };
+
+    let mut socket = MockUdpSocket::new(dest, data);
+    socket.update_write_result(Ok(48));
+    socket.update_read_result(Ok((48, dest)));
+    let mut executor: miniloop::executor::Executor<1> = miniloop::executor::Executor::new();
+    let result = executor.block_on(async {
+        let resp = sntp_send_request(dest, &socket, context).await;
+
+        sntp_process_response(dest, &socket, context, resp.unwrap()).await
+    });
+
+    assert!(result.is_err());
+    assert!(matches!(result, Err(Error::BackwardReferenceTimestamp)));
 }
