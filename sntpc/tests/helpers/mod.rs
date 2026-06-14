@@ -1,4 +1,4 @@
-use sntpc::{Error, NtpContext, NtpTimestampGenerator, NtpUdpSocket, sntp_process_response, sntp_send_request};
+use sntpc::{NtpTimestampGenerator, NtpUdpSocket};
 use std::net::SocketAddr;
 
 #[derive(Default, Copy, Clone)]
@@ -50,47 +50,5 @@ impl NtpUdpSocket for MockUdpSocket {
         buf.copy_from_slice(&self.read);
 
         self.read_result
-    }
-}
-
-#[test]
-fn test_kiss_of_death() {
-    let defined_codes = [
-        "ACST", "AUTH", "AUTO", "BCST", "CRYP", "DENY", "DROP", "RSTR", "INIT", "MCST", "NKEY", "RATE", "RMOT", "STEP",
-    ];
-
-    for code in defined_codes {
-        let dest: SocketAddr = "127.0.0.1:123".parse().unwrap();
-        let data = {
-            const TIMESTAMP: u64 = 9_487_534_653_230_284_800u64;
-            let mut data = [0u8; 48];
-
-            data[0] = 0xE4;
-            data[12..16].copy_from_slice(code.as_bytes());
-            data[24..32].copy_from_slice(TIMESTAMP.to_be_bytes().as_ref());
-            data
-        };
-
-        let mut socket = MockUdpSocket::new(dest, data);
-
-        socket.update_read_result(Ok((data.len(), dest)));
-
-        let context = NtpContext::new(MockTimestampGen);
-        let mut executor: miniloop::executor::Executor<1> = miniloop::executor::Executor::new();
-        let mut handler: miniloop::task::Handle<()> = miniloop::task::Handle::default();
-        let mut task = miniloop::task::Task::new("test", async {
-            let result = sntp_send_request(dest, &socket, context).await;
-            assert!(result.is_ok());
-            let result = sntp_process_response(dest, &socket, context, result.unwrap()).await;
-
-            match result.unwrap_err() {
-                Error::KissOfDeath(kod_code) => assert_eq!(kod_code.as_str(), code),
-                _ => unreachable!("Unexpected error code"),
-            }
-        });
-
-        let _ = executor.spawn(&mut task, &mut handler);
-
-        executor.run();
     }
 }

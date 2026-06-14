@@ -10,6 +10,10 @@ use core::fmt::{Debug, Display};
 use core::future::Future;
 use core::mem;
 
+/// SNTP unicast mode constant
+pub(crate) const SNTP_UNICAST: u8 = 4;
+/// Maximum allowed root distance (16 seconds in NTP short format: 16 << 16)
+pub(crate) const MAXDISP: u32 = 0x0010_0000;
 /// SNTP mode value bit mask
 pub(crate) const MODE_MASK: u8 = 0b0000_0111;
 /// SNTP mode bit mask shift value
@@ -22,6 +26,8 @@ pub(crate) const VERSION_SHIFT: u8 = 3;
 pub(crate) const LI_MASK: u8 = 0b1100_0000;
 /// SNTP LI bit mask shift value
 pub(crate) const LI_SHIFT: u8 = 6;
+/// SNTP LI unsynchronized value
+pub(crate) const LI_UNSYNCHRONIZED: u8 = 3;
 /// SNTP picoseconds in second constant
 pub(crate) const PSEC_IN_SEC: u64 = 1_000_000_000_000;
 /// SNTP nanoseconds in second constant
@@ -167,7 +173,7 @@ impl KissOfDeathCode {
     ///
     /// # Parameters
     /// - `code`: An array of 4 bytes representing the kiss-o'-death code.
-    pub(crate) fn new(code: [u8; 4]) -> Self {
+    pub(crate) fn from_bytes(code: [u8; 4]) -> Self {
         Self { code }
     }
 
@@ -193,8 +199,14 @@ pub enum Error {
     IncorrectOriginTimestamp,
     /// Incorrect mode value in a NTP response
     IncorrectMode,
-    /// Incorrect Leap Indicator (LI) value in a NTP response
-    IncorrectLeapIndicator,
+    /// Incorrect Leap Indicator (LI) value in a NTP response (LI=3 means clock unsynchronized)
+    UnsynchronizedClock,
+    /// NTP response contains an invalid timestamp (e.g., zero transmit timestamp)
+    InvalidTimestamp,
+    /// Root distance (root_delay/2 + root_dispersion) exceeds maximum allowed value (MAXDISP)
+    ExcessiveRootDistance,
+    /// Reference timestamp is newer than transmit timestamp, indicating invalid server data
+    BackwardReferenceTimestamp,
     /// Incorrect version in a NTP response. Currently, `SNTPv4` is supported
     IncorrectResponseVersion,
     /// Incorrect stratum headers in a NTP response
@@ -228,10 +240,24 @@ pub struct NtpResult {
     pub stratum: u8,
     /// Precision of NTP server as log2(seconds) - this should usually be negative
     pub precision: i8,
+    /// Leap Indicator (LI) value from the server response
+    /// - 0: no warning
+    /// - 1: last minute has 61 seconds
+    /// - 2: last minute has 59 seconds
+    /// - 3: clock unsynchronized (alarm condition)
+    pub leap_indicator: u8,
 }
 
 impl NtpResult {
     /// Create new NTP result
+    ///
+    /// # Note
+    ///
+    /// The `seconds_fraction` value is normalized: if it equals or exceeds `u32::MAX`,
+    /// the excess is carried into `seconds`. Specifically:
+    /// - `seconds` becomes `seconds + seconds_fraction / u32::MAX`
+    /// - `seconds_fraction` becomes `seconds_fraction % u32::MAX`
+    ///
     /// Args:
     /// * `seconds` - number of seconds
     /// * `seconds_fraction` - number of seconds fraction
@@ -239,8 +265,17 @@ impl NtpResult {
     /// * `offset` - calculated system clock offset in microseconds
     /// * `stratum` - integer indicating the stratum (level of server's hierarchy to stratum 0 - "reference clock")
     /// * `precision` - an exponent of two, where the resulting value is the precision of the system clock in seconds
+    /// * `leap_indicator` - leap indicator value from the server response (0-3)
     #[must_use]
-    pub fn new(seconds: u32, seconds_fraction: u32, roundtrip: u64, offset: i64, stratum: u8, precision: i8) -> Self {
+    pub fn new(
+        seconds: u32,
+        seconds_fraction: u32,
+        roundtrip: u64,
+        offset: i64,
+        stratum: u8,
+        precision: i8,
+        leap_indicator: u8,
+    ) -> Self {
         let seconds = seconds + seconds_fraction / u32::MAX;
         let seconds_fraction = seconds_fraction % u32::MAX;
 
@@ -251,6 +286,7 @@ impl NtpResult {
             offset,
             stratum,
             precision,
+            leap_indicator,
         }
     }
     /// Returns number of seconds reported by an NTP server
@@ -287,6 +323,17 @@ impl NtpResult {
     #[must_use]
     pub fn precision(&self) -> i8 {
         self.precision
+    }
+
+    /// Returns the leap indicator (LI) from the server response
+    ///
+    /// - 0: no warning
+    /// - 1: last minute has 61 seconds
+    /// - 2: last minute has 59 seconds
+    /// - 3: clock unsynchronized (alarm condition)
+    #[must_use]
+    pub fn leap_indicator(&self) -> u8 {
+        self.leap_indicator
     }
 }
 
