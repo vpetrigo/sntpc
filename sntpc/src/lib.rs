@@ -583,7 +583,7 @@ fn validate_response(packet: &NtpPacket, send_req_result: &SendRequestResult) ->
     }
 
     // Root distance validation (RFC 5905 §A.5.1.1)
-    // root_delay/2 + root_dispersion must be < MAXDISP
+    // `root_delay/2 + root_dispersion` must be < `MAXDISP`
     if (packet.root_delay / 2).saturating_add(packet.root_dispersion) >= MAXDISP {
         return Err(Error::ExcessiveRootDistance);
     }
