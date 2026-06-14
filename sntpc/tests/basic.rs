@@ -34,7 +34,20 @@ fn test_ntp_result() {
     assert_eq!(0, result2.reference_timestamp());
     assert_eq!(0, result2.poll());
 
-    let result3 = NtpResult::new(u32::MAX - 1, u32::MAX, u64::MAX, i64::MAX, 1, -127, 2, 0, 0, [0; 4], 0, 0);
+    let result3 = NtpResult::new(
+        u32::MAX - 1,
+        u32::MAX,
+        u64::MAX,
+        i64::MAX,
+        1,
+        -127,
+        2,
+        0,
+        0,
+        [0; 4],
+        0,
+        0,
+    );
 
     assert_eq!(u32::MAX, result3.sec());
     assert_eq!(0, result3.sec_fraction());

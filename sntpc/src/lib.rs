@@ -488,7 +488,7 @@ pub mod sync {
     }
 }
 
-#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss, clippy::cast_possible_wrap)]
+#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
 fn process_response(send_req_result: SendRequestResult, resp: RawNtpPacket, recv_timestamp: u64) -> Result<NtpResult> {
     let mut packet = NtpPacket::from(resp);
 
@@ -534,7 +534,7 @@ fn process_response(send_req_result: SendRequestResult, resp: RawNtpPacket, recv
         li,
         packet.root_delay,
         packet.root_dispersion,
-        packet.ref_id.to_be_bytes(),  // Convert to network byte order for external use
+        packet.ref_id.to_be_bytes(), // Convert to network byte order for external use
         packet.ref_timestamp,
         packet.poll,
     ))
