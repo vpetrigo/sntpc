@@ -306,6 +306,14 @@ pub enum Error {
 }
 
 /// SNTP request result representation
+///
+/// # NTP Short Format
+///
+/// The `root_delay` and `root_dispersion` fields use NTP short format (16.16 fixed-point),
+/// where the upper 16 bits represent seconds and the lower 16 bits represent a fraction
+/// of a second (1/65536). To convert to seconds:
+/// - `seconds = value >> 16`
+/// - `fraction = value & 0xFFFF` (where fraction represents 1/65536 of a second)
 #[derive(Debug, Copy, Clone)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct NtpResult {
@@ -327,6 +335,18 @@ pub struct NtpResult {
     /// - 2: last minute has 59 seconds
     /// - 3: clock unsynchronized (alarm condition)
     pub leap_indicator: u8,
+    /// Root delay: total round-trip delay to the reference clock in NTP short format (16.16 fixed-point)
+    pub root_delay: u32,
+    /// Root dispersion: total dispersion to the reference clock in NTP short format (16.16 fixed-point)
+    pub root_dispersion: u32,
+    /// Reference identifier: for stratum 0 (kiss code), stratum 1 (4-char ASCII clock identifier),
+    /// or stratum 2+ (IPv4 address or MD5 hash of IPv6 address). In network byte order.
+    pub reference_id: [u8; 4],
+    /// Reference timestamp: time when the server's clock was last set or corrected,
+    /// in NTP timestamp format (seconds since 1900-01-01 with 32-bit fraction)
+    pub reference_timestamp: u64,
+    /// Poll interval: maximum interval between successive messages, in log2 seconds
+    pub poll: i8,
 }
 
 impl NtpResult {
@@ -347,7 +367,13 @@ impl NtpResult {
     /// * `stratum` - integer indicating the stratum (level of server's hierarchy to stratum 0 - "reference clock")
     /// * `precision` - an exponent of two, where the resulting value is the precision of the system clock in seconds
     /// * `leap_indicator` - leap indicator value from the server response (0-3)
+    /// * `root_delay` - total round-trip delay to the reference clock in NTP short format (16.16 fixed-point)
+    /// * `root_dispersion` - total dispersion to the reference clock in NTP short format (16.16 fixed-point)
+    /// * `reference_id` - reference identifier as 4-byte array in network byte order
+    /// * `reference_timestamp` - reference timestamp in NTP timestamp format
+    /// * `poll` - poll interval in log2 seconds
     #[must_use]
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         seconds: u32,
         seconds_fraction: u32,
@@ -356,6 +382,11 @@ impl NtpResult {
         stratum: u8,
         precision: i8,
         leap_indicator: u8,
+        root_delay: u32,
+        root_dispersion: u32,
+        reference_id: [u8; 4],
+        reference_timestamp: u64,
+        poll: i8,
     ) -> Self {
         let seconds = seconds + seconds_fraction / u32::MAX;
         let seconds_fraction = seconds_fraction % u32::MAX;
@@ -368,6 +399,11 @@ impl NtpResult {
             stratum,
             precision,
             leap_indicator,
+            root_delay,
+            root_dispersion,
+            reference_id,
+            reference_timestamp,
+            poll,
         }
     }
     /// Returns number of seconds reported by an NTP server
@@ -415,6 +451,42 @@ impl NtpResult {
     #[must_use]
     pub fn leap_indicator(&self) -> u8 {
         self.leap_indicator
+    }
+
+    /// Returns the root delay in NTP short format (16.16 fixed-point)
+    #[must_use]
+    pub fn root_delay(&self) -> u32 {
+        self.root_delay
+    }
+
+    /// Returns the root dispersion in NTP short format (16.16 fixed-point)
+    #[must_use]
+    pub fn root_dispersion(&self) -> u32 {
+        self.root_dispersion
+    }
+
+    /// Returns the reference identifier as a 4-byte array in network byte order.
+    ///
+    /// Interpretation depends on stratum:
+    /// - Stratum 0: Kiss-o'-Death ASCII code
+    /// - Stratum 1: 4-character ASCII reference clock identifier (e.g., "GPS", "PPS")
+    /// - Stratum 2+: IPv4 address (or first 4 bytes of MD5 hash of IPv6 address)
+    #[must_use]
+    pub fn reference_id(&self) -> [u8; 4] {
+        self.reference_id
+    }
+
+    /// Returns the reference timestamp in NTP timestamp format
+    /// (seconds since 1900-01-01 with 32-bit fraction)
+    #[must_use]
+    pub fn reference_timestamp(&self) -> u64 {
+        self.reference_timestamp
+    }
+
+    /// Returns the poll interval as log2 seconds
+    #[must_use]
+    pub fn poll(&self) -> i8 {
+        self.poll
     }
 }
 
