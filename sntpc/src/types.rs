@@ -203,7 +203,7 @@ pub enum Error {
     UnsynchronizedClock,
     /// NTP response contains an invalid timestamp (e.g., zero transmit timestamp)
     InvalidTimestamp,
-    /// Root distance (root_delay/2 + root_dispersion) exceeds maximum allowed value (MAXDISP)
+    /// Root distance (`root_delay/2 + root_dispersion`) exceeds maximum allowed value (`MAXDISP`)
     ExcessiveRootDistance,
     /// Reference timestamp is newer than transmit timestamp, indicating invalid server data
     BackwardReferenceTimestamp,
