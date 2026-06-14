@@ -1,7 +1,7 @@
 mod helpers;
 
 use helpers::*;
-use sntpc::{Error, NtpContext, sntp_process_response, sntp_send_request};
+use sntpc::{Error, KissOfDeathCode, NtpContext, sntp_process_response, sntp_send_request};
 
 use core::net::SocketAddr;
 
@@ -200,18 +200,31 @@ fn test_process_incorrect_stratum() {
 
 #[test]
 fn test_kiss_of_death() {
-    let defined_codes = [
-        "ACST", "AUTH", "AUTO", "BCST", "CRYP", "DENY", "DROP", "RSTR", "INIT", "MCST", "NKEY", "RATE", "RMOT", "STEP",
+    let defined_codes: [(&str, KissOfDeathCode); 14] = [
+        ("ACST", KissOfDeathCode::Acst),
+        ("AUTH", KissOfDeathCode::Auth),
+        ("AUTO", KissOfDeathCode::Auto),
+        ("BCST", KissOfDeathCode::Bcst),
+        ("CRYP", KissOfDeathCode::Cryp),
+        ("DENY", KissOfDeathCode::Deny),
+        ("DROP", KissOfDeathCode::Drop),
+        ("RSTR", KissOfDeathCode::Rstr),
+        ("INIT", KissOfDeathCode::Init),
+        ("MCST", KissOfDeathCode::Mcst),
+        ("NKEY", KissOfDeathCode::Nkey),
+        ("RATE", KissOfDeathCode::Rate),
+        ("RMOT", KissOfDeathCode::Rmot),
+        ("STEP", KissOfDeathCode::Step),
     ];
 
-    for code in defined_codes {
+    for &(code_str, expected_variant) in &defined_codes {
         let dest: SocketAddr = "127.0.0.1:123".parse().unwrap();
         let data = {
             const TIMESTAMP: u64 = 9_487_534_653_230_284_800u64;
             let mut data = [0u8; 48];
 
             data[0] = 0x24; // LI=0, VN=4, mode=4
-            data[12..16].copy_from_slice(code.as_bytes());
+            data[12..16].copy_from_slice(code_str.as_bytes());
             data[24..32].copy_from_slice(TIMESTAMP.to_be_bytes().as_ref());
             data[40..48].copy_from_slice(TIMESTAMP.to_be_bytes().as_ref());
             data
@@ -230,7 +243,10 @@ fn test_kiss_of_death() {
             let result = sntp_process_response(dest, &socket, context, result.unwrap()).await;
 
             match result.unwrap_err() {
-                Error::KissOfDeath(kod_code) => assert_eq!(kod_code.as_str(), code),
+                Error::KissOfDeath(kod_code) => {
+                    assert_eq!(kod_code, expected_variant);
+                    assert_eq!(kod_code.as_str(), code_str);
+                }
                 _ => unreachable!("Unexpected error code"),
             }
         });
@@ -239,6 +255,86 @@ fn test_kiss_of_death() {
 
         executor.run();
     }
+}
+
+#[test]
+fn test_kiss_of_death_experimental() {
+    // X-prefixed codes should return Experimental variant
+    let code = *b"XABC";
+    let dest: SocketAddr = "127.0.0.1:123".parse().unwrap();
+    let data = {
+        const TIMESTAMP: u64 = 9_487_534_653_230_284_800u64;
+        let mut data = [0u8; 48];
+
+        data[0] = 0x24; // LI=0, VN=4, mode=4
+        data[12..16].copy_from_slice(&code);
+        data[24..32].copy_from_slice(TIMESTAMP.to_be_bytes().as_ref());
+        data[40..48].copy_from_slice(TIMESTAMP.to_be_bytes().as_ref());
+        data
+    };
+
+    let mut socket = MockUdpSocket::new(dest, data);
+    socket.update_read_result(Ok((data.len(), dest)));
+
+    let context = NtpContext::new(MockTimestampGen);
+    let mut executor: miniloop::executor::Executor<1> = miniloop::executor::Executor::new();
+    let mut handler: miniloop::task::Handle<()> = miniloop::task::Handle::default();
+    let mut task = miniloop::task::Task::new("test", async {
+        let result = sntp_send_request(dest, &socket, context).await;
+        assert!(result.is_ok());
+        let result = sntp_process_response(dest, &socket, context, result.unwrap()).await;
+
+        match result.unwrap_err() {
+            Error::KissOfDeath(KissOfDeathCode::Experimental(inner)) => {
+                assert_eq!(inner, code);
+                assert_eq!(KissOfDeathCode::Experimental(code).as_str(), "XABC");
+            }
+            _ => unreachable!("Expected Experimental KoD"),
+        }
+    });
+
+    let _ = executor.spawn(&mut task, &mut handler);
+    executor.run();
+}
+
+#[test]
+fn test_kiss_of_death_unknown() {
+    // Unknown non-X codes should also return Experimental variant
+    let code = *b"ZZZZ";
+    let dest: SocketAddr = "127.0.0.1:123".parse().unwrap();
+    let data = {
+        const TIMESTAMP: u64 = 9_487_534_653_230_284_800u64;
+        let mut data = [0u8; 48];
+
+        data[0] = 0x24; // LI=0, VN=4, mode=4
+        data[12..16].copy_from_slice(&code);
+        data[24..32].copy_from_slice(TIMESTAMP.to_be_bytes().as_ref());
+        data[40..48].copy_from_slice(TIMESTAMP.to_be_bytes().as_ref());
+        data
+    };
+
+    let mut socket = MockUdpSocket::new(dest, data);
+    socket.update_read_result(Ok((data.len(), dest)));
+
+    let context = NtpContext::new(MockTimestampGen);
+    let mut executor: miniloop::executor::Executor<1> = miniloop::executor::Executor::new();
+    let mut handler: miniloop::task::Handle<()> = miniloop::task::Handle::default();
+    let mut task = miniloop::task::Task::new("test", async {
+        let result = sntp_send_request(dest, &socket, context).await;
+        assert!(result.is_ok());
+        let result = sntp_process_response(dest, &socket, context, result.unwrap()).await;
+
+        match result.unwrap_err() {
+            Error::KissOfDeath(KissOfDeathCode::Experimental(inner)) => {
+                assert_eq!(inner, code);
+                assert_eq!(KissOfDeathCode::Experimental(code).as_str(), "ZZZZ");
+            }
+            _ => unreachable!("Expected Experimental KoD"),
+        }
+    });
+
+    let _ = executor.spawn(&mut task, &mut handler);
+    executor.run();
 }
 
 #[test]

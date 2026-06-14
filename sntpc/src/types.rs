@@ -8,7 +8,6 @@ use cfg_if::cfg_if;
 use core::fmt::Formatter;
 use core::fmt::{Debug, Display};
 use core::future::Future;
-use core::mem;
 
 /// SNTP unicast mode constant
 pub(crate) const SNTP_UNICAST: u8 = 4;
@@ -161,30 +160,104 @@ impl Display for Units {
     }
 }
 
-// Kiss-o'-Death value representation
-#[derive(Debug, Copy, Clone, PartialEq)]
+/// Kiss-o'-Death code received from an NTP server (RFC 5905 §7.4).
+///
+/// When a server sends a packet with stratum 0, the Reference Identifier field
+/// carries a 4-character ASCII kiss code. Different codes require different
+/// client actions:
+///
+/// - `Deny` and `Rstr`: The client MUST demobilize the association and stop
+///   sending packets to that server.
+/// - `Rate`: The client MUST immediately reduce its polling interval and
+///   continue to reduce it each time it receives a RATE kiss code.
+/// - `Experimental`: Codes beginning with 'X' are for unregistered
+///   experimentation and MUST be ignored if not recognized.
+/// - All other codes: No protocol significance; discard after inspection.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
-pub struct KissOfDeathCode {
-    code: [u8; 4],
+#[non_exhaustive]
+pub enum KissOfDeathCode {
+    /// ACST: The association belongs to a unicast server
+    Acst,
+    /// AUTH: Server authentication failed
+    Auth,
+    /// AUTO: Autokey sequence failed
+    Auto,
+    /// BCST: The association belongs to a broadcast server
+    Bcst,
+    /// CRYP: Cryptographic authentication or identification failed
+    Cryp,
+    /// DENY: Access denied by remote server
+    Deny,
+    /// DROP: Lost peer in symmetric mode
+    Drop,
+    /// RSTR: Access denied due to local policy
+    Rstr,
+    /// INIT: The association has not yet synchronized for the first time
+    Init,
+    /// MCST: The association belongs to a dynamically discovered server
+    Mcst,
+    /// NKEY: No key found
+    Nkey,
+    /// RATE: Rate exceeded — client MUST reduce a polling interval
+    Rate,
+    /// RMOT: Alteration of association from a remote host
+    Rmot,
+    /// STEP: A step change in system time has occurred
+    Step,
+    /// Experimental/unregistered code (the first byte is 'X' per RFC 5905 §7.4)
+    Experimental([u8; 4]),
 }
 
 impl KissOfDeathCode {
-    /// Creates a new instance of the struct with the specified 4-byte code.
+    /// Creates a new instance from a 4-byte code.
     ///
-    /// # Parameters
-    /// - `code`: An array of 4 bytes representing the kiss-o'-death code.
+    /// If the bytes match a known RFC 5905 §7.4 kiss code, the corresponding
+    /// variant is returned. Otherwise, the code is wrapped in `Experimental`.
     pub(crate) fn from_bytes(code: [u8; 4]) -> Self {
-        Self { code }
+        match &code {
+            b"ACST" => Self::Acst,
+            b"AUTH" => Self::Auth,
+            b"AUTO" => Self::Auto,
+            b"BCST" => Self::Bcst,
+            b"CRYP" => Self::Cryp,
+            b"DENY" => Self::Deny,
+            b"DROP" => Self::Drop,
+            b"RSTR" => Self::Rstr,
+            b"INIT" => Self::Init,
+            b"MCST" => Self::Mcst,
+            b"NKEY" => Self::Nkey,
+            b"RATE" => Self::Rate,
+            b"RMOT" => Self::Rmot,
+            b"STEP" => Self::Step,
+            _ => Self::Experimental(code),
+        }
     }
 
-    /// Converts the internal code representation to a string slice (`&str`).
+    /// Returns the 4-character ASCII string representation of the kiss code.
     ///
-    /// This method attempts to interpret the bytes of the internal code as valid UTF-8,
-    /// returning the corresponding string slice. If the internal code is not valid UTF-8,
-    /// it will return an empty string (`""`).
+    /// For known variants, the standard code string (e.g., `"DENY"`, `"RATE"`) is returned.
+    /// For `Experimental` codes, the raw bytes are interpreted as UTF-8; if not valid UTF-8,
+    /// an empty string (`""`) is returned.
     #[must_use]
     pub fn as_str(&self) -> &str {
-        str::from_utf8(&self.code).unwrap_or("")
+        match self {
+            Self::Acst => "ACST",
+            Self::Auth => "AUTH",
+            Self::Auto => "AUTO",
+            Self::Bcst => "BCST",
+            Self::Cryp => "CRYP",
+            Self::Deny => "DENY",
+            Self::Drop => "DROP",
+            Self::Rstr => "RSTR",
+            Self::Init => "INIT",
+            Self::Mcst => "MCST",
+            Self::Nkey => "NKEY",
+            Self::Rate => "RATE",
+            Self::Rmot => "RMOT",
+            Self::Step => "STEP",
+            Self::Experimental(code) => str::from_utf8(code).unwrap_or(""),
+        }
     }
 }
 
@@ -220,7 +293,15 @@ pub enum Error {
     /// A NTP server address response has been received from does not match
     /// to the address the request was sent to
     ResponseAddressMismatch,
-    /// Kiss-o'-Death packet received from a NTP server
+    /// Kiss-o'-Death packet received from an NTP server (RFC 5905 §7.4).
+    ///
+    /// The embedded `KissOfDeathCode` indicates why the server rejected the request.
+    /// Depending on the code, the caller may need to take specific actions:
+    /// - `Deny` / `Rstr`: The client MUST demobilize the association and stop
+    ///   sending packets to that server.
+    /// - `Rate`: The client MUST immediately reduce its polling interval and
+    ///   continue to reduce it each time RATE is received.
+    /// - All other codes: No required protocol action; inspect and discard.
     KissOfDeath(KissOfDeathCode),
 }
 
@@ -531,12 +612,12 @@ impl From<RawNtpPacket> for NtpPacket {
         // }
         // see: https://github.com/vpetrigo/sntpc/issues/34
         let to_array_u32 = |x: &[u8]| {
-            let mut temp_buf = [0u8; mem::size_of::<u32>()];
+            let mut temp_buf = [0u8; size_of::<u32>()];
             temp_buf.copy_from_slice(x);
             temp_buf
         };
         let to_array_u64 = |x: &[u8]| {
-            let mut temp_buf = [0u8; mem::size_of::<u64>()];
+            let mut temp_buf = [0u8; size_of::<u64>()];
             temp_buf.copy_from_slice(x);
             temp_buf
         };
