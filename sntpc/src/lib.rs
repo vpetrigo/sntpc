@@ -502,7 +502,6 @@ pub mod sync {
 
 /// Convert log2(seconds) precision to microseconds.
 /// For example, precision = -20 gives 2^-20 seconds ≈ 0.954 µs, rounded to 1 µs.
-#[cfg(feature = "dispersion")]
 fn precision_to_micros(precision: i8) -> u64 {
     if precision >= 0 {
         let shift = precision.cast_unsigned();
@@ -554,7 +553,7 @@ fn process_response(
     let t3 = packet.tx_timestamp;
     let t4 = recv_timestamp;
     let units = Units::Microseconds;
-    let roundtrip = roundtrip_calculate(t1, t2, t3, t4, units);
+    let roundtrip = roundtrip_calculate(t1, t2, t3, t4, units, precision_to_micros(client_precision));
     let offset = offset_calculate(t1, t2, t3, t4, units);
     let timestamp = NtpTimestamp::from(packet.tx_timestamp);
     let li = shifter(packet.li_vn_mode, LI_MASK, LI_SHIFT);
@@ -563,21 +562,11 @@ fn process_response(
     debug!("Roundtrip delay: {} {}. Offset: {} {}", roundtrip, units, offset, units);
 
     #[cfg(feature = "dispersion")]
-    let dispersion = {
-        let server_precision_usecs = precision_to_micros(packet.precision);
-        let client_precision_usecs = precision_to_micros(client_precision);
-        // PHI = 15 ppm = 15 microseconds per second
-        // roundtrip is in microseconds
-        let phi_term = roundtrip * 15 / 1_000_000;
-        server_precision_usecs
-            .saturating_add(client_precision_usecs)
-            .saturating_add(phi_term)
-    };
-
-    #[cfg(not(feature = "dispersion"))]
-    let dispersion: u64 = 0;
+    let dispersion = dispersion_calculate(t1, t4, packet.precision, client_precision);
     #[cfg(not(feature = "dispersion"))]
     let _ = client_precision;
+    #[cfg(not(feature = "dispersion"))]
+    let dispersion: u64 = 0;
 
     Ok(NtpResult::new(
         timestamp.seconds as u32,
@@ -660,11 +649,28 @@ fn shifter(val: u8, mask: u8, shift: u8) -> u8 {
     (val & mask) >> shift
 }
 
-fn convert_delays(sec: u64, fraction: u64, units: u64) -> u64 {
-    sec * units + fraction * units / u64::from(u32::MAX)
+#[cfg(feature = "dispersion")]
+fn dispersion_calculate(t1: u64, t4: u64, server_precision: i8, client_precision: i8) -> u64 {
+    let server_precision_usecs = precision_to_micros(server_precision);
+    let client_precision_usecs = precision_to_micros(client_precision);
+    // PHI = 15 ppm = 15 microseconds per second. RFC 5905 Appendix A bases the
+    // PHI term on the elapsed client time (T4 - T1), not the adjusted delay.
+    let elapsed = t4.saturating_sub(t1);
+    let elapsed_sec = elapsed >> 32;
+    let elapsed_sec_fraction = elapsed & u64::from(u32::MAX);
+    let elapsed_usecs = convert_delays(elapsed_sec, elapsed_sec_fraction, u64::from(USEC_IN_SEC));
+    let phi_term = elapsed_usecs * 15 / 1_000_000;
+
+    server_precision_usecs
+        .saturating_add(client_precision_usecs)
+        .saturating_add(phi_term)
 }
 
-fn roundtrip_calculate(t1: u64, t2: u64, t3: u64, t4: u64, units: Units) -> u64 {
+fn convert_delays(sec: u64, fraction: u64, units: u64) -> u64 {
+    sec * units + fraction * units / (1u64 << 32)
+}
+
+fn roundtrip_calculate(t1: u64, t2: u64, t3: u64, t4: u64, units: Units, min_us: u64) -> u64 {
     // delta = (T4 - T1) - (T3 - T2)
     // If T4 < T1 or T3 < T2, saturating_sub gives zero for that component.
     // If (T4 - T1) < (T3 - T2), delay would be negative — clamp to 0.
@@ -674,10 +680,12 @@ fn roundtrip_calculate(t1: u64, t2: u64, t3: u64, t4: u64, units: Units) -> u64 
     let delta_sec = (delta & SECONDS_MASK) >> 32;
     let delta_sec_fraction = delta & SECONDS_FRAC_MASK;
 
-    match units {
+    let value = match units {
         Units::Milliseconds => convert_delays(delta_sec, delta_sec_fraction, u64::from(MSEC_IN_SEC)),
         Units::Microseconds => convert_delays(delta_sec, delta_sec_fraction, u64::from(USEC_IN_SEC)),
-    }
+    };
+
+    value.max(min_us)
 }
 
 #[allow(clippy::cast_possible_wrap)]
@@ -698,35 +706,35 @@ fn offset_calculate(t1: u64, t2: u64, t3: u64, t4: u64, units: Units) -> i64 {
 
 fn get_ntp_timestamp<T: NtpTimestampGenerator>(timestamp_gen: &T) -> u64 {
     ((timestamp_gen.timestamp_sec() + (u64::from(NtpPacket::NTP_TIMESTAMP_DELTA))) << 32)
-        + u64::from(timestamp_gen.timestamp_subsec_micros()) * u64::from(u32::MAX) / u64::from(USEC_IN_SEC)
+        + u64::from(timestamp_gen.timestamp_subsec_micros()) * (1u64 << 32) / u64::from(USEC_IN_SEC)
 }
 
 /// Convert second fraction value to milliseconds value
 #[allow(clippy::cast_possible_truncation)]
 #[must_use]
 pub fn fraction_to_milliseconds(sec_fraction: u32) -> u32 {
-    (u64::from(sec_fraction) * u64::from(MSEC_IN_SEC) / u64::from(u32::MAX)) as u32
+    (u64::from(sec_fraction) * u64::from(MSEC_IN_SEC) / (1u64 << 32)) as u32
 }
 
 /// Convert second fraction value to microseconds value
 #[allow(clippy::cast_possible_truncation)]
 #[must_use]
 pub fn fraction_to_microseconds(sec_fraction: u32) -> u32 {
-    (u64::from(sec_fraction) * u64::from(USEC_IN_SEC) / u64::from(u32::MAX)) as u32
+    (u64::from(sec_fraction) * u64::from(USEC_IN_SEC) / (1u64 << 32)) as u32
 }
 
 /// Convert second fraction value to nanoseconds value
 #[allow(clippy::cast_possible_truncation)]
 #[must_use]
 pub fn fraction_to_nanoseconds(sec_fraction: u32) -> u32 {
-    (u64::from(sec_fraction) * u64::from(NSEC_IN_SEC) / u64::from(u32::MAX)) as u32
+    (u64::from(sec_fraction) * u64::from(NSEC_IN_SEC) / (1u64 << 32)) as u32
 }
 
 /// Convert second fraction value to picoseconds value
 #[allow(clippy::cast_possible_truncation)]
 #[must_use]
 pub fn fraction_to_picoseconds(sec_fraction: u32) -> u64 {
-    (u128::from(sec_fraction) * u128::from(PSEC_IN_SEC) / u128::from(u32::MAX)) as u64
+    (u128::from(sec_fraction) * u128::from(PSEC_IN_SEC) / (1u128 << 32)) as u64
 }
 
 #[cfg(test)]
@@ -859,36 +867,36 @@ mod sntpc_ntp_result_tests {
         let t2 = 1_000_010_000u64;
         let t3 = 1_000_020_000u64;
         let t4 = 1_000_030_000u64;
-        let result = roundtrip_calculate(t1, t2, t3, t4, Units::Microseconds);
+        let result = roundtrip_calculate(t1, t2, t3, t4, Units::Microseconds, 0);
         assert!(result > 0);
     }
 
     #[test]
     fn test_roundtrip_calculate_clock_backward() {
-        // T4 < T1 (clock went backward) — should clamp to 0
+        // T4 < T1 (clock went backward) — should clamp to precision minimum
         let t1 = 2_000_000_000u64;
         let t2 = 1_000_010_000u64;
         let t3 = 1_000_020_000u64;
         let t4 = 1_000_030_000u64;
-        let result = roundtrip_calculate(t1, t2, t3, t4, Units::Microseconds);
-        assert_eq!(result, 0);
+        let result = roundtrip_calculate(t1, t2, t3, t4, Units::Microseconds, 1);
+        assert_eq!(result, 1);
     }
 
     #[test]
     fn test_roundtrip_calculate_negative_delay() {
-        // (T4-T1) < (T3-T2) — negative delay, should clamp to 0
+        // (T4-T1) < (T3-T2) — negative delay, should clamp to precision minimum
         let t1 = 1_000_000_000u64;
         let t2 = 1_000_100_000u64;
         let t3 = 1_000_200_000u64;
         let t4 = 1_000_050_000u64;
-        let result = roundtrip_calculate(t1, t2, t3, t4, Units::Microseconds);
-        assert_eq!(result, 0);
+        let result = roundtrip_calculate(t1, t2, t3, t4, Units::Microseconds, 1);
+        assert_eq!(result, 1);
     }
 
     #[test]
     fn test_roundtrip_calculate_all_zeros() {
-        let result = roundtrip_calculate(0, 0, 0, 0, Units::Microseconds);
-        assert_eq!(result, 0);
+        let result = roundtrip_calculate(0, 0, 0, 0, Units::Microseconds, 1);
+        assert_eq!(result, 1);
     }
 
     #[cfg(feature = "dispersion")]
@@ -923,6 +931,17 @@ mod sntpc_ntp_result_tests {
         // Create result with a non-zero dispersion
         let result = NtpResult::new(0, 0, 1000, 0, 1, -20, 0, 0, 0, [0; 4], 0, 0, 42);
         assert_eq!(result.dispersion(), 42);
+    }
+
+    #[cfg(feature = "dispersion")]
+    #[test]
+    fn test_dispersion_calculate_uses_elapsed_client_time() {
+        let t1 = 1u64 << 32;
+        let t4 = 3u64 << 32;
+
+        // precision -20 is approximately 1µs for both server and client.
+        // Elapsed client time is 2 seconds, so PHI contributes 30µs.
+        assert_eq!(super::dispersion_calculate(t1, t4, -20, -20), 32);
     }
 
     #[test]
