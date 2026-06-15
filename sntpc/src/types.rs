@@ -373,10 +373,7 @@ impl NtpResult {
     ///
     /// # Note
     ///
-    /// The `seconds_fraction` value is normalized: if it equals or exceeds `u32::MAX`,
-    /// the excess is carried into `seconds`. Specifically:
-    /// - `seconds` becomes `seconds + seconds_fraction / u32::MAX`
-    /// - `seconds_fraction` becomes `seconds_fraction % u32::MAX`
+    /// The `seconds_fraction` value is preserved as provided.
     ///
     /// Args:
     /// * `seconds` - number of seconds
@@ -409,9 +406,6 @@ impl NtpResult {
         poll: i8,
         dispersion: u64,
     ) -> Self {
-        let seconds = seconds + seconds_fraction / u32::MAX;
-        let seconds_fraction = seconds_fraction % u32::MAX;
-
         NtpResult {
             seconds,
             seconds_fraction,
