@@ -288,20 +288,26 @@ pub enum Error {
     IncorrectPayload,
     /// Network error occurred.
     Network,
-    /// A NTP server address can not be resolved
+    /// A NTP server address could not be resolved.
+    ///
+    /// This variant is provided for use by adapter crates that perform DNS resolution.
+    /// The core `sntpc` library does not construct this error.
     AddressResolve,
     /// A NTP server address response has been received from does not match
     /// to the address the request was sent to
     ResponseAddressMismatch,
     /// Kiss-o'-Death packet received from an NTP server (RFC 5905 §7.4).
     ///
-    /// The embedded `KissOfDeathCode` indicates why the server rejected the request.
-    /// Depending on the code, the caller may need to take specific actions:
-    /// - `Deny` / `Rstr`: The client MUST demobilize the association and stop
-    ///   sending packets to that server.
-    /// - `Rate`: The client MUST immediately reduce its polling interval and
-    ///   continue to reduce it each time RATE is received.
-    /// - All other codes: No required protocol action; inspect and discard.
+    /// The kiss code indicates the reason for the server's response. Callers MUST
+    /// inspect the code and take appropriate action:
+    ///
+    /// - `KissOfDeathCode::Deny` and `KissOfDeathCode::Rstr`: The client MUST
+    ///   demobilize the association and stop sending packets to this server.
+    /// - `KissOfDeathCode::Rate`: The client MUST immediately reduce its polling
+    ///   interval and continue to reduce it each time a RATE code is received.
+    /// - `KissOfDeathCode::Experimental(_)`: Codes beginning with 'X' MUST be
+    ///   ignored if not recognized (per RFC 5905 §7.4).
+    /// - All other codes: No protocol significance; discard after inspection.
     KissOfDeath(KissOfDeathCode),
 }
 
@@ -335,12 +341,18 @@ pub struct NtpResult {
     /// - 2: last minute has 59 seconds
     /// - 3: clock unsynchronized (alarm condition)
     pub leap_indicator: u8,
-    /// Root delay: total round-trip delay to the reference clock in NTP short format (16.16 fixed-point)
+    /// Root delay in NTP short format (16-bit seconds + 16-bit fraction).
+    /// To convert to seconds: `root_delay >> 16` gives the integer seconds,
+    /// and `root_delay & 0xFFFF` gives the fractional part (1/65536 second units).
     pub root_delay: u32,
-    /// Root dispersion: total dispersion to the reference clock in NTP short format (16.16 fixed-point)
+    /// Root dispersion in NTP short format (16-bit seconds + 16-bit fraction).
+    /// To convert to seconds: `root_dispersion >> 16` gives the integer seconds,
+    /// and `root_dispersion & 0xFFFF` gives the fractional part (1/65536 second units).
     pub root_dispersion: u32,
-    /// Reference identifier: for stratum 0 (kiss code), stratum 1 (4-char ASCII clock identifier),
-    /// or stratum 2+ (IPv4 address or MD5 hash of IPv6 address). In network byte order.
+    /// Reference identifier in network byte order. Interpretation depends on stratum:
+    /// - Stratum 0: Kiss-o'-Death ASCII code (4 characters)
+    /// - Stratum 1: 4-character ASCII reference clock identifier (e.g., "GPS", "PPS")
+    /// - Stratum 2+: IPv4 address (or first 4 bytes of MD5 hash of IPv6 address)
     pub reference_id: [u8; 4],
     /// Reference timestamp: time when the server's clock was last set or corrected,
     /// in NTP timestamp format (seconds since 1900-01-01 with 32-bit fraction)
