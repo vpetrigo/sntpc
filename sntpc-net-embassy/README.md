@@ -13,7 +13,7 @@ This crate provides a wrapper around `embassy_net::udp::UdpSocket` that implemen
 - **Independent versioning**: Update embassy-net without requiring `sntpc` core updates
 - **Version flexibility**: Works with embassy-net 0.9.x (`>=0.9, <0.10`)
 - **Embedded focus**: Minimal dependencies suitable for `no_std` embedded systems
-- **Future compatibility**: When embassy-net 0.8+ releases, only this adapter needs updating
+- **Future compatibility**: When embassy-net 0.10+ releases, only this adapter needs updating
 
 ## Usage
 
@@ -21,8 +21,8 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-sntpc = { version = "0.10", default-features = false }
-sntpc-net-embassy = { version = "0.10", default-features = false }
+sntpc = { version = "0.11", default-features = false }
+sntpc-net-embassy = { version = "0.11", default-features = false }
 sntpc-time-embassy = { version = "0.6" }
 embassy-net = { version = "0.9", features = ["udp", "proto-ipv4"] }
 ```
@@ -57,7 +57,7 @@ For complete examples, see the [sntpc examples](https://github.com/vpetrigo/sntp
 
 ## Compatibility
 
-- **sntpc**: 0.10.x
+- **sntpc**: 0.11.x
 - **embassy-net**: 0.9.x (any version >= 0.9, < 0.10)
 - **no_std**: Fully supported
 

@@ -7,14 +7,14 @@
 //!
 //! Supported protocol version: [SNTPv4 (RFC 5905)](https://datatracker.ietf.org/doc/html/rfc5905)
 //!
-//! Note: RFC 5905 §14 defines SNTPv4 and references RFC 4330 for SNTP client operational semantics.
+//! Note: RFC 5905 §14 defines `SNTPv4` and references RFC 4330 for SNTP client operational semantics.
 //!
 //! ## Quick Start
 //!
 //! Add to your `Cargo.toml`:
 //! ```toml
 //! [dependencies]
-//! sntpc = "0.10"
+//! sntpc = "0.11"
 //! ```
 //!
 //! For common usage patterns, choose a network adapter:

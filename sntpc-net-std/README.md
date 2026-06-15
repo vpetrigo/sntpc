@@ -21,7 +21,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-sntpc = "0.10"
+sntpc = "0.11"
 sntpc-net-std = "1"
 ```
 

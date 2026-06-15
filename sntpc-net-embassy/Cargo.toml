@@ -1,6 +1,6 @@
 [package]
 name = "sntpc-net-embassy"
-version = "0.10.0"
+version = "0.11.0"
 description = "Embassy socket wrapper for sntpc library"
 repository = "https://github.com/vpetrigo/sntpc"
 categories = ["date-and-time", "no-std", "embedded", "asynchronous"]
