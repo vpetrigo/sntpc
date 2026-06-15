@@ -8,6 +8,7 @@ use cfg_if::cfg_if;
 use core::fmt::Formatter;
 use core::fmt::{Debug, Display};
 use core::future::Future;
+use core::mem::size_of;
 
 /// SNTP unicast mode constant
 pub(crate) const SNTP_UNICAST: u8 = 4;
@@ -29,6 +30,8 @@ pub(crate) const LI_SHIFT: u8 = 6;
 pub(crate) const LI_UNSYNCHRONIZED: u8 = 3;
 /// SNTP picoseconds in second constant
 pub(crate) const PSEC_IN_SEC: u64 = 1_000_000_000_000;
+/// RFC 5905 NTP header length in bytes.
+pub(crate) const NTP_PACKET_LEN: usize = 48;
 /// SNTP nanoseconds in second constant
 pub(crate) const NSEC_IN_SEC: u32 = 1_000_000_000;
 /// SNTP microseconds in second constant
@@ -542,6 +545,45 @@ impl NtpPacket {
             tx_timestamp,
         }
     }
+
+    pub(crate) fn from_be_bytes(buf: &[u8; NTP_PACKET_LEN]) -> Self {
+        // left it here for a while, maybe in future Rust releases there
+        // will be a way to use such a generic function with compile-time
+        // size determination
+        // const fn to_array<T: Sized>(x: &[u8]) -> [u8; mem::size_of::<T>()] {
+        //     let mut temp_buf = [0u8; mem::size_of::<T>()];
+        //
+        //     temp_buf.copy_from_slice(x);
+        //     temp_buf
+        // }
+        // see: https://github.com/vpetrigo/sntpc/issues/34
+        let to_array_u32 = |x: &[u8]| {
+            let mut temp_buf = [0u8; size_of::<u32>()];
+            temp_buf.copy_from_slice(x);
+            temp_buf
+        };
+        let to_array_u64 = |x: &[u8]| {
+            let mut temp_buf = [0u8; size_of::<u64>()];
+            temp_buf.copy_from_slice(x);
+            temp_buf
+        };
+
+        Self {
+            li_vn_mode: buf[0],
+            stratum: buf[1],
+            #[allow(clippy::cast_possible_wrap)]
+            poll: buf[2] as i8,
+            #[allow(clippy::cast_possible_wrap)]
+            precision: buf[3] as i8,
+            root_delay: u32::from_be_bytes(to_array_u32(&buf[4..8])),
+            root_dispersion: u32::from_be_bytes(to_array_u32(&buf[8..12])),
+            ref_id: u32::from_be_bytes(to_array_u32(&buf[12..16])),
+            ref_timestamp: u64::from_be_bytes(to_array_u64(&buf[16..24])),
+            origin_timestamp: u64::from_be_bytes(to_array_u64(&buf[24..32])),
+            recv_timestamp: u64::from_be_bytes(to_array_u64(&buf[32..40])),
+            tx_timestamp: u64::from_be_bytes(to_array_u64(&buf[40..48])),
+        }
+    }
 }
 
 /// A trait encapsulating timestamp generator's operations
@@ -672,82 +714,19 @@ impl From<NtpPacket> for SendRequestResult {
     }
 }
 
-pub(crate) trait NtpNum {
-    type Type;
-
-    fn ntohl(&self) -> Self::Type;
-}
-
-impl NtpNum for u32 {
-    type Type = u32;
-
-    fn ntohl(&self) -> Self::Type {
-        self.to_be()
-    }
-}
-
-impl NtpNum for u64 {
-    type Type = u64;
-
-    fn ntohl(&self) -> Self::Type {
-        self.to_be()
-    }
-}
-
 #[derive(Copy, Clone)]
-pub(crate) struct RawNtpPacket(pub(crate) [u8; size_of::<NtpPacket>()]);
+pub(crate) struct RawNtpPacket(pub(crate) [u8; NTP_PACKET_LEN]);
 
 impl Default for RawNtpPacket {
     fn default() -> Self {
-        RawNtpPacket([0u8; size_of::<NtpPacket>()])
-    }
-}
-
-impl From<RawNtpPacket> for NtpPacket {
-    fn from(val: RawNtpPacket) -> Self {
-        // left it here for a while, maybe in future Rust releases there
-        // will be a way to use such a generic function with compile-time
-        // size determination
-        // const fn to_array<T: Sized>(x: &[u8]) -> [u8; mem::size_of::<T>()] {
-        //     let mut temp_buf = [0u8; mem::size_of::<T>()];
-        //
-        //     temp_buf.copy_from_slice(x);
-        //     temp_buf
-        // }
-        // see: https://github.com/vpetrigo/sntpc/issues/34
-        let to_array_u32 = |x: &[u8]| {
-            let mut temp_buf = [0u8; size_of::<u32>()];
-            temp_buf.copy_from_slice(x);
-            temp_buf
-        };
-        let to_array_u64 = |x: &[u8]| {
-            let mut temp_buf = [0u8; size_of::<u64>()];
-            temp_buf.copy_from_slice(x);
-            temp_buf
-        };
-
-        NtpPacket {
-            li_vn_mode: val.0[0],
-            stratum: val.0[1],
-            #[allow(clippy::cast_possible_wrap)]
-            poll: val.0[2] as i8,
-            #[allow(clippy::cast_possible_wrap)]
-            precision: val.0[3] as i8,
-            root_delay: u32::from_le_bytes(to_array_u32(&val.0[4..8])),
-            root_dispersion: u32::from_le_bytes(to_array_u32(&val.0[8..12])),
-            ref_id: u32::from_le_bytes(to_array_u32(&val.0[12..16])),
-            ref_timestamp: u64::from_le_bytes(to_array_u64(&val.0[16..24])),
-            origin_timestamp: u64::from_le_bytes(to_array_u64(&val.0[24..32])),
-            recv_timestamp: u64::from_le_bytes(to_array_u64(&val.0[32..40])),
-            tx_timestamp: u64::from_le_bytes(to_array_u64(&val.0[40..48])),
-        }
+        RawNtpPacket([0u8; NTP_PACKET_LEN])
     }
 }
 
 impl From<&NtpPacket> for RawNtpPacket {
     #[allow(clippy::cast_sign_loss)]
     fn from(val: &NtpPacket) -> Self {
-        let mut tmp_buf = [0u8; size_of::<NtpPacket>()];
+        let mut tmp_buf = [0u8; NTP_PACKET_LEN];
 
         tmp_buf[0] = val.li_vn_mode;
         tmp_buf[1] = val.stratum;

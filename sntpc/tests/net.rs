@@ -103,6 +103,100 @@ fn test_process_incorrect_payload() {
 }
 
 #[test]
+fn test_process_exact_48_byte_response() {
+    let dest: SocketAddr = "127.0.0.1:123".parse().unwrap();
+    let context = NtpContext::new(MockTimestampGen);
+
+    let data = {
+        const TS: u64 = 9_487_534_653_230_284_800u64;
+        let mut data = [0u8; 48];
+        data[0] = 0x24;
+        data[1] = 1;
+        data[4..8].copy_from_slice(&0x0001_0203u32.to_be_bytes());
+        data[8..12].copy_from_slice(&0x0004_0506u32.to_be_bytes());
+        data[12..16].copy_from_slice(b"GPS ");
+        data[16..24].copy_from_slice(&0x1112_1314_1516_1718u64.to_be_bytes());
+        data[24..32].copy_from_slice(&TS.to_be_bytes());
+        data[32..40].copy_from_slice(&0x2122_2324_2526_2728u64.to_be_bytes());
+        data[40..48].copy_from_slice(&TS.to_be_bytes());
+        data
+    };
+
+    let mut socket = MockUdpSocket::new(dest, data);
+    socket.update_write_result(Ok(48));
+    socket.update_read_result(Ok((48, dest)));
+    let mut executor: miniloop::executor::Executor<1> = miniloop::executor::Executor::new();
+    let result = executor.block_on(async {
+        let resp = sntp_send_request(dest, &socket, context).await;
+        sntp_process_response(dest, &socket, context, resp.unwrap()).await
+    });
+
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_process_response_with_trailing_bytes() {
+    let dest: SocketAddr = "127.0.0.1:123".parse().unwrap();
+    let context = NtpContext::new(MockTimestampGen);
+
+    let mut data = Vec::from([0u8; 48]);
+    data[0] = 0x24;
+    data[1] = 1;
+    data[24..32].copy_from_slice(&9_487_534_653_230_284_800u64.to_be_bytes());
+    data[40..48].copy_from_slice(&9_487_534_653_230_284_800u64.to_be_bytes());
+    data.extend_from_slice(&[0xAA, 0xBB, 0xCC, 0xDD]);
+
+    let mut socket = MockUdpSocket::new(dest, data);
+    socket.update_write_result(Ok(48));
+    socket.update_read_result(Ok((52, dest)));
+    let mut executor: miniloop::executor::Executor<1> = miniloop::executor::Executor::new();
+    let result = executor.block_on(async {
+        let resp = sntp_send_request(dest, &socket, context).await;
+        sntp_process_response(dest, &socket, context, resp.unwrap()).await
+    });
+
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_endian_correct_parsing() {
+    let dest: SocketAddr = "127.0.0.1:123".parse().unwrap();
+    let context = NtpContext::new(MockTimestampGen);
+
+    let data = {
+        const TS: u64 = 9_487_534_653_230_284_800u64;
+        let mut data = [0u8; 48];
+        data[0] = 0x24;
+        data[1] = 1;
+        data[2] = 0xFAu8;
+        data[3] = 0xFCu8;
+        data[4..8].copy_from_slice(&0x0001_0203u32.to_be_bytes());
+        data[8..12].copy_from_slice(&0x0004_0506u32.to_be_bytes());
+        data[12..16].copy_from_slice(b"TEST");
+        data[16..24].copy_from_slice(&0x1112_1314_1516_1718u64.to_be_bytes());
+        data[24..32].copy_from_slice(&TS.to_be_bytes());
+        data[32..40].copy_from_slice(&0x2122_2324_2526_2728u64.to_be_bytes());
+        data[40..48].copy_from_slice(&TS.to_be_bytes());
+        data
+    };
+
+    let mut socket = MockUdpSocket::new(dest, data);
+    socket.update_write_result(Ok(48));
+    socket.update_read_result(Ok((48, dest)));
+    let mut executor: miniloop::executor::Executor<1> = miniloop::executor::Executor::new();
+    let result = executor.block_on(async {
+        let resp = sntp_send_request(dest, &socket, context).await;
+        sntp_process_response(dest, &socket, context, resp.unwrap())
+            .await
+            .unwrap()
+    });
+
+    assert_eq!(0x0001_0203, result.root_delay());
+    assert_eq!(0x0004_0506, result.root_dispersion());
+    assert_eq!(*b"TEST", result.reference_id());
+}
+
+#[test]
 fn test_process_incorrect_mode() {
     const PROPER_SNTP_MODE: u8 = 4;
     let dest: SocketAddr = "127.0.0.1:123".parse().unwrap();

@@ -310,7 +310,7 @@ where
         return Err(Error::ResponseAddressMismatch);
     }
 
-    if response != size_of::<NtpPacket>() {
+    if response < NTP_PACKET_LEN {
         return Err(Error::IncorrectPayload);
     }
 
@@ -530,9 +530,7 @@ fn process_response(
     recv_timestamp: u64,
     client_precision: i8,
 ) -> Result<NtpResult> {
-    let mut packet = NtpPacket::from(resp);
-
-    convert_from_network(&mut packet);
+    let packet = NtpPacket::from_be_bytes(&resp.0);
 
     cfg_if!(
         if #[cfg(any(feature = "log", feature = "defmt"))] {
@@ -660,20 +658,6 @@ fn validate_response(packet: &NtpPacket, send_req_result: &SendRequestResult) ->
 
 fn shifter(val: u8, mask: u8, shift: u8) -> u8 {
     (val & mask) >> shift
-}
-
-fn convert_from_network(packet: &mut NtpPacket) {
-    fn ntohl<T: NtpNum>(val: &T) -> T::Type {
-        val.ntohl()
-    }
-
-    packet.root_delay = ntohl(&packet.root_delay);
-    packet.root_dispersion = ntohl(&packet.root_dispersion);
-    packet.ref_id = ntohl(&packet.ref_id);
-    packet.ref_timestamp = ntohl(&packet.ref_timestamp);
-    packet.origin_timestamp = ntohl(&packet.origin_timestamp);
-    packet.recv_timestamp = ntohl(&packet.recv_timestamp);
-    packet.tx_timestamp = ntohl(&packet.tx_timestamp);
 }
 
 fn convert_delays(sec: u64, fraction: u64, units: u64) -> u64 {

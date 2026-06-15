@@ -18,17 +18,19 @@ impl NtpTimestampGenerator for MockTimestampGen {
 
 pub struct MockUdpSocket {
     write_result: sntpc::Result<usize>,
-    read: [u8; 48],
+    read: Vec<u8>,
     read_result: sntpc::Result<(usize, SocketAddr)>,
 }
 
 impl MockUdpSocket {
     #[must_use]
-    pub fn new(dest_addr: SocketAddr, data: [u8; 48]) -> Self {
+    pub fn new(dest_addr: SocketAddr, data: impl Into<Vec<u8>>) -> Self {
+        let data = data.into();
+        let len = data.len();
         Self {
             write_result: Ok(48),
             read: data,
-            read_result: Ok((data.len(), dest_addr)),
+            read_result: Ok((len, dest_addr)),
         }
     }
 
@@ -47,7 +49,7 @@ impl NtpUdpSocket for MockUdpSocket {
     }
 
     async fn recv_from(&self, buf: &mut [u8]) -> sntpc::Result<(usize, SocketAddr)> {
-        buf.copy_from_slice(&self.read);
+        buf.copy_from_slice(&self.read[..buf.len()]);
 
         self.read_result
     }
