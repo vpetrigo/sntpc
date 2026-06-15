@@ -494,10 +494,12 @@ pub mod sync {
 #[cfg(feature = "dispersion")]
 fn precision_to_micros(precision: i8) -> u64 {
     if precision >= 0 {
+        let shift = precision.cast_unsigned();
         // 2^precision seconds * 1_000_000 µs/second
-        1_000_000u64 << precision as u32
+        1_000_000u64 << shift
     } else {
-        let shift = (-precision) as u32;
+        let shift = precision.abs().cast_unsigned();
+
         if shift >= 64 {
             0 // Extremely fine precision, rounds to 0 microseconds
         } else {
@@ -515,10 +517,8 @@ fn process_response(
     send_req_result: SendRequestResult,
     resp: RawNtpPacket,
     recv_timestamp: u64,
-    _client_precision: i8,
+    client_precision: i8,
 ) -> Result<NtpResult> {
-    #[cfg(feature = "dispersion")]
-    let client_precision = _client_precision;
     let mut packet = NtpPacket::from(resp);
 
     convert_from_network(&mut packet);
@@ -567,6 +567,8 @@ fn process_response(
 
     #[cfg(not(feature = "dispersion"))]
     let dispersion: u64 = 0;
+    #[cfg(not(feature = "dispersion"))]
+    let _ = client_precision;
 
     Ok(NtpResult::new(
         timestamp.seconds as u32,
