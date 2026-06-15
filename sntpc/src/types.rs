@@ -347,6 +347,10 @@ pub struct NtpResult {
     pub reference_timestamp: u64,
     /// Poll interval: maximum interval between successive messages, in log2 seconds
     pub poll: i8,
+    /// Dispersion: estimated total dispersion in microseconds.
+    /// When the `dispersion` feature is enabled, this is computed per RFC 5905 §9.2.
+    /// When disabled, this is always 0.
+    pub dispersion: u64,
 }
 
 impl NtpResult {
@@ -372,6 +376,7 @@ impl NtpResult {
     /// * `reference_id` - reference identifier as 4-byte array in network byte order
     /// * `reference_timestamp` - reference timestamp in NTP timestamp format
     /// * `poll` - poll interval in log2 seconds
+    /// * `dispersion` - estimated total dispersion in microseconds
     #[must_use]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -387,6 +392,7 @@ impl NtpResult {
         reference_id: [u8; 4],
         reference_timestamp: u64,
         poll: i8,
+        dispersion: u64,
     ) -> Self {
         let seconds = seconds + seconds_fraction / u32::MAX;
         let seconds_fraction = seconds_fraction % u32::MAX;
@@ -404,6 +410,7 @@ impl NtpResult {
             reference_id,
             reference_timestamp,
             poll,
+            dispersion,
         }
     }
     /// Returns number of seconds reported by an NTP server
@@ -488,6 +495,12 @@ impl NtpResult {
     pub fn poll(&self) -> i8 {
         self.poll
     }
+
+    /// Returns the estimated total dispersion in microseconds
+    #[must_use]
+    pub fn dispersion(&self) -> u64 {
+        self.dispersion
+    }
 }
 
 impl NtpPacket {
@@ -550,6 +563,13 @@ pub trait NtpTimestampGenerator {
     /// Returns the fractional part of the timestamp in whole micro seconds.
     /// That method **should not** return microseconds since UNIX EPOCH
     fn timestamp_subsec_micros(&self) -> u32;
+
+    /// Returns the precision of the timestamp generator as log2(seconds).
+    /// For example, -20 means approximately 1 microsecond precision (2^-20 ≈ 0.954 µs).
+    /// Default: -20 (typical for microsecond-precision clocks).
+    fn precision(&self) -> i8 {
+        -20
+    }
 }
 
 #[cfg(feature = "std")]

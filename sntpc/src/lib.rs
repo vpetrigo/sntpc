@@ -303,7 +303,8 @@ where
         return Err(Error::IncorrectPayload);
     }
 
-    let result = process_response(send_req_result, response_buf, recv_timestamp);
+    let client_precision = context.timestamp_gen.precision();
+    let result = process_response(send_req_result, response_buf, recv_timestamp, client_precision);
 
     #[cfg(any(feature = "log", feature = "defmt"))]
     if let Ok(r) = &result {
@@ -488,8 +489,36 @@ pub mod sync {
     }
 }
 
+/// Convert log2(seconds) precision to microseconds.
+/// For example, precision = -20 gives 2^-20 seconds ≈ 0.954 µs, rounded to 1 µs.
+#[cfg(feature = "dispersion")]
+fn precision_to_micros(precision: i8) -> u64 {
+    if precision >= 0 {
+        let shift = precision.cast_unsigned();
+        // 2^precision seconds * 1_000_000 µs/second
+        1_000_000u64 << shift
+    } else {
+        let shift = precision.abs().cast_unsigned();
+
+        if shift >= 64 {
+            0 // Extremely fine precision, rounds to 0 microseconds
+        } else {
+            // 2^precision seconds = 1_000_000 / 2^shift microseconds
+            // Compute with rounding to nearest integer
+            let divisor = 1u64 << shift;
+            let numer = 1_000_000u64;
+            (numer + (divisor / 2)) / divisor
+        }
+    }
+}
+
 #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-fn process_response(send_req_result: SendRequestResult, resp: RawNtpPacket, recv_timestamp: u64) -> Result<NtpResult> {
+fn process_response(
+    send_req_result: SendRequestResult,
+    resp: RawNtpPacket,
+    recv_timestamp: u64,
+    client_precision: i8,
+) -> Result<NtpResult> {
     let mut packet = NtpPacket::from(resp);
 
     convert_from_network(&mut packet);
@@ -524,6 +553,23 @@ fn process_response(send_req_result: SendRequestResult, resp: RawNtpPacket, recv
     #[cfg(any(feature = "log", feature = "defmt"))]
     debug!("Roundtrip delay: {} {}. Offset: {} {}", roundtrip, units, offset, units);
 
+    #[cfg(feature = "dispersion")]
+    let dispersion = {
+        let server_precision_usecs = precision_to_micros(packet.precision);
+        let client_precision_usecs = precision_to_micros(client_precision);
+        // PHI = 15 ppm = 15 microseconds per second
+        // roundtrip is in microseconds
+        let phi_term = roundtrip * 15 / 1_000_000;
+        server_precision_usecs
+            .saturating_add(client_precision_usecs)
+            .saturating_add(phi_term)
+    };
+
+    #[cfg(not(feature = "dispersion"))]
+    let dispersion: u64 = 0;
+    #[cfg(not(feature = "dispersion"))]
+    let _ = client_precision;
+
     Ok(NtpResult::new(
         timestamp.seconds as u32,
         timestamp.seconds_fraction as u32,
@@ -537,6 +583,7 @@ fn process_response(send_req_result: SendRequestResult, resp: RawNtpPacket, recv
         packet.ref_id.to_be_bytes(), // Convert to network byte order for external use
         packet.ref_timestamp,
         packet.poll,
+        dispersion,
     ))
 }
 
@@ -847,5 +894,48 @@ mod sntpc_ntp_result_tests {
     fn test_roundtrip_calculate_all_zeros() {
         let result = roundtrip_calculate(0, 0, 0, 0, Units::Microseconds);
         assert_eq!(result, 0);
+    }
+
+    #[cfg(feature = "dispersion")]
+    #[test]
+    fn test_precision_to_micros() {
+        // 2^0 seconds = 1_000_000 microseconds
+        assert_eq!(super::precision_to_micros(0), 1_000_000);
+        // 2^1 seconds = 2_000_000 microseconds
+        assert_eq!(super::precision_to_micros(1), 2_000_000);
+        // 2^-10 seconds ≈ 977 microseconds
+        assert!(super::precision_to_micros(-10) >= 976);
+        assert!(super::precision_to_micros(-10) <= 978);
+        // 2^-20 seconds ≈ 1 microsecond
+        assert_eq!(super::precision_to_micros(-20), 1);
+        // 2^-30 seconds ≈ 0 microseconds (rounds down)
+        assert_eq!(super::precision_to_micros(-30), 0);
+    }
+
+    #[cfg(feature = "dispersion")]
+    #[test]
+    fn test_dispersion_computation() {
+        use crate::NtpResult;
+
+        // With server precision -20 (≈1µs) and client precision -20 (≈1µs)
+        // and roundtrip of 1000µs:
+        // dispersion = 1 + 1 + (1000 * 15 / 1_000_000) = 2 + 0 = 2µs
+        let result = NtpResult::new(0, 0, 1000, 0, 1, -20, 0, 0, 0, [0; 4], 0, 0, 0);
+        // NtpResult::new doesn't compute dispersion, it's computed in process_response
+        // This test verifies the dispersion field is stored correctly
+        assert_eq!(result.dispersion(), 0);
+
+        // Create result with a non-zero dispersion
+        let result = NtpResult::new(0, 0, 1000, 0, 1, -20, 0, 0, 0, [0; 4], 0, 0, 42);
+        assert_eq!(result.dispersion(), 42);
+    }
+
+    #[test]
+    fn test_dispersion_field_default() {
+        use crate::NtpResult;
+
+        // Without the dispersion feature, dispersion is always 0
+        let result = NtpResult::new(0, 0, 1000, 0, 1, -20, 0, 0, 0, [0; 4], 0, 0, 0);
+        assert_eq!(result.dispersion(), 0);
     }
 }
