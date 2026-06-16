@@ -169,12 +169,12 @@ impl Display for Units {
 /// carries a 4-character ASCII kiss code. Different codes require different
 /// client actions:
 ///
-/// - `Deny` and `Rstr`: The client MUST demobilize the association and stop
-///   sending packets to that server.
-/// - `Rate`: The client MUST immediately reduce its polling interval and
-///   continue to reduce it each time it receives a RATE kiss code.
-/// - `Experimental`: Codes beginning with 'X' are for unregistered
-///   experimentation and MUST be ignored if not recognized.
+/// - `Deny` and `Rstr`: callers MUST stop using that server.
+/// - `Rate`: callers SHOULD back off / reduce their polling interval.
+/// - `Experimental`: codes beginning with 'X' are for unregistered
+///   experimentation and should be ignored if unrecognized by the caller.
+/// - `KoD` packets carry server-supplied timestamps, but callers MUST NOT rely
+///   on them as normal time results.
 /// - All other codes: No protocol significance; discard after inspection.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
@@ -304,13 +304,12 @@ pub enum Error {
     /// The kiss code indicates the reason for the server's response. Callers MUST
     /// inspect the code and take appropriate action:
     ///
-    /// - `KissOfDeathCode::Deny` and `KissOfDeathCode::Rstr`: The client MUST
-    ///   demobilize the association and stop sending packets to this server.
-    /// - `KissOfDeathCode::Rate`: The client MUST immediately reduce its polling
-    ///   interval and continue to reduce it each time a RATE code is received.
-    /// - `KissOfDeathCode::Experimental(_)`: Codes beginning with 'X' MUST be
-    ///   ignored if not recognized (per RFC 5905 §7.4).
-    /// - All other codes: No protocol significance; discard after inspection.
+    /// - `KissOfDeathCode::Deny` and `KissOfDeathCode::Rstr`: stop using this server.
+    /// - `KissOfDeathCode::Rate`: reduce/back off the polling interval.
+    /// - `KissOfDeathCode::Experimental(_)`: unknown `X*` codes may be ignored if
+    ///   unrecognized by the caller.
+    /// - `KoD` packets must not be treated as normal time results; do not rely on
+    ///   their timestamps for synchronization.
     KissOfDeath(KissOfDeathCode),
 }
 
