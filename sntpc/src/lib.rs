@@ -289,6 +289,8 @@ where
 /// * The source address of the response does not match the server address used for the request.
 /// * The size of the response is incorrect or does not match the expected format.
 /// * The mode or version in the response is invalid.
+/// * `KoD` packets are surfaced as `Error::KissOfDeath(...)`; callers must apply
+///   their own policy (e.g. stop using DENY/RSTR servers, back off on RATE).
 pub async fn sntp_process_response<U, T>(
     dest: net::SocketAddr,
     socket: &U,
@@ -617,8 +619,8 @@ fn validate_response(packet: &NtpPacket, send_req_result: &SendRequestResult) ->
         return Err(Error::UnsynchronizedClock);
     }
 
-    // Version check
-    if req_version != resp_version {
+    // Version interop: accept lower versions down to VN=1, but not VN=0 or higher
+    if resp_version == 0 || resp_version > req_version {
         return Err(Error::IncorrectResponseVersion);
     }
 

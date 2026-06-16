@@ -234,7 +234,7 @@ fn test_process_incorrect_response_version() {
     let dest: SocketAddr = "127.0.0.1:123".parse().unwrap();
     let context = NtpContext::new(MockTimestampGen);
 
-    for i in (0..=0b111u8).filter(|&i| i != PROPER_VERSION) {
+    for i in (PROPER_VERSION + 1)..=0b111u8 {
         let data = {
             const TIMESTAMP: u64 = 9_487_534_653_230_284_800u64;
             let mut data = [0u8; 48];
@@ -258,6 +258,64 @@ fn test_process_incorrect_response_version() {
         assert!(result.is_err());
         assert!(matches!(result, Err(Error::IncorrectResponseVersion)));
     }
+}
+
+#[test]
+fn test_process_lower_response_versions_accepted() {
+    let dest: SocketAddr = "127.0.0.1:123".parse().unwrap();
+    let context = NtpContext::new(MockTimestampGen);
+
+    for version in [1u8, 3u8] {
+        let data = {
+            const TIMESTAMP: u64 = 9_487_534_653_230_284_800u64;
+            let mut data = [0u8; 48];
+
+            data[0] = 4 | (version << 3);
+            data[1] = 1;
+            data[24..32].copy_from_slice(TIMESTAMP.to_be_bytes().as_ref());
+            data[40..48].copy_from_slice(TIMESTAMP.to_be_bytes().as_ref());
+            data
+        };
+
+        let mut socket = MockUdpSocket::new(dest, data);
+        socket.update_write_result(Ok(48));
+        socket.update_read_result(Ok((48, dest)));
+        let mut executor: miniloop::executor::Executor<1> = miniloop::executor::Executor::new();
+        let result = executor.block_on(async {
+            let resp = sntp_send_request(dest, &socket, context).await;
+            sntp_process_response(dest, &socket, context, resp.unwrap()).await
+        });
+
+        assert!(result.is_ok());
+    }
+}
+
+#[test]
+fn test_process_v0_response_rejected() {
+    let dest: SocketAddr = "127.0.0.1:123".parse().unwrap();
+    let context = NtpContext::new(MockTimestampGen);
+
+    let data = {
+        const TIMESTAMP: u64 = 9_487_534_653_230_284_800u64;
+        let mut data = [0u8; 48];
+
+        data[0] = 4;
+        data[1] = 1;
+        data[24..32].copy_from_slice(TIMESTAMP.to_be_bytes().as_ref());
+        data[40..48].copy_from_slice(TIMESTAMP.to_be_bytes().as_ref());
+        data
+    };
+
+    let mut socket = MockUdpSocket::new(dest, data);
+    socket.update_write_result(Ok(48));
+    socket.update_read_result(Ok((48, dest)));
+    let mut executor: miniloop::executor::Executor<1> = miniloop::executor::Executor::new();
+    let result = executor.block_on(async {
+        let resp = sntp_send_request(dest, &socket, context).await;
+        sntp_process_response(dest, &socket, context, resp.unwrap()).await
+    });
+
+    assert!(matches!(result, Err(Error::IncorrectResponseVersion)));
 }
 
 #[test]
@@ -347,6 +405,41 @@ fn test_kiss_of_death() {
 
         let _ = executor.spawn(&mut task, &mut handler);
 
+        executor.run();
+    }
+}
+
+#[test]
+fn test_kiss_of_death_deny_rstr_rate_surface_errors() {
+    for (code_str, expected_variant) in [
+        ("DENY", KissOfDeathCode::Deny),
+        ("RSTR", KissOfDeathCode::Rstr),
+        ("RATE", KissOfDeathCode::Rate),
+    ] {
+        let dest: SocketAddr = "127.0.0.1:123".parse().unwrap();
+        let data = {
+            const TIMESTAMP: u64 = 9_487_534_653_230_284_800u64;
+            let mut data = [0u8; 48];
+            data[0] = 0x24;
+            data[1] = 0;
+            data[12..16].copy_from_slice(code_str.as_bytes());
+            data[24..32].copy_from_slice(TIMESTAMP.to_be_bytes().as_ref());
+            data[40..48].copy_from_slice(TIMESTAMP.to_be_bytes().as_ref());
+            data
+        };
+
+        let mut socket = MockUdpSocket::new(dest, data);
+        socket.update_read_result(Ok((48, dest)));
+        let context = NtpContext::new(MockTimestampGen);
+        let mut executor: miniloop::executor::Executor<1> = miniloop::executor::Executor::new();
+        let mut handler: miniloop::task::Handle<()> = miniloop::task::Handle::default();
+        let mut task = miniloop::task::Task::new("test", async {
+            let result = sntp_send_request(dest, &socket, context).await;
+            assert!(result.is_ok());
+            let result = sntp_process_response(dest, &socket, context, result.unwrap()).await;
+            assert!(matches!(result, Err(Error::KissOfDeath(k)) if k == expected_variant));
+        });
+        let _ = executor.spawn(&mut task, &mut handler);
         executor.run();
     }
 }

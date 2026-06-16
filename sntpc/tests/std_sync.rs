@@ -64,7 +64,7 @@ mod sync_tests {
     }
 
     #[test]
-    fn test_ntp_request_sntpv3_not_supported() {
+    fn test_ntp_request_lower_versions_supported() {
         let context = NtpContext::new(StdTimestampGen::default());
 
         let pools = ["time.nist.gov:123", "time.windows.com:123"];
@@ -78,8 +78,8 @@ mod sync_tests {
 
             for address in pool.to_socket_addrs().unwrap().filter(SocketAddr::is_ipv4) {
                 let result = get_time(address, &socket, context);
-                assert!(result.is_err(), "{pool} is ok");
-                assert_eq!(result.unwrap_err(), Error::IncorrectResponseVersion);
+                assert!(result.is_ok(), "{pool} is bad - {:?}", result.unwrap_err());
+                assert_ne!(result.unwrap().seconds, 0);
             }
         }
     }
