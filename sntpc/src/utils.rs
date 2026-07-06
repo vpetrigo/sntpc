@@ -22,7 +22,7 @@ mod windows;
 /// * `sec` - Seconds since UNIX epoch start
 /// * `nsec` - Fraction of seconds from an NTP response
 pub fn update_system_time(sec: u64, nsec: u32) {
-    let time = Utc.timestamp_opt(i64::from(sec), nsec);
+    let time = Utc.timestamp_opt(i64::try_from(sec).unwrap_or(i64::MAX), nsec);
 
     if let Some(time) = time.single() {
         let local_time = time.with_timezone(&Local);
