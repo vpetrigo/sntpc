@@ -57,8 +57,17 @@
 //!   For broadcast client requirements, see RFC 5905 §14.
 //! - **Minimum poll interval**: Clients should not send requests at intervals less than one minute per RFC 4330 §5.
 //!   The library does not enforce this; it is the caller's responsibility.
-//! - **NTP era rollover**: Timestamps use a fixed NTP-to-Unix epoch offset of 2,208,988,800 seconds, which is only
-//!   valid for NTP era 0 (before February 2036). After that, timestamps will wrap and produce incorrect results.
+//! - **NTP era rollover**: `NtpResult.seconds` is `u64`, and reconstruction assumes
+//!   the local clock is within the NTP ambiguity window. NTP wire seconds roll over
+//!   every `2^32` seconds; embedded/cold-start systems should provide a reasonable
+//!   Unix-time pivot (for example a saved last-sync time, validated RTC value, or
+//!   firmware build-time lower bound).
+//! - **Cold-start embedded clocks**: an NTP packet does not carry enough
+//!   information to identify the absolute era by itself. Devices that boot with
+//!   an invalid RTC should provide their timestamp generator with a reasonable
+//!   Unix-time pivot, for example the last successfully synchronized time saved
+//!   by the application, an RTC value after validation, or a firmware build-time
+//!   lower bound. This crate does not manage persistent storage.
 //!
 //! ## Examples
 //!
@@ -304,7 +313,9 @@ where
     let mut response_buf = RawNtpPacket::default();
     let (response, src) = socket.recv_from(response_buf.0.as_mut()).await?;
     context.timestamp_gen.init();
-    let recv_timestamp = get_ntp_timestamp(&context.timestamp_gen);
+    let recv_unix_seconds = context.timestamp_gen.timestamp_sec();
+    let recv_timestamp =
+        ntp_wire_timestamp_from_unix(recv_unix_seconds, context.timestamp_gen.timestamp_subsec_micros());
     #[cfg(any(feature = "log", feature = "defmt"))]
     debug!("Response: {}", response);
 
@@ -317,7 +328,13 @@ where
     }
 
     let client_precision = context.timestamp_gen.precision();
-    let result = process_response(send_req_result, response_buf, recv_timestamp, client_precision);
+    let result = process_response(
+        send_req_result,
+        response_buf,
+        recv_timestamp,
+        recv_unix_seconds,
+        client_precision,
+    );
 
     #[cfg(any(feature = "log", feature = "defmt"))]
     if let Ok(r) = &result {
@@ -524,11 +541,11 @@ fn precision_to_micros(precision: i8) -> u64 {
     }
 }
 
-#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
 fn process_response(
     send_req_result: SendRequestResult,
     resp: RawNtpPacket,
     recv_timestamp: u64,
+    recv_unix_seconds: u64,
     client_precision: i8,
 ) -> Result<NtpResult> {
     let packet = NtpPacket::from_be_bytes(&resp.0);
@@ -557,7 +574,7 @@ fn process_response(
     let units = Units::Microseconds;
     let roundtrip = roundtrip_calculate(t1, t2, t3, t4, units, precision_to_micros(client_precision));
     let offset = offset_calculate(t1, t2, t3, t4, units);
-    let timestamp = NtpTimestamp::from(packet.tx_timestamp);
+    let timestamp = reconstruct_timestamp(packet.tx_timestamp, recv_unix_seconds).ok_or(Error::InvalidTimestamp)?;
     let li = shifter(packet.li_vn_mode, LI_MASK, LI_SHIFT);
 
     #[cfg(any(feature = "log", feature = "defmt"))]
@@ -570,21 +587,21 @@ fn process_response(
     #[cfg(not(feature = "dispersion"))]
     let dispersion: u64 = 0;
 
-    Ok(NtpResult::new(
-        timestamp.seconds as u32,
-        timestamp.seconds_fraction as u32,
+    Ok(NtpResult {
+        seconds: timestamp.unix_seconds,
+        seconds_fraction: timestamp.fraction,
         roundtrip,
         offset,
-        packet.stratum,
-        packet.precision,
-        li,
-        packet.root_delay,
-        packet.root_dispersion,
-        packet.ref_id.to_be_bytes(), // Convert to network byte order for external use
-        packet.ref_timestamp,
-        packet.poll,
+        stratum: packet.stratum,
+        precision: packet.precision,
+        leap_indicator: li,
+        root_delay: packet.root_delay,
+        root_dispersion: packet.root_dispersion,
+        reference_id: packet.ref_id.to_be_bytes(), // Convert to network byte order for external use
+        reference_timestamp: packet.ref_timestamp,
+        poll: packet.poll,
         dispersion,
-    ))
+    })
 }
 
 /// Validate an NTP response packet according to RFC 5905 §A.5.1.1
@@ -639,8 +656,11 @@ fn validate_response(packet: &NtpPacket, send_req_result: &SendRequestResult) ->
     if (packet.root_delay / 2).saturating_add(packet.root_dispersion) >= MAXDISP {
         return Err(Error::ExcessiveRootDistance);
     }
-    // Reference timestamp must not be newer than transmit timestamp
-    if packet.ref_timestamp > packet.tx_timestamp {
+    // Reference timestamp must not be newer than transmit timestamp.
+    // A zero reference timestamp means unknown and preserves the previous
+    // validation semantics; nonzero timestamps are compared with wrapping
+    // arithmetic so adjacent-era packets around rollover are handled correctly.
+    if packet.ref_timestamp != 0 && packet.ref_timestamp.wrapping_sub(packet.tx_timestamp).cast_signed() > 0 {
         return Err(Error::BackwardReferenceTimestamp);
     }
 
@@ -657,7 +677,8 @@ fn dispersion_calculate(t1: u64, t4: u64, server_precision: i8, client_precision
     let client_precision_usecs = precision_to_micros(client_precision);
     // PHI = 15 ppm = 15 microseconds per second. RFC 5905 Appendix A bases the
     // PHI term on the elapsed client time (T4 - T1), not the adjusted delay.
-    let elapsed = t4.saturating_sub(t1);
+    let elapsed = t4.wrapping_sub(t1).cast_signed();
+    let elapsed = if elapsed <= 0 { 0 } else { elapsed.cast_unsigned() };
     let elapsed_sec = elapsed >> 32;
     let elapsed_sec_fraction = elapsed & u64::from(u32::MAX);
     let elapsed_usecs = convert_delays(elapsed_sec, elapsed_sec_fraction, u64::from(USEC_IN_SEC));
@@ -672,13 +693,64 @@ fn convert_delays(sec: u64, fraction: u64, units: u64) -> u64 {
     sec * units + fraction * units / (1u64 << 32)
 }
 
+fn ntp_wire_timestamp_from_unix(unix_seconds: u64, micros: u32) -> u64 {
+    let ntp_seconds = unix_seconds.wrapping_add(u64::from(NtpPacket::NTP_TIMESTAMP_DELTA));
+    let fraction = u64::from(micros) * NTP_ERA_SECONDS / u64::from(USEC_IN_SEC);
+    ((ntp_seconds & u64::from(u32::MAX)) << 32) | fraction
+}
+
+#[derive(Copy, Clone)]
+struct ReconstructedTimestamp {
+    unix_seconds: u64,
+    fraction: u32,
+}
+
+fn reconstruct_timestamp(raw: u64, local_unix_context_seconds: u64) -> Option<ReconstructedTimestamp> {
+    if raw == 0 {
+        return None;
+    }
+
+    let raw_secs = raw >> 32;
+    let raw_fraction = u32::try_from(raw & u64::from(u32::MAX)).unwrap();
+    let local_ntp = local_unix_context_seconds.checked_add(u64::from(NtpPacket::NTP_TIMESTAMP_DELTA))?;
+    let base_era = local_ntp >> 32;
+    let mut best_candidate = None;
+    for era in [base_era.wrapping_sub(1), base_era, base_era.wrapping_add(1)] {
+        let candidate_ntp = (era << 32) | raw_secs;
+        if candidate_ntp < u64::from(NtpPacket::NTP_TIMESTAMP_DELTA) {
+            continue;
+        }
+
+        let distance = candidate_ntp.abs_diff(local_ntp);
+        if match best_candidate {
+            None => true,
+            Some((_, best)) => distance < best,
+        } {
+            best_candidate = Some((candidate_ntp, distance));
+        }
+    }
+    let (candidate_ntp, _) = best_candidate?;
+
+    Some(ReconstructedTimestamp {
+        unix_seconds: candidate_ntp - u64::from(NtpPacket::NTP_TIMESTAMP_DELTA),
+        fraction: raw_fraction,
+    })
+}
+
 fn roundtrip_calculate(t1: u64, t2: u64, t3: u64, t4: u64, units: Units, min_us: u64) -> u64 {
     // delta = (T4 - T1) - (T3 - T2)
-    // If T4 < T1 or T3 < T2, saturating_sub gives zero for that component.
-    // If (T4 - T1) < (T3 - T2), delay would be negative — clamp to 0.
-    let outbound = t4.saturating_sub(t1);
-    let server_time = t3.saturating_sub(t2);
+    // Differences are computed with two's-complement wrapping arithmetic so
+    // adjacent-era timestamps around rollover produce the correct duration.
+    // If (T4 - T1) <= (T3 - T2), delay is non-positive and clamps to precision.
+    let outbound = t4.wrapping_sub(t1).cast_signed();
+    let server_time = t3.wrapping_sub(t2).cast_signed();
     let delta = outbound.saturating_sub(server_time);
+
+    if delta <= 0 {
+        return min_us;
+    }
+
+    let delta = delta.cast_unsigned();
     let delta_sec = (delta & SECONDS_MASK) >> 32;
     let delta_sec_fraction = delta & SECONDS_FRAC_MASK;
 
@@ -690,25 +762,23 @@ fn roundtrip_calculate(t1: u64, t2: u64, t3: u64, t4: u64, units: Units, min_us:
     value.max(min_us)
 }
 
-#[allow(clippy::cast_possible_wrap)]
 fn offset_calculate(t1: u64, t2: u64, t3: u64, t4: u64, units: Units) -> i64 {
-    let theta = (t2.wrapping_sub(t1) as i64 / 2).saturating_add(t3.wrapping_sub(t4) as i64 / 2);
+    let theta = (t2.wrapping_sub(t1).cast_signed() / 2).saturating_add(t3.wrapping_sub(t4).cast_signed() / 2);
     let theta_sec = (theta.unsigned_abs() & SECONDS_MASK) >> 32;
     let theta_sec_fraction = theta.unsigned_abs() & SECONDS_FRAC_MASK;
 
     match units {
         Units::Milliseconds => {
-            convert_delays(theta_sec, theta_sec_fraction, u64::from(MSEC_IN_SEC)) as i64 * theta.signum()
+            convert_delays(theta_sec, theta_sec_fraction, u64::from(MSEC_IN_SEC)).cast_signed() * theta.signum()
         }
         Units::Microseconds => {
-            convert_delays(theta_sec, theta_sec_fraction, u64::from(USEC_IN_SEC)) as i64 * theta.signum()
+            convert_delays(theta_sec, theta_sec_fraction, u64::from(USEC_IN_SEC)).cast_signed() * theta.signum()
         }
     }
 }
 
 fn get_ntp_timestamp<T: NtpTimestampGenerator>(timestamp_gen: &T) -> u64 {
-    ((timestamp_gen.timestamp_sec() + (u64::from(NtpPacket::NTP_TIMESTAMP_DELTA))) << 32)
-        + u64::from(timestamp_gen.timestamp_subsec_micros()) * (1u64 << 32) / u64::from(USEC_IN_SEC)
+    ntp_wire_timestamp_from_unix(timestamp_gen.timestamp_sec(), timestamp_gen.timestamp_subsec_micros())
 }
 
 /// Convert second fraction value to milliseconds value
@@ -719,31 +789,29 @@ pub fn fraction_to_milliseconds(sec_fraction: u32) -> u32 {
 }
 
 /// Convert second fraction value to microseconds value
-#[allow(clippy::cast_possible_truncation)]
 #[must_use]
 pub fn fraction_to_microseconds(sec_fraction: u32) -> u32 {
     (u64::from(sec_fraction) * u64::from(USEC_IN_SEC) / (1u64 << 32)) as u32
 }
 
 /// Convert second fraction value to nanoseconds value
-#[allow(clippy::cast_possible_truncation)]
 #[must_use]
 pub fn fraction_to_nanoseconds(sec_fraction: u32) -> u32 {
     (u64::from(sec_fraction) * u64::from(NSEC_IN_SEC) / (1u64 << 32)) as u32
 }
 
 /// Convert second fraction value to picoseconds value
-#[allow(clippy::cast_possible_truncation)]
 #[must_use]
 pub fn fraction_to_picoseconds(sec_fraction: u32) -> u64 {
-    (u128::from(sec_fraction) * u128::from(PSEC_IN_SEC) / (1u128 << 32)) as u64
+    u64::try_from(u128::from(sec_fraction) * u128::from(PSEC_IN_SEC) / (1u128 << 32)).unwrap_or(0)
 }
 
 #[cfg(test)]
 mod sntpc_ntp_result_tests {
-    use crate::offset_calculate;
-    use crate::roundtrip_calculate;
-    use crate::types::Units;
+    use crate::{
+        Error, NTP_ERA_SECONDS, NtpPacket, SendRequestResult, ntp_wire_timestamp_from_unix, offset_calculate,
+        reconstruct_timestamp, roundtrip_calculate, types::Units, validate_response,
+    };
 
     struct Timestamps(u64, u64, u64, u64);
     struct OffsetCalcTestCase {
@@ -901,6 +969,132 @@ mod sntpc_ntp_result_tests {
         assert_eq!(result, 1);
     }
 
+    #[test]
+    fn test_ntp_wire_timestamp_from_unix_rollover() {
+        assert_eq!(ntp_wire_timestamp_from_unix(2_085_978_495, 0), 0xffff_ffff_0000_0000);
+        assert_eq!(ntp_wire_timestamp_from_unix(2_085_978_496, 0), 0);
+        assert_eq!(ntp_wire_timestamp_from_unix(2_085_978_497, 0), 0x0000_0001_0000_0000);
+    }
+
+    #[test]
+    fn test_reconstruct_timestamp_rollover_and_zero() {
+        assert!(reconstruct_timestamp(0, 2_085_978_496).is_none());
+        assert_eq!(
+            reconstruct_timestamp(0x0000_0001_0000_0000, 0).unwrap().unix_seconds,
+            2_085_978_497
+        );
+
+        let just_after = ntp_wire_timestamp_from_unix(2_085_978_497, 123_456);
+        let reconstructed = reconstruct_timestamp(just_after, 2_085_978_497).unwrap();
+        assert_eq!(reconstructed.unix_seconds, 2_085_978_497);
+        assert_eq!(
+            reconstructed.fraction,
+            u32::try_from(123_456u64 * NTP_ERA_SECONDS / 1_000_000).unwrap()
+        );
+
+        let just_before = ntp_wire_timestamp_from_unix(2_085_978_495, 0);
+        let reconstructed = reconstruct_timestamp(just_before, 2_085_978_496).unwrap();
+        assert_eq!(reconstructed.unix_seconds, 2_085_978_495);
+    }
+
+    #[test]
+    fn test_reconstruct_timestamp_skips_pre_unix_candidate() {
+        let raw = 100_000_000u64 << 32;
+
+        assert_eq!(reconstruct_timestamp(raw, 0).unwrap().unix_seconds, 2_185_978_496);
+    }
+
+    #[test]
+    fn test_reconstruct_timestamp_supports_era_2_plus() {
+        let unix_seconds = 6_380_955_792u64 + 123;
+        let raw = ntp_wire_timestamp_from_unix(unix_seconds, 42);
+
+        let reconstructed = reconstruct_timestamp(raw, unix_seconds).unwrap();
+        assert_eq!(reconstructed.unix_seconds, unix_seconds);
+        assert_eq!(
+            reconstructed.fraction,
+            u32::try_from(42u64 * NTP_ERA_SECONDS / 1_000_000).unwrap()
+        );
+    }
+
+    #[test]
+    fn test_reconstruct_timestamp_tie_prefers_earlier_era() {
+        let local_ntp = (1u64 << 32) + 1 + (1u64 << 31);
+        let local_unix_seconds = local_ntp - u64::from(NtpPacket::NTP_TIMESTAMP_DELTA);
+
+        let reconstructed = reconstruct_timestamp(1u64 << 32, local_unix_seconds).unwrap();
+        assert_eq!(reconstructed.unix_seconds, 2_085_978_497);
+    }
+
+    #[test]
+    fn test_reconstruct_timestamp_half_era_boundary_switches_after_tie() {
+        let raw = 1u64 << 32;
+        let era_1_ntp = (1u64 << 32) + 1;
+        let era_1_unix = era_1_ntp - u64::from(NtpPacket::NTP_TIMESTAMP_DELTA);
+        let era_2_unix = era_1_unix + NTP_ERA_SECONDS;
+
+        let before_tie = era_1_ntp + (1u64 << 31) - 1;
+        assert_eq!(
+            reconstruct_timestamp(raw, before_tie - u64::from(NtpPacket::NTP_TIMESTAMP_DELTA))
+                .unwrap()
+                .unix_seconds,
+            era_1_unix
+        );
+
+        let after_tie = era_1_ntp + (1u64 << 31) + 1;
+        assert_eq!(
+            reconstruct_timestamp(raw, after_tie - u64::from(NtpPacket::NTP_TIMESTAMP_DELTA))
+                .unwrap()
+                .unix_seconds,
+            era_2_unix
+        );
+    }
+
+    #[test]
+    fn test_reconstruct_timestamp_uses_bad_pivot_wrong_era() {
+        let actual_unix_seconds = 6_380_955_792u64 + 123;
+        let stale_pivot = actual_unix_seconds - NTP_ERA_SECONDS;
+        let raw = ntp_wire_timestamp_from_unix(actual_unix_seconds, 0);
+
+        let reconstructed = reconstruct_timestamp(raw, stale_pivot).unwrap();
+        assert_eq!(reconstructed.unix_seconds, stale_pivot);
+        assert_ne!(reconstructed.unix_seconds, actual_unix_seconds);
+    }
+
+    #[test]
+    fn test_roundtrip_calculate_rollover_wraps() {
+        let t1 = 0xffff_ffff_0000_0000;
+        let t2 = 0xffff_ffff_8000_0000;
+        let t3 = 0x0000_0000_8000_0000;
+        let t4 = 0x0000_0001_0000_0000;
+        assert_eq!(roundtrip_calculate(t1, t2, t3, t4, Units::Microseconds, 1), 1_000_000);
+    }
+
+    #[test]
+    fn test_reference_timestamp_wraparound_validation() {
+        let packet = NtpPacket {
+            li_vn_mode: 0x24,
+            stratum: 1,
+            poll: 0,
+            precision: 0,
+            root_delay: 0,
+            root_dispersion: 0,
+            ref_id: 0,
+            ref_timestamp: 0,
+            origin_timestamp: 1,
+            recv_timestamp: 0,
+            tx_timestamp: 0,
+        };
+        let send = SendRequestResult {
+            originate_timestamp: 1,
+            version: packet.li_vn_mode,
+        };
+        assert!(matches!(
+            validate_response(&packet, &send),
+            Err(Error::InvalidTimestamp)
+        ));
+    }
+
     #[cfg(feature = "dispersion")]
     #[test]
     fn test_precision_to_micros() {
@@ -944,6 +1138,12 @@ mod sntpc_ntp_result_tests {
         // precision -20 is approximately 1µs for both server and client.
         // Elapsed client time is 2 seconds, so PHI contributes 30µs.
         assert_eq!(super::dispersion_calculate(t1, t4, -20, -20), 32);
+
+        // If T4 is before T1 within the ambiguity window, elapsed clamps to 0.
+        assert_eq!(super::dispersion_calculate(t4, t1, -20, -20), 2);
+
+        // Adjacent-era rollover with one second elapsed still contributes PHI.
+        assert_eq!(super::dispersion_calculate(0xffff_ffff_0000_0000, 0, -20, -20), 17);
     }
 
     #[test]
