@@ -57,17 +57,13 @@
 //!   For broadcast client requirements, see RFC 5905 §14.
 //! - **Minimum poll interval**: Clients should not send requests at intervals less than one minute per RFC 4330 §5.
 //!   The library does not enforce this; it is the caller's responsibility.
-//! - **NTP era rollover**: `NtpResult.seconds` is `u64`, and reconstruction assumes
-//!   the local clock is within the NTP ambiguity window. NTP wire seconds roll over
-//!   every `2^32` seconds; embedded/cold-start systems should provide a reasonable
-//!   Unix-time pivot (for example a saved last-sync time, validated RTC value, or
-//!   firmware build-time lower bound).
-//! - **Cold-start embedded clocks**: an NTP packet does not carry enough
-//!   information to identify the absolute era by itself. Devices that boot with
-//!   an invalid RTC should provide their timestamp generator with a reasonable
-//!   Unix-time pivot, for example the last successfully synchronized time saved
-//!   by the application, an RTC value after validation, or a firmware build-time
-//!   lower bound. This crate does not manage persistent storage.
+//! - **NTP era rollover**: `NtpResult.seconds` is `u64`. Wire timestamps roll
+//!   over every `2^32` seconds; `sntpc` reconstructs the era as whichever of
+//!   the nearest three eras (±2^31 seconds, ~68 years) around the timestamp
+//!   generator's `timestamp_sec()` best matches the wire value. A pivot more
+//!   than half an era off silently produces a wrong-era result — no error is
+//!   raised. See the README's "NTP era rollover and embedded cold start"
+//!   section for embedded cold-start guidance.
 //!
 //! ## Examples
 //!

@@ -47,31 +47,94 @@ seconds and roll over every 2^32 seconds. The normal `get_time` /
 
 ### NTP era rollover and embedded cold start
 
-NTP wire timestamps contain only 32 bits of seconds, so after the 2036 rollover
-the same wire value can represent multiple eras. `sntpc` reconstructs the era
-using the timestamp generator's local Unix seconds as the pivot. That means the
-local clock must be within the NTP ambiguity window.
+NTP wire timestamps contain only 32 bits of seconds, so after the 2036
+rollover the same wire value can represent multiple 2^32-second "eras".
+`sntpc` reconstructs the era by asking the timestamp generator for its best
+guess at the current Unix time (the *pivot*, `timestamp_gen.timestamp_sec()`)
+and picking whichever of the three eras closest to that pivot best matches
+the wire timestamp.
 
-For embedded systems that may boot with an invalid RTC or uptime-based clock,
-keep storage policy in the application and feed the timestamp generator with the
-best available pivot, for example:
+**This is a nearest-era guess, not a verified result.** If the pivot is
+within about half an era (±2^31 seconds, ~68 years) of the truth, reconstruction
+is correct. If the pivot is off by more than that, `sntpc` does **not** return
+an error — it silently reconstructs into the wrong era and returns a
+plausible-looking but incorrect timestamp. The only rejected input is a raw
+wire timestamp of exactly zero (`Error::InvalidTimestamp`); a stale or
+implausible pivot is never detected internally.
+
+For embedded systems that may boot with an invalid RTC or an uptime-only
+clock, keep persistence and pivot policy in your own generator and/or
+application code. The snippet below is illustrative: `load_last_successful_sync`,
+`validated_rtc_time`, `save_last_successful_sync`, and the internal pivot field
+are all application-defined, not part of `sntpc`.
 
 ```rust,ignore
-const FIRMWARE_BUILD_TIME: u64 = 1_735_689_600; // 2025-01-01
+const FIRMWARE_BUILD_TIME: u64 = 1_735_689_600; // 2025-01-01, last resort floor
 
-let pivot = load_last_successful_sync()
-    .or_else(validated_rtc_time)
-    .unwrap_or(FIRMWARE_BUILD_TIME);
+struct MyTimestampGen {
+    pivot: u64, // seconds since UNIX_EPOCH; app-managed, not an sntpc concept
+}
 
-let context = NtpContext::new(MyTimestampGen::with_unix_pivot(pivot));
+impl MyTimestampGen {
+    fn new() -> Self {
+        // Your own fallback chain: saved sync time, then a validated RTC
+        // read, then the firmware build time as an absolute last resort.
+        let pivot = load_last_successful_sync()
+            .or_else(validated_rtc_time)
+            .unwrap_or(FIRMWARE_BUILD_TIME);
+        Self { pivot }
+    }
+}
+
+impl NtpTimestampGenerator for MyTimestampGen {
+    fn init(&mut self) { /* refresh self.pivot from your uptime/RTC source */ }
+    fn timestamp_sec(&self) -> u64 { self.pivot }
+    fn timestamp_subsec_micros(&self) -> u32 { 0 }
+}
+
+let context = NtpContext::new(MyTimestampGen::new());
 let result = sntpc::get_time(addr, &socket, context).await?;
 
-save_last_successful_sync(result.sec());
+// Sanity-check the result before trusting or persisting it — see below.
+if result.sec() >= FIRMWARE_BUILD_TIME {
+    save_last_successful_sync(result.sec());
+} else {
+    // result.sec() before the firmware build time means the pivot was bad
+    // enough to land reconstruction in a stale era; do not persist it.
+    flag_suspect_sync(result.sec());
+}
 ```
 
-The crate intentionally does not manage flash/EEPROM/RTC persistence. If no RTC,
-saved time, build-time lower bound, or other external hint is available, a client
-cannot reliably infer the absolute NTP era from a single SNTP response.
+The crate intentionally does not manage flash/EEPROM/RTC persistence, and it
+does not validate the pivot's plausibility. If no RTC, saved time, or other
+external hint is available, the client cannot reliably infer the absolute NTP
+era from a single SNTP response — only your application can decide what
+"reasonable" means for its own deployment.
+
+#### Sanity-checking sync results with no trusted RTC
+
+If a device has no battery-backed RTC and no saved sync time (e.g. first
+boot, or storage was wiped), the only pivot available is the firmware build
+time. In that situation, after every successful sync:
+
+- **Reject or flag results earlier than your build-time floor.** Since the
+  build time is a hard lower bound on "now", `result.sec() < FIRMWARE_BUILD_TIME`
+  is proof the reconstruction landed in a stale era (the true wire timestamp
+  was ambiguous and the nearest-era guess picked the wrong one). Treat such a
+  result as untrusted: don't persist it as the new pivot, and consider
+  retrying the sync or falling back to a different server.
+- **Expect monotonicity within a boot session.** Once you have one trusted
+  sync result, later syncs in the same session should not regress to an
+  earlier time by more than your expected offset/network jitter. A large
+  backward jump between two syncs in the same session — with no era rollover
+  in between — is a strong signal that the second sync's pivot (or response)
+  should not be trusted, even if it's individually above the build-time
+  floor.
+- **Persist the sync result, not just the pivot you started with.** Feeding
+  each `NtpTimestampGenerator` re-init from the previous successful
+  `result.sec()` (rather than from an unvalidated uptime counter) keeps the
+  pivot self-correcting across reboots, shrinking the ±68-year ambiguity
+  window down to whatever clock drift accumulated since the last sync.
 
 ### Usage example
 
