@@ -745,6 +745,48 @@ fn test_process_response_crosses_rollover_with_nonzero_client_timestamps() {
 
     assert_eq!(result.seconds, 2_085_978_496);
     assert_eq!(result.offset(), 1_000_000);
+    // server_tx's low 32 bits (0xc000_0000) survive the full rollover-crossing
+    // reconstruction path and land in the result's fractional seconds.
+    assert_eq!(result.sec_fraction(), 0xc000_0000);
+}
+
+#[test]
+fn test_process_response_origin_timestamp_near_wraparound() {
+    // T1 (origin_timestamp) sits within a fraction of a millisecond of the
+    // absolute wire wraparound (0xFFFF_FFFF_FFFF_FFFF); the server echoes it
+    // back correctly and the rest of the exchange lands just after the era
+    // rollover. Exercises wrapping_sub in roundtrip/offset with t1 pinned to
+    // the extreme end of the era, not just mid-era as in the sibling test above.
+    let dest: SocketAddr = "127.0.0.1:123".parse().unwrap();
+    let context = NtpContext::new(FixedTimestampGen {
+        sec: 2_085_978_495,
+        micros: 999_999,
+    });
+    let client_tx = 0xffff_ffff_ffff_ef39u64;
+    let server_rx = 0x0000_0000_4000_0000u64;
+    let server_tx = 0x0000_0000_c000_0000u64;
+    let data = {
+        let mut data = [0u8; 48];
+        data[0] = 0x24;
+        data[1] = 1;
+        data[24..32].copy_from_slice(&client_tx.to_be_bytes());
+        data[32..40].copy_from_slice(&server_rx.to_be_bytes());
+        data[40..48].copy_from_slice(&server_tx.to_be_bytes());
+        data
+    };
+
+    let mut socket = MockUdpSocket::new(dest, data);
+    socket.update_write_result(Ok(48));
+    socket.update_read_result(Ok((48, dest)));
+    let mut executor: miniloop::executor::Executor<1> = miniloop::executor::Executor::new();
+    let result = executor.block_on(async {
+        let resp = sntp_send_request(dest, &socket, context).await;
+        sntp_process_response(dest, &socket, context, resp.unwrap())
+            .await
+            .unwrap()
+    });
+
+    assert_eq!(result.seconds, 2_085_978_496);
 }
 
 #[cfg(feature = "sync")]
