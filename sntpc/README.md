@@ -11,7 +11,8 @@ Supported SNTP protocol versions:
 
 - [SNTPv4 (RFC 5905)](https://datatracker.ietf.org/doc/html/rfc5905)
 
-> **Note**: Broadcast mode (NTP mode 5) is not supported. This library only supports unicast client mode (mode 3 → mode 4).
+> **Note**: Broadcast mode (NTP mode 5) is not supported. This library only supports unicast client mode (mode 3 → mode
+> 4).
 
 ### Features
 
@@ -25,20 +26,52 @@ Supported SNTP protocol versions:
 
 The `get_time` and `sntp_process_response` functions return `NtpResult` which includes:
 
-| Field | Description |
-|-------|-------------|
-| `sec()` / `sec_fraction()` | Server-reported timestamp (seconds and fraction) |
-| `roundtrip()` | Round-trip delay in microseconds |
-| `offset()` | Estimated clock offset in microseconds |
-| `stratum()` | Server stratum level |
-| `precision()` | Server clock precision as log2(seconds) |
-| `leap_indicator()` | Leap indicator (0-3) from the server response |
-| `root_delay()` | Root delay in NTP short format (16.16 fixed-point) |
-| `root_dispersion()` | Root dispersion in NTP short format (16.16 fixed-point) |
-| `reference_id()` | Reference identifier (4-byte array in network byte order) |
-| `reference_timestamp()` | Reference timestamp in NTP timestamp format |
-| `poll()` | Server poll interval in log2 seconds |
-| `dispersion()` | Estimated dispersion in microseconds (requires `dispersion` feature) |
+| Field                      | Description                                                          |
+|----------------------------|----------------------------------------------------------------------|
+| `sec()` / `sec_fraction()` | Server-reported timestamp (seconds and fraction)                     |
+| `roundtrip()`              | Round-trip delay in microseconds                                     |
+| `offset()`                 | Estimated clock offset in microseconds                               |
+| `stratum()`                | Server stratum level                                                 |
+| `precision()`              | Server clock precision as log2(seconds)                              |
+| `leap_indicator()`         | Leap indicator (0-3) from the server response                        |
+| `root_delay()`             | Root delay in NTP short format (16.16 fixed-point)                   |
+| `root_dispersion()`        | Root dispersion in NTP short format (16.16 fixed-point)              |
+| `reference_id()`           | Reference identifier (4-byte array in network byte order)            |
+| `reference_timestamp()`    | Reference timestamp in NTP timestamp format                          |
+| `poll()`                   | Server poll interval in log2 seconds                                 |
+| `dispersion()`             | Estimated dispersion in microseconds (requires `dispersion` feature) |
+
+`NtpResult.seconds` is `u64` because NTP wire timestamps carry only 32 bits of
+seconds and roll over every 2^32 seconds. The normal `get_time` /
+`sntp_process_response` APIs are rollover-safe by default.
+
+### NTP era rollover and embedded cold start
+
+NTP wire timestamps contain only 32 bits of seconds, so after the 2036 rollover
+the same wire value can represent multiple eras. `sntpc` reconstructs the era
+using the timestamp generator's local Unix seconds as the pivot. That means the
+local clock must be within the NTP ambiguity window.
+
+For embedded systems that may boot with an invalid RTC or uptime-based clock,
+keep storage policy in the application and feed the timestamp generator with the
+best available pivot, for example:
+
+```rust,ignore
+const FIRMWARE_BUILD_TIME: u64 = 1_735_689_600; // 2025-01-01
+
+let pivot = load_last_successful_sync()
+    .or_else(validated_rtc_time)
+    .unwrap_or(FIRMWARE_BUILD_TIME);
+
+let context = NtpContext::new(MyTimestampGen::with_unix_pivot(pivot));
+let result = sntpc::get_time(addr, &socket, context).await?;
+
+save_last_successful_sync(result.sec());
+```
+
+The crate intentionally does not manage flash/EEPROM/RTC persistence. If no RTC,
+saved time, build-time lower bound, or other external hint is available, a client
+cannot reliably infer the absolute NTP era from a single SNTP response.
 
 ### Usage example
 
