@@ -1062,6 +1062,31 @@ mod sntpc_ntp_result_tests {
     }
 
     #[test]
+    fn test_reconstruct_timestamp_zero_secs_nonzero_fraction() {
+        // raw_secs == 0 (an exact NTP era-boundary instant) but the fraction is
+        // nonzero; the raw==0 short-circuit must not fire here.
+        let raw = 10_000u64;
+        let reconstructed = reconstruct_timestamp(raw, 0).unwrap();
+        assert_eq!(reconstructed.unix_seconds, 2_085_978_496);
+        assert_eq!(reconstructed.fraction, 10_000);
+    }
+
+    #[test]
+    fn test_reconstruct_timestamp_roundtrip_across_eras() {
+        for era in 0..=2u64 {
+            let unix_seconds = era * NTP_ERA_SECONDS + 1_000;
+            let raw = ntp_wire_timestamp_from_unix(unix_seconds, 500_000);
+            let reconstructed = reconstruct_timestamp(raw, unix_seconds).unwrap();
+            assert_eq!(reconstructed.unix_seconds, unix_seconds, "era {era}");
+            assert_eq!(
+                reconstructed.fraction,
+                u32::try_from(500_000u64 * NTP_ERA_SECONDS / 1_000_000).unwrap(),
+                "era {era}"
+            );
+        }
+    }
+
+    #[test]
     fn test_roundtrip_calculate_rollover_wraps() {
         let t1 = 0xffff_ffff_0000_0000;
         let t2 = 0xffff_ffff_8000_0000;
@@ -1071,7 +1096,7 @@ mod sntpc_ntp_result_tests {
     }
 
     #[test]
-    fn test_reference_timestamp_wraparound_validation() {
+    fn test_validate_response_rejects_zero_tx_timestamp() {
         let packet = NtpPacket {
             li_vn_mode: 0x24,
             stratum: 1,
