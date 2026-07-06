@@ -5,6 +5,22 @@ use sntpc::{Error, KissOfDeathCode, NtpContext, sntp_process_response, sntp_send
 
 use core::net::SocketAddr;
 
+#[derive(Copy, Clone)]
+struct FixedTimestampGen {
+    sec: u64,
+    micros: u32,
+}
+
+impl sntpc::NtpTimestampGenerator for FixedTimestampGen {
+    fn init(&mut self) {}
+    fn timestamp_sec(&self) -> u64 {
+        self.sec
+    }
+    fn timestamp_subsec_micros(&self) -> u32 {
+        self.micros
+    }
+}
+
 #[test]
 fn test_send_request_net_errors() {
     let dest: SocketAddr = "127.0.0.1:123".parse().unwrap();
@@ -109,6 +125,7 @@ fn test_process_exact_48_byte_response() {
 
     let data = {
         const TS: u64 = 9_487_534_653_230_284_800u64;
+        const ORIGIN: u64 = 2_208_988_800u64 << 32;
         let mut data = [0u8; 48];
         data[0] = 0x24;
         data[1] = 1;
@@ -116,7 +133,7 @@ fn test_process_exact_48_byte_response() {
         data[8..12].copy_from_slice(&0x0004_0506u32.to_be_bytes());
         data[12..16].copy_from_slice(b"GPS ");
         data[16..24].copy_from_slice(&0x1112_1314_1516_1718u64.to_be_bytes());
-        data[24..32].copy_from_slice(&TS.to_be_bytes());
+        data[24..32].copy_from_slice(&ORIGIN.to_be_bytes());
         data[32..40].copy_from_slice(&0x2122_2324_2526_2728u64.to_be_bytes());
         data[40..48].copy_from_slice(&TS.to_be_bytes());
         data
@@ -142,8 +159,8 @@ fn test_process_response_with_trailing_bytes() {
     let mut data = Vec::from([0u8; 48]);
     data[0] = 0x24;
     data[1] = 1;
-    data[24..32].copy_from_slice(&9_487_534_653_230_284_800u64.to_be_bytes());
-    data[40..48].copy_from_slice(&9_487_534_653_230_284_800u64.to_be_bytes());
+    data[24..32].copy_from_slice(&(2_208_988_800u64 << 32).to_be_bytes());
+    data[40..48].copy_from_slice(&((2_208_988_800u64 << 32) + 100).to_be_bytes());
     data.extend_from_slice(&[0xAA, 0xBB, 0xCC, 0xDD]);
 
     let mut socket = MockUdpSocket::new(dest, data);
@@ -267,12 +284,13 @@ fn test_process_lower_response_versions_accepted() {
 
     for version in [1u8, 3u8] {
         let data = {
-            const TIMESTAMP: u64 = 9_487_534_653_230_284_800u64;
+            const ORIGIN: u64 = 2_208_988_800u64 << 32;
+            const TIMESTAMP: u64 = ORIGIN + 100;
             let mut data = [0u8; 48];
 
             data[0] = 4 | (version << 3);
             data[1] = 1;
-            data[24..32].copy_from_slice(TIMESTAMP.to_be_bytes().as_ref());
+            data[24..32].copy_from_slice(ORIGIN.to_be_bytes().as_ref());
             data[40..48].copy_from_slice(TIMESTAMP.to_be_bytes().as_ref());
             data
         };
@@ -296,13 +314,12 @@ fn test_process_v0_response_rejected() {
     let context = NtpContext::new(MockTimestampGen);
 
     let data = {
-        const TIMESTAMP: u64 = 9_487_534_653_230_284_800u64;
         let mut data = [0u8; 48];
 
         data[0] = 4;
         data[1] = 1;
-        data[24..32].copy_from_slice(TIMESTAMP.to_be_bytes().as_ref());
-        data[40..48].copy_from_slice(TIMESTAMP.to_be_bytes().as_ref());
+        data[24..32].copy_from_slice(&(2_208_988_800u64 << 32).to_be_bytes());
+        data[40..48].copy_from_slice(&((2_208_988_800u64 << 32) + 100).to_be_bytes());
         data
     };
 
@@ -549,6 +566,212 @@ fn test_process_incorrect_origin_timestamp() {
 
     assert!(result.is_err());
     assert!(matches!(result, Err(Error::IncorrectOriginTimestamp)));
+}
+
+#[test]
+fn test_process_response_crossing_rollover() {
+    let dest: SocketAddr = "127.0.0.1:123".parse().unwrap();
+
+    // Local receive time is exactly at the first NTP era rollover boundary:
+    // Unix 2085978496 == NTP seconds 2^32, whose on-wire seconds field wraps to 0.
+    // This checks that response processing uses the full local Unix context to
+    // reconstruct the server transmit timestamp instead of treating wire second 0
+    // as 1900-01-01 / pre-Unix time.
+    let context = NtpContext::new(FixedTimestampGen {
+        sec: 2_085_978_496,
+        micros: 0,
+    });
+
+    // T1/T4 are at the wrapped wire value 0. T2/T3 are tiny positive fractions
+    // after rollover. The expected delay/offset are intentionally small so the
+    // test proves adjacent-era arithmetic is modular rather than saturating.
+    let base = 0u64;
+    let t2 = base.wrapping_add(5);
+    let t3 = base.wrapping_add(15);
+    let data = {
+        let mut data = [0u8; 48];
+        data[0] = 0x24;
+        data[1] = 1;
+        data[24..32].copy_from_slice(&base.to_be_bytes());
+        data[32..40].copy_from_slice(&t2.to_be_bytes());
+        data[40..48].copy_from_slice(&t3.to_be_bytes());
+        data
+    };
+    let mut socket = MockUdpSocket::new(dest, data);
+    socket.update_write_result(Ok(48));
+    socket.update_read_result(Ok((48, dest)));
+    let mut executor: miniloop::executor::Executor<1> = miniloop::executor::Executor::new();
+    let result = executor.block_on(async {
+        let resp = sntp_send_request(dest, &socket, context).await;
+        sntp_process_response(dest, &socket, context, resp.unwrap())
+            .await
+            .unwrap()
+    });
+    assert_eq!(result.sec(), 2_085_978_496);
+    assert_eq!(result.roundtrip(), 1);
+    assert_eq!(result.offset(), 0);
+}
+
+#[test]
+fn test_reference_timestamp_rollover_compare() {
+    let dest: SocketAddr = "127.0.0.1:123".parse().unwrap();
+
+    // Local context is just after rollover. The transmit timestamp is in the new
+    // era with a small wire value, while the reference timestamp is from just
+    // before rollover with a large wire seconds field. Raw numeric comparison
+    // would incorrectly reject it as newer; wrapping signed comparison should
+    // accept it as an older reference time.
+    let context = NtpContext::new(FixedTimestampGen {
+        sec: 2_085_978_496,
+        micros: 0,
+    });
+    let tx = 10u64;
+    let ref_old = 0xffff_ffff_0000_0014u64;
+    let data = {
+        let mut data = [0u8; 48];
+        data[0] = 0x24;
+        data[1] = 1;
+        data[12..16].copy_from_slice(&0u32.to_be_bytes());
+        data[16..24].copy_from_slice(&ref_old.to_be_bytes());
+        data[24..32].copy_from_slice(&0u64.to_be_bytes());
+        data[40..48].copy_from_slice(&tx.to_be_bytes());
+        data
+    };
+    let mut socket = MockUdpSocket::new(dest, data);
+    socket.update_write_result(Ok(48));
+    socket.update_read_result(Ok((48, dest)));
+    let mut executor: miniloop::executor::Executor<1> = miniloop::executor::Executor::new();
+    let result = executor.block_on(async {
+        let resp = sntp_send_request(dest, &socket, context).await;
+        sntp_process_response(dest, &socket, context, resp.unwrap()).await
+    });
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_reference_timestamp_newer_than_tx_rejected() {
+    let dest: SocketAddr = "127.0.0.1:123".parse().unwrap();
+
+    // Control case for the rollover-safe reference timestamp check: both values
+    // are in the same wrapped era neighborhood and ref_timestamp is genuinely
+    // newer than tx_timestamp, so the packet must still be rejected.
+    let context = NtpContext::new(FixedTimestampGen {
+        sec: 2_085_978_496,
+        micros: 0,
+    });
+    let tx = 10u64;
+    let ref_new = 11u64;
+    let data = {
+        let mut data = [0u8; 48];
+        data[0] = 0x24;
+        data[1] = 1;
+        data[16..24].copy_from_slice(&ref_new.to_be_bytes());
+        data[24..32].copy_from_slice(&0u64.to_be_bytes());
+        data[40..48].copy_from_slice(&tx.to_be_bytes());
+        data
+    };
+    let mut socket = MockUdpSocket::new(dest, data);
+    socket.update_write_result(Ok(48));
+    socket.update_read_result(Ok((48, dest)));
+    let mut executor: miniloop::executor::Executor<1> = miniloop::executor::Executor::new();
+    let result = executor.block_on(async {
+        let resp = sntp_send_request(dest, &socket, context).await;
+        sntp_process_response(dest, &socket, context, resp.unwrap()).await
+    });
+    assert!(matches!(result, Err(Error::BackwardReferenceTimestamp)));
+}
+
+#[test]
+fn test_process_response_accepts_post_u32_seconds() {
+    let dest: SocketAddr = "127.0.0.1:123".parse().unwrap();
+    let unix_seconds = u64::from(u32::MAX) + 1;
+    let context = NtpContext::new(FixedTimestampGen {
+        sec: unix_seconds,
+        micros: 0,
+    });
+    let tx = ((unix_seconds + 2_208_988_800u64) & u64::from(u32::MAX)) << 32;
+    let data = {
+        let mut data = [0u8; 48];
+        data[0] = 0x24;
+        data[1] = 1;
+        data[24..32].copy_from_slice(&tx.to_be_bytes());
+        data[40..48].copy_from_slice(&tx.to_be_bytes());
+        data
+    };
+    let mut socket = MockUdpSocket::new(dest, data);
+    socket.update_write_result(Ok(48));
+    socket.update_read_result(Ok((48, dest)));
+    let mut executor: miniloop::executor::Executor<1> = miniloop::executor::Executor::new();
+    let result = executor.block_on(async {
+        let resp = sntp_send_request(dest, &socket, context).await;
+        sntp_process_response(dest, &socket, context, resp.unwrap())
+            .await
+            .unwrap()
+    });
+
+    assert_eq!(result.sec(), unix_seconds);
+}
+
+#[test]
+fn test_process_response_crosses_rollover_with_nonzero_client_timestamps() {
+    let dest: SocketAddr = "127.0.0.1:123".parse().unwrap();
+    let context = NtpContext::new(FixedTimestampGen {
+        sec: 2_085_978_495,
+        micros: 500_000,
+    });
+    let client_tx = 0xffff_ffff_8000_0000u64;
+    let server_rx = 0x0000_0000_4000_0000u64;
+    let server_tx = 0x0000_0000_c000_0000u64;
+    let data = {
+        let mut data = [0u8; 48];
+        data[0] = 0x24;
+        data[1] = 1;
+        data[24..32].copy_from_slice(&client_tx.to_be_bytes());
+        data[32..40].copy_from_slice(&server_rx.to_be_bytes());
+        data[40..48].copy_from_slice(&server_tx.to_be_bytes());
+        data
+    };
+
+    let mut socket = MockUdpSocket::new(dest, data);
+    socket.update_write_result(Ok(48));
+    socket.update_read_result(Ok((48, dest)));
+    let mut executor: miniloop::executor::Executor<1> = miniloop::executor::Executor::new();
+    let result = executor.block_on(async {
+        let resp = sntp_send_request(dest, &socket, context).await;
+        sntp_process_response(dest, &socket, context, resp.unwrap())
+            .await
+            .unwrap()
+    });
+
+    assert_eq!(result.seconds, 2_085_978_496);
+    assert_eq!(result.offset(), 1_000_000);
+}
+
+#[cfg(feature = "sync")]
+#[test]
+fn test_sync_get_time_wrapper_path() {
+    let dest: SocketAddr = "127.0.0.1:123".parse().unwrap();
+    let unix_seconds = u64::from(u32::MAX) + 1;
+    let context = NtpContext::new(FixedTimestampGen {
+        sec: unix_seconds,
+        micros: 0,
+    });
+    let tx = ((unix_seconds + 2_208_988_800u64) & u64::from(u32::MAX)) << 32;
+    let data = {
+        let mut data = [0u8; 48];
+        data[0] = 0x24;
+        data[1] = 1;
+        data[24..32].copy_from_slice(&tx.to_be_bytes());
+        data[40..48].copy_from_slice(&tx.to_be_bytes());
+        data
+    };
+
+    let mut socket = MockUdpSocket::new(dest, data);
+    socket.update_write_result(Ok(48));
+    socket.update_read_result(Ok((48, dest)));
+
+    let result = sntpc::sync::get_time(dest, &socket, context).unwrap();
+    assert_eq!(result.sec(), unix_seconds);
 }
 
 #[test]
