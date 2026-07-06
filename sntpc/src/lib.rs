@@ -30,6 +30,7 @@
 //! - `utils` - OS-specific utilities for system time sync ⚠️ **Unstable API**
 //! - `log` - Debug logging via `log` crate
 //! - `defmt` - Debug logging via `defmt` (mutually exclusive with `log`)
+//! - `dispersion` - Compute total dispersion per RFC 5905 §9.2, exposed via [`NtpResult::dispersion`]
 //!
 //! <div class="warning">
 //!
