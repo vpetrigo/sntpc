@@ -30,6 +30,8 @@ pub(crate) const LI_SHIFT: u8 = 6;
 pub(crate) const LI_UNSYNCHRONIZED: u8 = 3;
 /// SNTP picoseconds in second constant
 pub(crate) const PSEC_IN_SEC: u64 = 1_000_000_000_000;
+/// NTP era length in seconds.
+pub(crate) const NTP_ERA_SECONDS: u64 = 1u64 << 32;
 /// RFC 5905 NTP header length in bytes.
 pub(crate) const NTP_PACKET_LEN: usize = 48;
 /// SNTP nanoseconds in second constant
@@ -120,25 +122,6 @@ cfg_if! {
                     .field("reference timestamp (server)", &self.packet.ref_timestamp)
                     .finish()
             }
-        }
-    }
-}
-
-#[derive(Debug, Copy, Clone)]
-pub(crate) struct NtpTimestamp {
-    pub(crate) seconds: i64,
-    pub(crate) seconds_fraction: i64,
-}
-
-impl From<u64> for NtpTimestamp {
-    #[allow(clippy::cast_possible_wrap)]
-    fn from(v: u64) -> Self {
-        let seconds = (((v & SECONDS_MASK) >> 32) - u64::from(NtpPacket::NTP_TIMESTAMP_DELTA)) as i64;
-        let microseconds = (v & SECONDS_FRAC_MASK) as i64;
-
-        NtpTimestamp {
-            seconds,
-            seconds_fraction: microseconds,
         }
     }
 }
@@ -325,9 +308,9 @@ pub enum Error {
 #[derive(Debug, Copy, Clone)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct NtpResult {
-    /// NTP server seconds value
-    pub seconds: u32,
-    /// NTP server seconds fraction value
+    /// Server time as rollover-safe Unix seconds reconstructed from the NTP transmit timestamp.
+    pub seconds: u64,
+    /// NTP server timestamp fraction value
     pub seconds_fraction: u32,
     /// Request roundtrip time in microseconds
     pub roundtrip: u64,
@@ -391,7 +374,7 @@ impl NtpResult {
     #[must_use]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        seconds: u32,
+        seconds: u64,
         seconds_fraction: u32,
         roundtrip: u64,
         offset: i64,
@@ -421,9 +404,9 @@ impl NtpResult {
             dispersion,
         }
     }
-    /// Returns number of seconds reported by an NTP server
+    /// Returns server time as Unix seconds reconstructed from the NTP transmit timestamp
     #[must_use]
-    pub fn sec(&self) -> u32 {
+    pub fn sec(&self) -> u64 {
         self.seconds
     }
 

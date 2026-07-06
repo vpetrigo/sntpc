@@ -35,7 +35,7 @@ fn test_ntp_result() {
     assert_eq!(0, result2.poll());
 
     let result3 = NtpResult::new(
-        u32::MAX - 1,
+        u64::from(u32::MAX - 1),
         u32::MAX,
         u64::MAX,
         i64::MAX,
@@ -50,7 +50,7 @@ fn test_ntp_result() {
         0,
     );
 
-    assert_eq!(u32::MAX - 1, result3.sec());
+    assert_eq!(u64::from(u32::MAX - 1), result3.sec());
     assert_eq!(u32::MAX, result3.sec_fraction());
     assert_eq!(u64::MAX, result3.roundtrip());
     assert_eq!(i64::MAX, result3.offset());
@@ -66,8 +66,22 @@ fn test_ntp_fraction_overflow_result() {
     assert_eq!(0, result.roundtrip());
     assert_eq!(0, result.offset());
 
-    let result = NtpResult::new(u32::MAX - 1, u32::MAX, 0, 0, 1, -17, 0, 0, 0, [0; 4], 0, 0, 0);
-    assert_eq!(u32::MAX - 1, result.sec());
+    let result = NtpResult::new(
+        u64::from(u32::MAX - 1),
+        u32::MAX,
+        0,
+        0,
+        1,
+        -17,
+        0,
+        0,
+        0,
+        [0; 4],
+        0,
+        0,
+        0,
+    );
+    assert_eq!(u64::from(u32::MAX - 1), result.sec());
     assert_eq!(u32::MAX, result.sec_fraction());
     assert_eq!(0, result.roundtrip());
     assert_eq!(0, result.offset());
