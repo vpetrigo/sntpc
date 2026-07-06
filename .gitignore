@@ -6,3 +6,4 @@
 
 # Rust
 **/Cargo.lock
+!xtask/Cargo.lock
