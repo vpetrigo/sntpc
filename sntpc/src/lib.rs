@@ -705,6 +705,15 @@ struct ReconstructedTimestamp {
     fraction: u32,
 }
 
+/// Reconstructs the full NTP era + seconds value for a 32-bit wire timestamp
+/// (`raw`) using `local_unix_context_seconds` as a pivot.
+///
+/// Only the three candidate eras `{base_era - 1, base_era, base_era + 1}`
+/// (where `base_era` is the pivot's era) are considered; the candidate whose
+/// absolute distance from the pivot is smallest wins. On an exact tie between
+/// two candidates, the earlier-listed (older) era wins, because candidates are
+/// scanned oldest-to-newest and only a *strictly* smaller distance replaces
+/// the current best.
 fn reconstruct_timestamp(raw: u64, local_unix_context_seconds: u64) -> Option<ReconstructedTimestamp> {
     if raw == 0 {
         return None;
@@ -885,6 +894,17 @@ mod sntpc_ntp_result_tests {
     }
 
     #[test]
+    fn test_offset_calculate_across_era_boundary() {
+        // t1/t2 are just before the era rollover, t3/t4 just after; wrapping_sub
+        // must still recover the correct signed offset across the boundary.
+        let t1 = 0xffff_ffff_0000_0000u64;
+        let t2 = 0xffff_ffff_6000_0000u64;
+        let t3 = 0x0000_0000_4000_0000u64;
+        let t4 = 0x0000_0000_8000_0000u64;
+        assert_eq!(offset_calculate(t1, t2, t3, t4, Units::Microseconds), 62_500);
+    }
+
+    #[test]
     fn test_offset_calculate_ms() {
         let tests = [
             OffsetCalcTestCase::new(
@@ -1062,6 +1082,21 @@ mod sntpc_ntp_result_tests {
     }
 
     #[test]
+    fn test_reconstruct_timestamp_uses_bad_pivot_two_eras_stale() {
+        // A pivot stale by 2+ eras is still outside the {base_era-1, base_era,
+        // base_era+1} search window, so reconstruction silently lands on the
+        // stale era rather than failing — it never returns `None` just because
+        // the pivot is old.
+        let actual_unix_seconds = 3 * NTP_ERA_SECONDS + 1_000;
+        let stale_pivot = actual_unix_seconds - 2 * NTP_ERA_SECONDS;
+        let raw = ntp_wire_timestamp_from_unix(actual_unix_seconds, 0);
+
+        let reconstructed = reconstruct_timestamp(raw, stale_pivot).unwrap();
+        assert_eq!(reconstructed.unix_seconds, stale_pivot);
+        assert_ne!(reconstructed.unix_seconds, actual_unix_seconds);
+    }
+
+    #[test]
     fn test_reconstruct_timestamp_zero_secs_nonzero_fraction() {
         // raw_secs == 0 (an exact NTP era-boundary instant) but the fraction is
         // nonzero; the raw==0 short-circuit must not fire here.
@@ -1169,6 +1204,13 @@ mod sntpc_ntp_result_tests {
 
         // Adjacent-era rollover with one second elapsed still contributes PHI.
         assert_eq!(super::dispersion_calculate(0xffff_ffff_0000_0000, 0, -20, -20), 17);
+
+        // Rollover crossing with nonzero fractional seconds: elapsed is 0.75s
+        // (t1 is 0.5s before rollover, t4 is 0.25s after), contributing ~11µs PHI.
+        assert_eq!(
+            super::dispersion_calculate(0xffff_ffff_8000_0000, 0x0000_0000_4000_0000, -20, -20),
+            13
+        );
     }
 
     #[test]
